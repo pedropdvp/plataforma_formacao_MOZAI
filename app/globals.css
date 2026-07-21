@@ -24,3 +24,748 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Modo Claro - Regras de Sobreposição Customizadas */
+html.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+html.light body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Background overrides */
+html.light .bg-slate-950,
+html.light .bg-\[\#0a0a0a\],
+html.light .bg-\[\#070b13\],
+html.light .bg-\[\#0b0f19\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#0c1224\],
+html.light .bg-\[\#0d1527\],
+html.light .bg-\[\#070b13\]\/60,
+html.light .bg-\[\#070b13\]\/40,
+html.light .bg-\[\#070b13\]\/30,
+html.light .bg-slate-950\/20,
+html.light .bg-slate-950\/40,
+html.light .bg-slate-900\/30,
+html.light .bg-slate-950\/50,
+html.light .bg-slate-950\/65 {
+  background-color: #f1f5f9 !important;
+}
+
+html.light .bg-slate-900,
+html.light .bg-slate-900\/60 {
+  background-color: #e2e8f0 !important;
+}
+
+/* Sidebar and Header overrides */
+html.light aside {
+  background-color: #ffffff !important;
+  border-right-color: #e2e8f0 !important;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+/* Border overrides */
+html.light .border-slate-900,
+html.light .border-slate-800,
+html.light .border-slate-900\/60,
+html.light .border-indigo-500\/10,
+html.light .border-indigo-500\/20,
+html.light .border-indigo-500\/30,
+html.light .border-amber-500\/20,
+html.light .border-emerald-500\/30,
+html.light .border-dashed {
+  border-color: #cbd5e1 !important;
+}
+
+/* Text overrides */
+html.light .text-slate-100,
+html.light .text-slate-200,
+html.light .text-slate-300,
+html.light .text-slate-350,
+html.light .text-white,
+html.light h1,
+html.light h2,
+html.light h3,
+html.light h4,
+html.light h5,
+html.light h6,
+html.light th {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-400,
+html.light .text-slate-500,
+html.light .text-slate-550,
+html.light .text-slate-600 {
+  color: #27303f !important;
+}
+
+/* High Contrast colors for theme accents in Light Mode (min 70% contrast) */
+html.light .text-indigo-400,
+html.light .group-hover\:text-indigo-400,
+html.light .group\:hover .group-hover\:text-indigo-400 {
+  color: #4f46e5 !important;
+}
+html.light .text-cyan-400 {
+  color: #0891b2 !important;
+}
+html.light .text-emerald-400,
+html.light .text-emerald-450 {
+  color: #059669 !important;
+}
+html.light .text-violet-400 {
+  color: #7c3aed !important;
+}
+html.light .text-amber-400,
+html.light .text-amber-550 {
+  color: #d97706 !important;
+}
+html.light .text-rose-400,
+html.light .text-rose-450,
+html.light .text-rose-455 {
+  color: #dc2626 !important;
+}
+html.light .text-sky-400 {
+  color: #0284c7 !important;
+}
+
+/* Manter texto branco sobre botões/destaques escuros (ex: bg-indigo-600, bg-indigo-500 ou em hover de card) */
+html.light .bg-indigo-600,
+html.light .bg-indigo-500,
+html.light .hover\:bg-indigo-500:hover,
+html.light .hover\:bg-indigo-600:hover,
+html.light .group:hover .group-hover\:bg-indigo-600,
+html.light .group:hover .group-hover\:bg-indigo-500,
+html.light .bg-indigo-600 *,
+html.light .bg-indigo-500 *,
+html.light .hover\:bg-indigo-500:hover *,
+html.light .hover\:bg-indigo-600:hover *,
+html.light .group:hover .group-hover\:bg-indigo-600 *,
+html.light .group:hover .group-hover\:bg-indigo-500 *,
+html.light button.bg-indigo-600,
+html.light button.bg-indigo-500,
+html.light button.bg-indigo-600 *,
+html.light button.bg-indigo-500 * {
+  color: #ffffff !important;
+}
+
+/* Form and controls overrides */
+html.light input,
+html.light select,
+html.light textarea,
+html.light .form-control {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light .dropdown-menu {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .dropdown-item {
+  color: #334155 !important;
+}
+
+html.light .dropdown-item:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* Navigation overrides */
+html.light .hover\:bg-slate-900:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-indigo-600\/10 {
+  background-color: rgba(79, 70, 229, 0.1) !important;
+  color: #4f46e5 !important;
+}
+
+html.light .bg-slate-950\/20 {
+  background-color: #f8fafc !important;
+}
+
+/* Card overrides */
+html.light .card,
+html.light .border-dashed {
+  background-color: #ffffff !important;
+}
+
+/* Icons, status boxes */
+html.light .bg-slate-950\/65 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Logo gradients */
+html.light .from-violet-400 {
+  --tw-gradient-from: #5b21b6 !important;
+}
+html.light .to-indigo-400 {
+  --tw-gradient-to: #3730a3 !important;
+}
+
+/* Efeito de Pressão Tátil nos Botões */
+button,
+a[role="button"] {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.1s ease !important;
+}
+button:active,
+a[role="button"]:active {
+  transform: scale(0.96) translateY(1.5px) !important;
+}
+
+/* ==========================================
+   MENU RELATÓRIOS - ESTILOS E CONTRASTES DE TEMAS (CLARO/ESCURO)
+   ========================================== */
+
+/* 1. MODO CLARO (Light Mode) */
+html.light .report-page-container div.rounded-3xl,
+html.light .report-page-container div.rounded-2xl,
+html.light .report-page-container div.rounded-xl,
+html.light .report-page-container fieldset {
+  background-color: #ffffff !important; /* fundo branco puro para os cartões/caixas principais */
+  border-color: #cbd5e1 !important; /* rebordo cinza-claro */
+}
+
+/* Subcaixas de listagem, tabelas e cards secundários em modo claro */
+html.light .report-page-container .bg-slate-950\/40,
+html.light .report-page-container .bg-slate-900\/60,
+html.light .report-page-container .bg-slate-950\/20,
+html.light .report-page-container .bg-slate-950\/60,
+html.light .report-page-container select,
+html.light .report-page-container input,
+html.light .report-page-container table {
+  background-color: #f8fafc !important; /* cinza ultra claro para contraste limpo */
+  border-color: #e2e8f0 !important;
+}
+
+/* Cabeçalhos de tabelas em modo claro */
+html.light .report-page-container thead tr,
+html.light .report-page-container tr.bg-slate-950 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Linhas com efeito hover na listagem em modo claro */
+html.light .report-page-container tr.hover\:bg-slate-950\/20:hover {
+  background-color: rgba(226, 232, 240, 0.4) !important;
+}
+
+/* Garante texto altamente legível em modo claro */
+html.light .report-page-container h1,
+html.light .report-page-container h2,
+html.light .report-page-container h3,
+html.light .report-page-container h4,
+html.light .report-page-container th,
+html.light .report-page-container td {
+  color: #0f172a !important; /* texto escuro legível */
+}
+
+html.light .report-page-container span:not(button):not(button *),
+html.light .report-page-container p:not(button):not(button *),
+html.light .report-page-container label:not(button):not(button *) {
+  color: #0f172a !important;
+}
+
+
+/* 2. MODO ESCURO (Dark Mode - Default) */
+html:not(.light) .report-page-container div.rounded-3xl,
+html:not(.light) .report-page-container div.rounded-2xl,
+html:not(.light) .report-page-container div.rounded-xl,
+html:not(.light) .report-page-container fieldset {
+  background-color: #0f172a !important; /* fundo cinza-azulado escuro visível e contrastante */
+  border-color: #334155 !important; /* rebordo cinza-claro contrastante */
+}
+
+/* Subcaixas de listagem, tabelas e cards secundários em modo escuro */
+html:not(.light) .report-page-container .bg-slate-950\/40,
+html:not(.light) .report-page-container .bg-slate-900\/60,
+html:not(.light) .report-page-container .bg-slate-950\/20,
+html:not(.light) .report-page-container .bg-slate-950\/60,
+html:not(.light) .report-page-container select,
+html:not(.light) .report-page-container input,
+html:not(.light) .report-page-container table {
+  background-color: #1e293b !important; /* fundo ligeiramente mais claro para contraste interno */
+  border-color: #475569 !important; /* rebordo interno visível */
+}
+
+/* Linhas com efeito hover na listagem em modo escuro */
+html:not(.light) .report-page-container tr.hover\:bg-slate-950\/20:hover {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+/* Garante texto altamente legível em modo escuro */
+html:not(.light) .report-page-container h1,
+html:not(.light) .report-page-container h2,
+html:not(.light) .report-page-container h3,
+html:not(.light) .report-page-container h4,
+html:not(.light) .report-page-container th,
+html:not(.light) .report-page-container td {
+  color: #f1f5f9 !important; /* texto claro bem visível */
+}
+
+html:not(.light) .report-page-container span:not(button):not(button *),
+html:not(.light) .report-page-container p:not(button):not(button *),
+html:not(.light) .report-page-container label:not(button):not(button *) {
+  color: #f1f5f9 !important;
+}
+
+/* ==========================================
+   WORKSPACE MENU - STYLE TRANSFER OF LIGHT MODE CARDS TO DARK MODE
+   ========================================== */
+
+/* 1. Card container backgrounds and borders inside WORKSPACE pages in Dark Mode */
+html:not(.light) .workspace-page-container div.rounded-3xl,
+html:not(.light) .workspace-page-container div.rounded-2xl,
+html:not(.light) .workspace-page-container div.rounded-xl,
+html:not(.light) .workspace-page-container fieldset {
+  background-color: #ffffff !important; /* White background exactly like light mode */
+  border-color: #cbd5e1 !important;     /* Light gray border exactly like light mode */
+}
+
+/* 2. Sub-background overrides inside the cards in Dark Mode */
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-950,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-950,
+html:not(.light) .workspace-page-container div.rounded-xl .bg-slate-950,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-\[\#0a0a0a\],
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-\[\#0a0a0a\],
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-\[\#070b13\],
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-\[\#0b0f19\] {
+  background-color: #ffffff !important;
+}
+
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-\[\#0c1224\],
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-\[\#0c1224\],
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-\[\#0d1527\],
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-\[\#0d1527\],
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-950\/20,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-950\/20,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-950\/40,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-950\/40,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-900\/30,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-900\/30,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-950\/50,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-950\/65,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-900\/10,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-900\/10 {
+  background-color: #f1f5f9 !important; /* Very light slate background exactly like light mode */
+}
+
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-900,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-900,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-slate-900\/60,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-slate-900\/60 {
+  background-color: #e2e8f0 !important;
+}
+
+/* 3. Border overrides inside the Workspace containers in Dark Mode (matching Light Mode overrides) */
+html:not(.light) .workspace-page-container .border-slate-900,
+html:not(.light) .workspace-page-container .border-slate-800,
+html:not(.light) .workspace-page-container .border-slate-900\/60,
+html:not(.light) .workspace-page-container .border-indigo-500\/10,
+html:not(.light) .workspace-page-container .border-indigo-500\/20,
+html:not(.light) .workspace-page-container .border-indigo-500\/30,
+html:not(.light) .workspace-page-container .border-amber-500\/20,
+html:not(.light) .workspace-page-container .border-emerald-500\/30,
+html:not(.light) .workspace-page-container .border-dashed,
+html:not(.light) .workspace-page-container div.rounded-3xl,
+html:not(.light) .workspace-page-container div.rounded-2xl,
+html:not(.light) .workspace-page-container div.rounded-xl,
+html:not(.light) .workspace-page-container fieldset {
+  border-color: #cbd5e1 !important;
+}
+
+/* 4. Text and headings color overrides inside the cards in Dark Mode */
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-100,
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-200,
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-350,
+html:not(.light) .workspace-page-container div.rounded-3xl .text-white,
+html:not(.light) .workspace-page-container div.rounded-3xl h2,
+html:not(.light) .workspace-page-container div.rounded-3xl h3,
+html:not(.light) .workspace-page-container div.rounded-3xl h4,
+html:not(.light) .workspace-page-container div.rounded-3xl h5,
+html:not(.light) .workspace-page-container div.rounded-3xl h6,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-100,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-200,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-350,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-white,
+html:not(.light) .workspace-page-container div.rounded-2xl h2,
+html:not(.light) .workspace-page-container div.rounded-2xl h3,
+html:not(.light) .workspace-page-container div.rounded-2xl h4,
+html:not(.light) .workspace-page-container div.rounded-2xl h5,
+html:not(.light) .workspace-page-container div.rounded-2xl h6,
+html:not(.light) .workspace-page-container fieldset .text-slate-100,
+html:not(.light) .workspace-page-container fieldset .text-slate-200,
+html:not(.light) .workspace-page-container fieldset .text-white {
+  color: #0f172a !important; /* Dark slate text exactly like light mode */
+}
+
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-400,
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-500,
+html:not(.light) .workspace-page-container div.rounded-3xl .text-slate-600,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-500,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-slate-600,
+html:not(.light) .workspace-page-container fieldset .text-slate-400,
+html:not(.light) .workspace-page-container fieldset .text-slate-500 {
+  color: #27303f !important; /* Muted dark text exactly like light mode */
+}
+
+/* 5. Accent color overrides inside the cards in Dark Mode */
+html:not(.light) .workspace-page-container div.rounded-3xl .text-indigo-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-indigo-400,
+html:not(.light) .workspace-page-container fieldset .text-indigo-400 {
+  color: #4f46e5 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-cyan-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-cyan-400 {
+  color: #0891b2 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-emerald-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-emerald-400 {
+  color: #059669 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-violet-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-violet-400 {
+  color: #7c3aed !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-amber-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-amber-400 {
+  color: #d97706 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-rose-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-rose-400 {
+  color: #dc2626 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl .text-sky-400,
+html:not(.light) .workspace-page-container div.rounded-2xl .text-sky-400 {
+  color: #0284c7 !important;
+}
+
+/* 6. Inputs, textarea and select elements inside cards in Dark Mode */
+html:not(.light) .workspace-page-container div.rounded-3xl input,
+html:not(.light) .workspace-page-container div.rounded-3xl textarea,
+html:not(.light) .workspace-page-container div.rounded-3xl select,
+html:not(.light) .workspace-page-container div.rounded-2xl input,
+html:not(.light) .workspace-page-container div.rounded-2xl textarea,
+html:not(.light) .workspace-page-container div.rounded-2xl select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html:not(.light) .workspace-page-container div.rounded-3xl select *,
+html:not(.light) .workspace-page-container div.rounded-2xl select * {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html:not(.light) .workspace-page-container div.rounded-3xl input::placeholder,
+html:not(.light) .workspace-page-container div.rounded-3xl textarea::placeholder,
+html:not(.light) .workspace-page-container div.rounded-2xl input::placeholder,
+html:not(.light) .workspace-page-container div.rounded-2xl textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 7. Specific sub-elements exception: pre/code formatting inside cards */
+html:not(.light) .workspace-page-container div.rounded-3xl pre,
+html:not(.light) .workspace-page-container div.rounded-2xl pre {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+html:not(.light) .workspace-page-container div.rounded-3xl pre *,
+html:not(.light) .workspace-page-container div.rounded-2xl pre * {
+  color: #334155 !important;
+}
+
+/* 8. Keep white text on active buttons and icons inside cards */
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-indigo-600,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-indigo-500,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-indigo-600 *,
+html:not(.light) .workspace-page-container div.rounded-3xl .bg-indigo-500 *,
+html:not(.light) .workspace-page-container div.rounded-3xl button.bg-indigo-600,
+html:not(.light) .workspace-page-container div.rounded-3xl button.bg-indigo-500,
+html:not(.light) .workspace-page-container div.rounded-3xl button.bg-indigo-600 *,
+html:not(.light) .workspace-page-container div.rounded-3xl button.bg-indigo-500 *,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-indigo-600,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-indigo-500,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-indigo-600 *,
+html:not(.light) .workspace-page-container div.rounded-2xl .bg-indigo-500 *,
+html:not(.light) .workspace-page-container div.rounded-2xl button.bg-indigo-600,
+html:not(.light) .workspace-page-container div.rounded-2xl button.bg-indigo-500,
+html:not(.light) .workspace-page-container div.rounded-2xl button.bg-indigo-600 *,
+html:not(.light) .workspace-page-container div.rounded-2xl button.bg-indigo-500 * {
+  color: #ffffff !important;
+}
+
+/* 9. Estilo do botão "Gerar e Guardar" no Content Factory (Modo Claro e Modo Escuro) */
+html.light .cf-generate-btn,
+html:not(.light) .workspace-page-container .cf-generate-btn {
+  background-image: none !important;
+  background-color: #4f46e5 !important; /* bg-indigo-600 */
+  color: #ffffff !important;           /* text-white */
+}
+html.light .cf-generate-btn:hover,
+html:not(.light) .workspace-page-container .cf-generate-btn:hover {
+  background-image: none !important;
+  background-color: #6366f1 !important; /* bg-indigo-500 */
+}
+html.light .cf-generate-btn *,
+html:not(.light) .workspace-page-container .cf-generate-btn * {
+  color: #ffffff !important;
+}
+
+/* 10. Coding Lab code editor area style transfer in Dark Mode (matches Light Mode overrides) */
+html:not(.light) .workspace-page-container div.bg-slate-950\/40,
+html:not(.light) .workspace-page-container div.bg-slate-950\/40 textarea {
+  background-color: #f1f5f9 !important; /* Light slate background */
+  color: #0f172a !important;            /* Dark text */
+}
+
+/* 11. Coding Lab compiler console style transfer in Dark Mode (matches Light Mode overrides) */
+html:not(.light) .workspace-page-container .coding-lab-console {
+  background-color: #ffffff !important; /* White background */
+  border-color: #cbd5e1 !important;     /* Light gray border */
+}
+html:not(.light) .workspace-page-container .coding-lab-console * {
+  color: #0f172a !important;            /* Dark text default */
+}
+html:not(.light) .workspace-page-container .coding-lab-console .text-slate-400,
+html:not(.light) .workspace-page-container .coding-lab-console .text-slate-500,
+html:not(.light) .workspace-page-container .coding-lab-console .text-slate-600 {
+  color: #27303f !important;            /* Dark slate */
+}
+html:not(.light) .workspace-page-container .coding-lab-console .text-emerald-400 {
+  color: #059669 !important;            /* High-contrast green */
+}
+html:not(.light) .workspace-page-container .coding-lab-console .text-rose-400,
+html:not(.light) .workspace-page-container .coding-lab-console .text-rose-500 {
+  color: #dc2626 !important;            /* High-contrast red */
+}
+
+/* ==========================================
+   SIDEBAR NAV - MENU GROUP BOXES AND UNIQUELY COLORED THEMES
+   ========================================== */
+
+/* General group container styling */
+.menu-group-container {
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: 1rem !important;
+  padding: 0.5rem !important;
+  transition: all 0.25s ease-in-out !important;
+}
+
+/* 1. APRENDIZAGEM (Indigo/Blue Theme) */
+html:not(.light) .menu-group-container.group-aprendizagem {
+  border-color: rgba(99, 102, 241, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-aprendizagem.active {
+  border-color: rgba(99, 102, 241, 0.5) !important;
+  background-color: rgba(99, 102, 241, 0.12) !important;
+}
+html.light .menu-group-container.group-aprendizagem {
+  border-color: rgba(79, 70, 229, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-aprendizagem.active {
+  border-color: rgba(79, 70, 229, 0.4) !important;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+}
+
+/* 2. COMUNICAÇÃO (Emerald/Green Theme) */
+html:not(.light) .menu-group-container.group-comunicacao {
+  border-color: rgba(16, 185, 129, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-comunicacao.active {
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+html.light .menu-group-container.group-comunicacao {
+  border-color: rgba(5, 150, 105, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-comunicacao.active {
+  border-color: rgba(5, 150, 105, 0.4) !important;
+  background-color: rgba(5, 150, 105, 0.08) !important;
+}
+
+/* 3. FINANCEIRO (Amber/Orange Theme) */
+html:not(.light) .menu-group-container.group-financeiro {
+  border-color: rgba(245, 158, 11, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-financeiro.active {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+html.light .menu-group-container.group-financeiro {
+  border-color: rgba(217, 119, 6, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-financeiro.active {
+  border-color: rgba(217, 119, 6, 0.4) !important;
+  background-color: rgba(217, 119, 6, 0.08) !important;
+}
+
+/* 4. PESSOAL (Sky/Cyan Theme) */
+html:not(.light) .menu-group-container.group-pessoal {
+  border-color: rgba(14, 165, 233, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-pessoal.active {
+  border-color: rgba(14, 165, 233, 0.5) !important;
+  background-color: rgba(14, 165, 233, 0.12) !important;
+}
+html.light .menu-group-container.group-pessoal {
+  border-color: rgba(2, 132, 199, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-pessoal.active {
+  border-color: rgba(2, 132, 199, 0.4) !important;
+  background-color: rgba(2, 132, 199, 0.08) !important;
+}
+
+/* 5. WORKSPACE (Violet/Purple Theme) */
+html:not(.light) .menu-group-container.group-workspace {
+  border-color: rgba(139, 92, 246, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-workspace.active {
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  background-color: rgba(139, 92, 246, 0.12) !important;
+}
+html.light .menu-group-container.group-workspace {
+  border-color: rgba(124, 58, 237, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-workspace.active {
+  border-color: rgba(124, 58, 237, 0.4) !important;
+  background-color: rgba(124, 58, 237, 0.08) !important;
+}
+
+/* 6. SUPORTE (Rose/Pink Theme) */
+html:not(.light) .menu-group-container.group-suporte {
+  border-color: rgba(244, 63, 94, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-suporte.active {
+  border-color: rgba(244, 63, 94, 0.5) !important;
+  background-color: rgba(244, 63, 94, 0.12) !important;
+}
+html.light .menu-group-container.group-suporte {
+  border-color: rgba(220, 38, 38, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-suporte.active {
+  border-color: rgba(220, 38, 38, 0.4) !important;
+  background-color: rgba(220, 38, 38, 0.08) !important;
+}
+
+/* 7. RELATÓRIOS (Teal Theme) */
+html:not(.light) .menu-group-container.group-relatorios {
+  border-color: rgba(20, 184, 166, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-relatorios.active {
+  border-color: rgba(20, 184, 166, 0.5) !important;
+  background-color: rgba(20, 184, 166, 0.12) !important;
+}
+html.light .menu-group-container.group-relatorios {
+  border-color: rgba(13, 148, 136, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-relatorios.active {
+  border-color: rgba(13, 148, 136, 0.4) !important;
+  background-color: rgba(13, 148, 136, 0.08) !important;
+}
+
+/* Distinct Header text and icon colors for each group */
+.group-aprendizagem button.group-header-btn,
+.group-aprendizagem button.group-header-btn svg {
+  color: #818cf8 !important; /* Indigo text/icon in dark mode */
+}
+html.light .group-aprendizagem button.group-header-btn,
+html.light .group-aprendizagem button.group-header-btn svg {
+  color: #4f46e5 !important; /* Indigo text/icon in light mode */
+}
+
+.group-comunicacao button.group-header-btn,
+.group-comunicacao button.group-header-btn svg {
+  color: #34d399 !important; /* Emerald text/icon in dark mode */
+}
+html.light .group-comunicacao button.group-header-btn,
+html.light .group-comunicacao button.group-header-btn svg {
+  color: #059669 !important; /* Emerald text/icon in light mode */
+}
+
+.group-financeiro button.group-header-btn,
+.group-financeiro button.group-header-btn svg {
+  color: #fbbf24 !important; /* Amber text/icon in dark mode */
+}
+html.light .group-financeiro button.group-header-btn,
+html.light .group-financeiro button.group-header-btn svg {
+  color: #b45309 !important; /* Amber text/icon in light mode */
+}
+
+.group-pessoal button.group-header-btn,
+.group-pessoal button.group-header-btn svg {
+  color: #38bdf8 !important; /* Sky text/icon in dark mode */
+}
+html.light .group-pessoal button.group-header-btn,
+html.light .group-pessoal button.group-header-btn svg {
+  color: #0284c7 !important; /* Sky text/icon in light mode */
+}
+
+.group-workspace button.group-header-btn,
+.group-workspace button.group-header-btn svg {
+  color: #a78bfa !important; /* Violet text/icon in dark mode */
+}
+html.light .group-workspace button.group-header-btn,
+html.light .group-workspace button.group-header-btn svg {
+  color: #7c3aed !important; /* Violet text/icon in light mode */
+}
+
+.group-suporte button.group-header-btn,
+.group-suporte button.group-header-btn svg {
+  color: #fb7185 !important; /* Rose text/icon in dark mode */
+}
+html.light .group-suporte button.group-header-btn,
+html.light .group-suporte button.group-header-btn svg {
+  color: #e11d48 !important; /* Rose text/icon in light mode */
+}
+
+.group-relatorios button.group-header-btn,
+.group-relatorios button.group-header-btn svg {
+  color: #2dd4bf !important; /* Teal text/icon in dark mode */
+}
+html.light .group-relatorios button.group-header-btn,
+html.light .group-relatorios button.group-header-btn svg {
+  color: #0d9488 !important; /* Teal text/icon in light mode */
+}
+
+/* Correção do avatar do utilizador no Tutor de IA em Modo Claro */
+html.light .ai-tutor-user-avatar {
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+

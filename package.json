@@ -6,14 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:crypto": "tsx scripts/seed-crypto-course.ts",
+    "index:content": "tsx scripts/index-content.ts",
+    "verify:rag": "tsx scripts/verify-rag.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.11",
+    "@ai-sdk/react": "^4.0.23",
+    "@clerk/nextjs": "^7.5.17",
+    "@sanity/image-url": "^2.1.1",
+    "@workos-inc/node": "^10.7.0",
+    "ai": "^7.0.22",
+    "lucide-react": "^1.24.0",
+    "mongodb": "^7.5.0",
     "next": "16.2.10",
+    "next-sanity": "^13.1.1",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "sanity": "^3.99.0",
+    "@sanity/vision": "^3.99.0",
+    "@sanity/code-input": "^4.1.4",
+    "styled-components": "^6.1.13",
+    "stripe": "^22.3.1"
   },
   "devDependencies": {
+    "tsx": "^4.19.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
