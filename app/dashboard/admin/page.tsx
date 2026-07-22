@@ -92,10 +92,14 @@ export default function AdminSettingsPage() {
   };
 
   useEffect(() => {
-    if (activeTab === "companies") {
+    // isGlobalAdmin depende de activeRole, que carrega de forma assíncrona (useAccess).
+    // Sem isto nas dependências, se a página montar antes do perfil estar carregado,
+    // fetchCompanies() devolve de imediato (isGlobalAdmin ainda é false nesse instante)
+    // e a lista de empresas fica vazia para sempre — mesmo sendo o utilizador ADMIN.
+    if (activeTab === "companies" && isGlobalAdmin) {
       fetchCompanies();
     }
-  }, [activeTab]);
+  }, [activeTab, isGlobalAdmin]);
 
   // Salvar configurações do tenant (branding)
   const handleSaveBranding = async (e: React.FormEvent) => {
