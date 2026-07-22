@@ -515,7 +515,7 @@ export default function ContentFactoryPage() {
       <div>
         <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
           <Sparkles className="h-6 w-6 text-indigo-400" />
-          AI Course Factory
+          Fábrica de Cursos (IA)
         </h1>
         <p className="text-sm text-slate-400">
           Crie cursos completos e integrados com IA: do briefing inicial à curadoria humana e publicação em RAG.
