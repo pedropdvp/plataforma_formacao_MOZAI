@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Loader2, ChevronDown, ChevronRight, Save, Video } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 interface Lesson {
@@ -194,6 +194,15 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                                 />
                               </div>
                             </div>
+                            <a
+                              href={`/dashboard/courses/${courseId}/lessons/${lesson.slug || lesson.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 underline decoration-dotted"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Ver esta lição (nova aba, depois de guardar)
+                            </a>
                           </div>
                         )}
                       </div>

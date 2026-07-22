@@ -729,7 +729,7 @@ export default function ContentFactoryPage() {
                         <button
                           onClick={() => handleDeleteCourse(c)}
                           title="Apagar"
-                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-rose-455 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -800,7 +800,7 @@ export default function ContentFactoryPage() {
           </div>
 
           <div className="space-y-4">
-            <span className="text-xs font-semibold text-slate-450 block uppercase tracking-wider">
+            <span className="text-xs font-semibold text-slate-500 block uppercase tracking-wider">
               Módulos e Lições Propostos (Validação Humana)
             </span>
 
