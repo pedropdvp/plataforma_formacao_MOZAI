@@ -21,7 +21,7 @@ const ACTIVE_ROOMS: TrainingRoom[] = [
 export default function TrainingRoomsPage() {
   const { showToast } = useToast();
   const handleJoinRoom = (roomName: string) => {
-    alert(`A entrar na ${roomName}... A ligar câmara e microfone. O Agente de IA está pronto para gravar e analisar a sua performance.`);
+    showToast(`A entrar na ${roomName}... A ligar câmara e microfone. O Agente de IA está pronto para gravar e analisar a sua performance.`, "info");
   };
 
   const handleCreateRoom = () => {

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
 import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
+import { DetailModal, DetailModalColumn } from "@/components/ui/detail-modal";
 
 interface Company {
   _id: string;
@@ -43,6 +44,11 @@ export default function CompaniesReportPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<string[]>([]);
   const [generatedReport, setGeneratedReport] = useState<any>(null);
+  const [activeDetail, setActiveDetail] = useState<{
+    repIdx: number;
+    type: "colaboradores" | "managers" | "employees" | "students" | "revenueByStudent" | "completedCourses" | "dropoff";
+    dropoffIdx?: number;
+  } | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -131,10 +137,17 @@ export default function CompaniesReportPage() {
         const compProgress = progress.filter((p) => p.tenantId === comp._id);
         const totalCompleted = compProgress.filter((p) => p.status === "completed").length;
 
+        const mapUser = (u: UserRecord) => ({
+          name: `${u.firstName} ${u.lastName}`,
+          email: u.email
+        });
+
         return {
           company: comp,
           managers: compManagers,
+          employees: compEmployees.map(mapUser),
           employeesCount: compEmployees.length,
+          students: compStudents.map(mapUser),
           studentsCount: compStudents.length,
           colaboradoresCount: totalColaboradores.length,
           totalProgressRecords: compProgress.length,
@@ -281,7 +294,7 @@ export default function CompaniesReportPage() {
           <button
             onClick={handleGenerateReport}
             disabled={loadingReport}
-            className="col-span-2 h-9 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            className="col-span-2 h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
           >
             {loadingReport ? (
               <>
@@ -300,7 +313,7 @@ export default function CompaniesReportPage() {
             onClick={() => {
               reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -312,7 +325,7 @@ export default function CompaniesReportPage() {
           <button
             disabled={!generatedReport}
             onClick={handlePrint}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -358,7 +371,7 @@ export default function CompaniesReportPage() {
               });
               await exportToXLSX(headers, rows, `relatorio_empresas_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -404,7 +417,7 @@ export default function CompaniesReportPage() {
               });
               await exportToCSV(headers, rows, `relatorio_empresas_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -424,7 +437,7 @@ export default function CompaniesReportPage() {
           </div>
 
           <div ref={reportRef} id="report-content-companies" className="space-y-8 print:space-y-12">
-            {generatedReport.map((rep: any) => (
+            {generatedReport.map((rep: any, repIdx: number) => (
               <div key={rep.company._id} className="border border-slate-900 bg-slate-950/20 p-4.5 rounded-3xl space-y-4 print:border-none print:p-0 sm:min-w-[540px] w-full">
                 {/* Cabeçalho da Empresa */}
                 <div className="flex items-center justify-between border-b border-slate-900/60 pb-3 gap-8">
@@ -445,19 +458,31 @@ export default function CompaniesReportPage() {
 
                 {/* Grid de Estatísticas */}
                 <div className="flex flex-wrap gap-3">
-                  <div className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black">
+                  <div
+                    onClick={() => setActiveDetail({ repIdx, type: "colaboradores" })}
+                    className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                  >
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Total Colaboradores</span>
                     <span className="text-lg font-bold text-white print:text-black">{rep.colaboradoresCount}</span>
                   </div>
-                  <div className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black">
+                  <div
+                    onClick={() => setActiveDetail({ repIdx, type: "managers" })}
+                    className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                  >
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Gestores de Empresa</span>
                     <span className="text-lg font-bold text-white print:text-black">{rep.managers.length}</span>
                   </div>
-                  <div className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black">
+                  <div
+                    onClick={() => setActiveDetail({ repIdx, type: "employees" })}
+                    className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                  >
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Funcionários</span>
                     <span className="text-lg font-bold text-white print:text-black">{rep.employeesCount}</span>
                   </div>
-                  <div className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black">
+                  <div
+                    onClick={() => setActiveDetail({ repIdx, type: "students" })}
+                    className="bg-slate-950/60 border border-slate-900 p-3 rounded-2xl w-fit min-w-[140px] print:border-black print:text-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                  >
                     <span className="text-[9px] uppercase tracking-wider text-slate-500 block">Alunos / Formandos</span>
                     <span className="text-lg font-bold text-white print:text-black">{rep.studentsCount}</span>
                   </div>
@@ -468,19 +493,31 @@ export default function CompaniesReportPage() {
                   <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 print:text-black">Desempenho de Negócio (Analytics)</h4>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black">
+                    <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black space-y-1.5">
                       <span className="text-[10px] uppercase font-bold text-slate-500 block">Receita Acumulada</span>
-                      <span className="text-lg font-extrabold text-emerald-400 print:text-black">
+                      <span className="text-lg font-extrabold text-emerald-400 print:text-black block">
                         {rep.metrics?.totalRevenue ? `${rep.metrics.totalRevenue.toFixed(2)} €` : "0.00 €"}
                       </span>
+                      <button
+                        onClick={() => setActiveDetail({ repIdx, type: "revenueByStudent" })}
+                        className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 underline decoration-dotted print:hidden cursor-pointer"
+                      >
+                        Ver por aluno
+                      </button>
                     </div>
-                    <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black">
+                    <div
+                      onClick={() => setActiveDetail({ repIdx, type: "students" })}
+                      className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                    >
                       <span className="text-[10px] uppercase font-bold text-slate-500 block">Novas Inscrições</span>
                       <span className="text-lg font-extrabold text-indigo-400 print:text-black">
                         {rep.metrics?.totalEnrollments || 0} alunos
                       </span>
                     </div>
-                    <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black">
+                    <div
+                      onClick={() => setActiveDetail({ repIdx, type: "completedCourses" })}
+                      className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                    >
                       <span className="text-[10px] uppercase font-bold text-slate-500 block">Taxa de Conclusão</span>
                       <span className="text-lg font-extrabold text-sky-400 print:text-black">
                         {rep.metrics?.totalCompletions || 0} cursos
@@ -499,9 +536,15 @@ export default function CompaniesReportPage() {
                             : 0;
                           return (
                             <div key={idx} className="space-y-1">
-                              <div className="flex justify-between text-[11px] text-slate-400">
-                                <span className="truncate max-w-[75%] font-medium text-slate-350">{item.title}</span>
-                                <span className="text-rose-400 font-bold">{item.count} alunos ({percent}%)</span>
+                              <div className="flex justify-between items-center gap-2 text-[11px] text-slate-400">
+                                <span className="truncate max-w-[55%] font-medium text-slate-350">{item.title}</span>
+                                <span className="text-rose-400 font-bold shrink-0">{item.count} alunos ({percent}%)</span>
+                                <button
+                                  onClick={() => setActiveDetail({ repIdx, type: "dropoff", dropoffIdx: idx })}
+                                  className="text-[9px] font-bold text-indigo-400 hover:text-indigo-300 underline decoration-dotted shrink-0 cursor-pointer"
+                                >
+                                  Ver alunos
+                                </button>
                               </div>
                               <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-900/60">
                                 <div
@@ -559,6 +602,91 @@ export default function CompaniesReportPage() {
         </div>
       )}
       </div>
+
+      {activeDetail && (() => {
+        const rep = generatedReport[activeDetail.repIdx];
+        if (!rep) return null;
+
+        if (activeDetail.type === "colaboradores") {
+          return (
+            <DetailModal
+              title="Total Colaboradores"
+              subtitle={rep.company.name}
+              items={rep.colaboradores.map((c: any) => ({ ...c, roles: (c.roles || []).join(", ") }))}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }, { key: "roles", label: "Papéis" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "managers") {
+          return (
+            <DetailModal
+              title="Gestores de Empresa"
+              subtitle={rep.company.name}
+              items={rep.managers.map((u: any) => ({ name: `${u.firstName} ${u.lastName}`, email: u.email }))}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "employees") {
+          return (
+            <DetailModal
+              title="Funcionários"
+              subtitle={rep.company.name}
+              items={rep.employees}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "students") {
+          return (
+            <DetailModal
+              title="Alunos / Formandos"
+              subtitle={rep.company.name}
+              items={rep.students}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "revenueByStudent") {
+          return (
+            <DetailModal
+              title="Receita por Aluno"
+              subtitle={rep.company.name}
+              items={rep.metrics?.revenueByStudent || []}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }, { key: "amount", label: "Valor", align: "right" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "completedCourses") {
+          return (
+            <DetailModal
+              title="Cursos Concluídos"
+              subtitle={rep.company.name}
+              items={rep.metrics?.completedCourses || []}
+              columns={[{ key: "courseTitle", label: "Curso" }, { key: "completions", label: "Conclusões", align: "right" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        if (activeDetail.type === "dropoff" && activeDetail.dropoffIdx !== undefined) {
+          const dropoff = rep.metrics?.dropoffs?.[activeDetail.dropoffIdx];
+          return (
+            <DetailModal
+              title={`Alunos Inativos: ${dropoff?.title || ""}`}
+              subtitle={`${rep.company.name} — alunos que começaram a lição mas não a concluíram`}
+              items={dropoff?.students || []}
+              columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 }

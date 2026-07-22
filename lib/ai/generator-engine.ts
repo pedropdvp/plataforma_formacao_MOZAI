@@ -73,6 +73,11 @@ export async function generateOutline(briefing: {
   return object;
 }
 
+export interface ContextChunk {
+  content: string;
+  images?: string[]; // data: URIs extraídos do material original (PDF/PPTX) associados a este trecho
+}
+
 /**
  * 2. Gera o conteúdo detalhado de uma lição específica, enriquecida por RAG
  */
@@ -80,10 +85,10 @@ export async function generateLesson(
   briefing: { topic: string; level: string; objectives: string },
   lessonTitle: string,
   lessonObjectives: string[],
-  contextTexts: string[] = []
+  contextChunks: ContextChunk[] = []
 ): Promise<z.infer<typeof lessonContentSchema>> {
-  const contextBlock = contextTexts.length > 0
-    ? `\nCONTEXTO OFICIAL PARA USO OBRIGATÓRIO (RAG):\n${contextTexts.join("\n---\n")}\n`
+  const contextBlock = contextChunks.length > 0
+    ? `\nCONTEXTO OFICIAL PARA USO OBRIGATÓRIO (RAG):\n${contextChunks.map((c) => c.content).join("\n---\n")}\n`
     : "";
 
   const prompt = `
@@ -107,6 +112,17 @@ export async function generateLesson(
     prompt,
   });
 
+  // Anexar (programaticamente, não via LLM) as imagens do material original associadas
+  // ao contexto usado nesta lição — evita enviar base64 ao modelo (custo/token) e o risco
+  // de o LLM corromper a string ao tentar "reproduzir" a imagem.
+  const uniqueImages = Array.from(new Set(contextChunks.flatMap((c) => c.images || [])));
+  if (uniqueImages.length > 0) {
+    const imageBlock = uniqueImages
+      .map((dataUrl, idx) => `![Imagem do material original ${idx + 1}](${dataUrl})`)
+      .join("\n\n");
+    object.content = `${object.content}\n\n${imageBlock}`;
+  }
+
   return object;
 }
 
@@ -117,7 +133,7 @@ export async function searchUploadedMaterials(
   briefingId: string,
   query: string,
   limit = 4
-): Promise<string[]> {
+): Promise<ContextChunk[]> {
   try {
     const db = await getDb();
     const col = db.collection("uploaded_chunks");
@@ -148,11 +164,11 @@ export async function searchUploadedMaterials(
               filter: { briefingId: { $eq: briefingId } },
             },
           },
-          { $project: { content: 1 } },
+          { $project: { content: 1, images: 1 } },
         ];
         const rows = await col.aggregate(pipeline).toArray();
         if (rows.length > 0) {
-          return rows.map((r: any) => r.content);
+          return rows.map((r: any) => ({ content: r.content, images: r.images || [] }));
         }
       } catch (err: any) {
         console.warn("RAG Uploaded: Vector Search falhou ou indisponível, a usar fallback textual:", err.message);
@@ -179,7 +195,7 @@ export async function searchUploadedMaterials(
       rows = await col.find({ briefingId }).limit(limit).toArray();
     }
 
-    return rows.map((r: any) => r.content);
+    return rows.map((r: any) => ({ content: r.content, images: r.images || [] }));
   } catch (error: any) {
     console.error("Erro em searchUploadedMaterials:", error.message);
     return [];

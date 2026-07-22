@@ -41,10 +41,15 @@ export default async function HRDashboardPage() {
     const rootSettings = await db.collection("tenant_settings").findOne({ tenant_id: "root" });
     const rootCompanyName = rootSettings?.companyName || "MOZAI Global";
 
+    const mapUser = (u: any) => ({
+      name: `${u.firstName} ${u.lastName}`.trim() || u.email,
+      email: u.email
+    });
+
     // Suporte da empresa dona da plataforma (perfil SUPORTE em tenantId 'root')
-    const supportUsersCount = allUsers.filter((u: any) =>
+    const supportStaff = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.tenantId === "root" && t.roles.includes("SUPORTE"))
-    ).length;
+    ).map(mapUser);
 
     // Gestores de Empresa
     const gestoresEmpresa = allUsers.filter((u: any) =>
@@ -61,38 +66,44 @@ export default async function HRDashboardPage() {
     });
 
     // Gestores Académicos
-    const academicManagersCount = allUsers.filter((u: any) =>
+    const academicManagers = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.roles.includes("GESTOR_ACADEMICO"))
-    ).length;
+    ).map(mapUser);
 
     // Professores
-    const professorsCount = allUsers.filter((u: any) =>
+    const professors = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.roles.includes("PROFESSOR"))
-    ).length;
+    ).map(mapUser);
 
     // Formadores
-    const trainersCount = allUsers.filter((u: any) =>
+    const trainers = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.roles.includes("FORMADOR"))
-    ).length;
+    ).map(mapUser);
 
     // Tutores
-    const tutorsCount = allUsers.filter((u: any) =>
+    const tutors = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.roles.includes("TUTOR"))
-    ).length;
+    ).map(mapUser);
 
     // Financeiro
-    const financeCount = allUsers.filter((u: any) =>
+    const finance = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.roles.includes("FINANCEIRO"))
-    ).length;
+    ).map(mapUser);
 
     globalStats = {
-      supportUsersCount,
+      supportUsersCount: supportStaff.length,
+      supportStaff,
       gestoresEmpresa,
-      academicManagersCount,
-      professorsCount,
-      trainersCount,
-      tutorsCount,
-      financeCount
+      academicManagersCount: academicManagers.length,
+      academicManagers,
+      professorsCount: professors.length,
+      professors,
+      trainersCount: trainers.length,
+      trainers,
+      tutorsCount: tutors.length,
+      tutors,
+      financeCount: finance.length,
+      finance
     };
   }
 

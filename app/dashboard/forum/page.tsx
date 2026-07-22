@@ -20,6 +20,8 @@ const AVAILABLE_FORUMS: CourseForum[] = [
 ];
 
 export default function ForumPage() {
+  const { showToast } = useToast();
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -54,7 +56,7 @@ export default function ForumPage() {
 
             <div className="pt-6 border-t border-slate-900/60 mt-6">
               <button
-                onClick={() => alert(`A abrir fórum do curso: ${forum.title}`)}
+                onClick={() => showToast(`A abrir fórum do curso: ${forum.title}`, "info")}
                 className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white transition-colors group-hover:bg-indigo-600 gap-1.5 cursor-pointer"
               >
                 Aceder ao Fórum

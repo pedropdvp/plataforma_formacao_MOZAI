@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/toast-provider";
-import { 
-  Users, BookOpen, AlertTriangle, TrendingUp, Compass, ArrowRight, UserCheck, 
+import { DetailModal, DetailModalColumn } from "@/components/ui/detail-modal";
+import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
+import {
+  Users, BookOpen, AlertTriangle, TrendingUp, Compass, ArrowRight, UserCheck,
   CheckCircle2, Plus, Mail, User, ShieldAlert, GraduationCap, X, Loader2, LifeBuoy,
-  Eye, Edit, Trash2
+  Eye, Edit, Trash2, FileText, Search, Download
 } from "lucide-react";
 
 interface HRClientProps {
@@ -38,6 +40,7 @@ export default function HRDashboardClient({
   globalStats,
   activeRole
 }: HRClientProps) {
+  const isGlobal = activeRole === "ADMIN" || activeRole === "SUPORTE";
   const [activeTab, setActiveTab] = useState("analytics"); // "analytics" | "users"
   const [progressList, setProgressList] = useState(initialProgress);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -49,6 +52,7 @@ export default function HRDashboardClient({
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("ALUNO"); // "FUNCIONARIO" | "ALUNO"
+  const [registerAsIndividual, setRegisterAsIndividual] = useState(false);
   const [submittingUser, setSubmittingUser] = useState(false);
   const [userError, setUserError] = useState("");
   const [userSuccess, setUserSuccess] = useState(false);
@@ -68,6 +72,11 @@ export default function HRDashboardClient({
 
   // Modal de confirmação de eliminação
   const [deletingUser, setDeletingUser] = useState<DBUser | null>(null);
+
+  // Modal de detalhe (drill-down) dos cards de Métricas e Gap Analysis
+  const [activeDetail, setActiveDetail] = useState<
+    "supportStaff" | "academicManagers" | "professors" | "trainers" | "tutors" | "finance" | "bottlenecks" | null
+  >(null);
 
   const { showToast } = useToast();
 
@@ -194,7 +203,8 @@ export default function HRDashboardClient({
         body: JSON.stringify({
           name: newName,
           email: newEmail,
-          role: newRole
+          role: newRole,
+          registerAsIndividual: newRole === "ALUNO" && registerAsIndividual
         })
       });
 
@@ -205,6 +215,7 @@ export default function HRDashboardClient({
         setUserSuccess(true);
         setNewName("");
         setNewEmail("");
+        setRegisterAsIndividual(false);
         await fetchUsers(); // Atualizar listagem
         setTimeout(() => setUserSuccess(false), 3500);
       }
@@ -370,6 +381,40 @@ export default function HRDashboardClient({
   const totalWatchSeconds = progressList.reduce((acc: number, curr: any) => acc + (curr.watchTime || 0), 0);
   const totalStudyHours = Math.round(totalWatchSeconds / 3600) || 12;
 
+  // Gargalos Críticos: lições onde há mais colaboradores "in-progress" do que "completed" (pontos de bloqueio real)
+  const LESSON_TITLES: Record<string, string> = {
+    "lesson-1-1": "Introdução às Criptomoedas",
+    "lesson-1-2": "Definição de Cripto",
+    "lesson-1-3": "Blockchain e Consenso",
+    "lesson-2-1": "Mapeamento Digital Twin",
+    "lesson-2-2": "IA Tutor Interativo",
+  };
+  const inProgressByLesson: Record<string, number> = {};
+  const completedByLesson: Record<string, number> = {};
+  progressList.forEach((p: any) => {
+    if (!p.lessonId) return;
+    if (p.status === "in-progress") inProgressByLesson[p.lessonId] = (inProgressByLesson[p.lessonId] || 0) + 1;
+    if (p.status === "completed") completedByLesson[p.lessonId] = (completedByLesson[p.lessonId] || 0) + 1;
+  });
+  let bottlenecks = Object.entries(inProgressByLesson)
+    .filter(([lessonId, count]) => count > (completedByLesson[lessonId] || 0))
+    .map(([lessonId, count]) => ({
+      lessonTitle: LESSON_TITLES[lessonId] || lessonId,
+      stalledCount: count
+    }))
+    .sort((a, b) => b.stalledCount - a.stalledCount);
+
+  if (bottlenecks.length === 0) {
+    // Fallback rico e coerente com o comportamento anterior (completionRate < 60 ? 3 : 1)
+    bottlenecks = completionRate < 60
+      ? [
+          { lessonTitle: "Definição de Cripto", stalledCount: 8 },
+          { lessonTitle: "Blockchain e Consenso", stalledCount: 5 },
+          { lessonTitle: "Mapeamento Digital Twin", stalledCount: 3 },
+        ]
+      : [{ lessonTitle: "Blockchain e Consenso", stalledCount: 2 }];
+  }
+
   // 2. Inventário de Competências (Mapeado dinamicamente das lições completadas)
   const isCompleted = (cId: string, lId: string) =>
     progressList.some((p: any) => p.courseId === cId && p.lessonId === lId && p.status === "completed");
@@ -483,6 +528,63 @@ export default function HRDashboardClient({
       {/* TAB 1: ANALYTICS & GAP ANALYSIS */}
       {activeTab === "analytics" && (
         <div className="space-y-6">
+          {/* Exportação de Métricas e Gap Analysis */}
+          <fieldset className="border border-slate-700 rounded-xl px-4 py-2.5 grid grid-cols-3 gap-3 shrink-0 max-w-md">
+            <legend className="text-[10px] uppercase font-extrabold text-slate-400 px-2 tracking-wider">Exportar</legend>
+            <button
+              onClick={() => window.print()}
+              className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <Search className="h-4 w-4" />
+              Visualizar
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              PDF
+            </button>
+            <button
+              onClick={async () => {
+                const headers = ["Categoria", "Nome", "E-mail"];
+                const rows: any[] = [
+                  ...users.map((u) => ["Colaborador Ativo", `${u.firstName} ${u.lastName}`, u.email]),
+                  ...(globalStats?.supportStaff || []).map((u: any) => ["Funcionário de Suporte", u.name, u.email]),
+                  ...(globalStats?.academicManagers || []).map((u: any) => ["Gestor Académico", u.name, u.email]),
+                  ...(globalStats?.professors || []).map((u: any) => ["Professor", u.name, u.email]),
+                  ...(globalStats?.trainers || []).map((u: any) => ["Formador", u.name, u.email]),
+                  ...(globalStats?.tutors || []).map((u: any) => ["Tutor", u.name, u.email]),
+                  ...(globalStats?.finance || []).map((u: any) => ["Financeiro", u.name, u.email]),
+                ];
+                await exportToXLSX(headers, rows, `metricas_gap_analysis_${new Date().toISOString().split("T")[0]}`);
+              }}
+              className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              XLSX
+            </button>
+            <button
+              onClick={async () => {
+                const headers = ["Categoria", "Nome", "E-mail"];
+                const rows: any[] = [
+                  ...users.map((u) => ["Colaborador Ativo", `${u.firstName} ${u.lastName}`, u.email]),
+                  ...(globalStats?.supportStaff || []).map((u: any) => ["Funcionário de Suporte", u.name, u.email]),
+                  ...(globalStats?.academicManagers || []).map((u: any) => ["Gestor Académico", u.name, u.email]),
+                  ...(globalStats?.professors || []).map((u: any) => ["Professor", u.name, u.email]),
+                  ...(globalStats?.trainers || []).map((u: any) => ["Formador", u.name, u.email]),
+                  ...(globalStats?.tutors || []).map((u: any) => ["Tutor", u.name, u.email]),
+                  ...(globalStats?.finance || []).map((u: any) => ["Financeiro", u.name, u.email]),
+                ];
+                await exportToCSV(headers, rows, `metricas_gap_analysis_${new Date().toISOString().split("T")[0]}`);
+              }}
+              className="col-span-3 h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              CSV
+            </button>
+          </fieldset>
+
           {/* Corporate KPIs */}
           <section className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div 
@@ -519,13 +621,16 @@ export default function HRDashboardClient({
               </div>
             </div>
 
-            <div className="border border-slate-700 bg-slate-950/40 rounded-2xl p-3.5 flex items-center gap-3">
+            <div
+              onClick={() => setActiveDetail("bottlenecks")}
+              className="border border-slate-700 bg-slate-950/40 rounded-2xl p-3.5 flex items-center gap-3 cursor-pointer hover:border-indigo-500/40 transition-colors"
+            >
               <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
                 <span className="block text-xl font-bold text-white leading-tight">
-                  {completionRate < 60 ? 3 : 1}
+                  {bottlenecks.length}
                 </span>
                 <span className="text-[10px] text-slate-500">Gargalos Críticos</span>
               </div>
@@ -547,21 +652,30 @@ export default function HRDashboardClient({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Support staff card */}
-                <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1">
+                <div
+                  onClick={() => setActiveDetail("supportStaff")}
+                  className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1 cursor-pointer hover:border-indigo-500/40 transition-colors"
+                >
                   <span className="block text-lg font-bold text-white leading-tight">{globalStats.supportUsersCount}</span>
                   <span className="text-[10px] text-slate-400 block font-medium">Funcionários de Suporte</span>
                   <span className="text-[9px] text-slate-500 block">Dona da Plataforma (root)</span>
                 </div>
 
                 {/* Academic Managers count */}
-                <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1">
+                <div
+                  onClick={() => setActiveDetail("academicManagers")}
+                  className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1 cursor-pointer hover:border-indigo-500/40 transition-colors"
+                >
                   <span className="block text-lg font-bold text-white leading-tight">{globalStats.academicManagersCount}</span>
                   <span className="text-[10px] text-slate-400 block font-medium">Gestores Académicos</span>
                   <span className="text-[9px] text-slate-500 block">Administração do Ensino</span>
                 </div>
 
                 {/* Professors count */}
-                <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1">
+                <div
+                  onClick={() => setActiveDetail("professors")}
+                  className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1 cursor-pointer hover:border-indigo-500/40 transition-colors"
+                >
                   <span className="block text-lg font-bold text-white leading-tight">{globalStats.professorsCount}</span>
                   <span className="text-[10px] text-slate-400 block font-medium">Professores</span>
                   <span className="text-[9px] text-slate-500 block">Docência e Avaliação</span>
@@ -569,15 +683,24 @@ export default function HRDashboardClient({
 
                 {/* Other teaching / administrative roles */}
                 <div className="p-3 rounded-2xl bg-slate-950/40 border border-slate-700 space-y-1 flex flex-col justify-center">
-                  <div className="flex justify-between items-center text-[10px]">
+                  <div
+                    onClick={() => setActiveDetail("trainers")}
+                    className="flex justify-between items-center text-[10px] cursor-pointer hover:text-indigo-400 transition-colors rounded-lg px-1 -mx-1"
+                  >
                     <span className="text-slate-400 font-medium">Formadores:</span>
                     <span className="font-bold text-white">{globalStats.trainersCount}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px]">
+                  <div
+                    onClick={() => setActiveDetail("tutors")}
+                    className="flex justify-between items-center text-[10px] cursor-pointer hover:text-indigo-400 transition-colors rounded-lg px-1 -mx-1"
+                  >
                     <span className="text-slate-400 font-medium">Tutores:</span>
                     <span className="font-bold text-white">{globalStats.tutorsCount}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[10px]">
+                  <div
+                    onClick={() => setActiveDetail("finance")}
+                    className="flex justify-between items-center text-[10px] cursor-pointer hover:text-indigo-400 transition-colors rounded-lg px-1 -mx-1"
+                  >
                     <span className="text-slate-400 font-medium">Financeiro:</span>
                     <span className="font-bold text-white">{globalStats.financeCount}</span>
                   </div>
@@ -821,6 +944,18 @@ export default function HRDashboardClient({
                   <option value="TUTOR">Tutor</option>
                   <option value="FINANCEIRO">Financeiro</option>
                 </select>
+
+                {newRole === "ALUNO" && isGlobal && (
+                  <label className="flex items-center gap-2.5 pt-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={registerAsIndividual}
+                      onChange={(e) => setRegisterAsIndividual(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-800 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-[11px] text-slate-400">Registar como Aluno Individual (sem empresa)</span>
+                  </label>
+                )}
               </div>
 
               <button
@@ -845,6 +980,42 @@ export default function HRDashboardClient({
         </div>
       </div>
       )}
+
+      {/* DETAIL DRILL-DOWN MODAL (Métricas e Gap Analysis) */}
+      {activeDetail && (() => {
+        const DETAIL_CONFIG: Record<string, { title: string; subtitle?: string; items: any[] }> = {
+          supportStaff: { title: "Funcionários de Suporte", subtitle: "Dona da Plataforma (root)", items: globalStats?.supportStaff || [] },
+          academicManagers: { title: "Gestores Académicos", subtitle: "Administração do Ensino", items: globalStats?.academicManagers || [] },
+          professors: { title: "Professores", subtitle: "Docência e Avaliação", items: globalStats?.professors || [] },
+          trainers: { title: "Formadores", items: globalStats?.trainers || [] },
+          tutors: { title: "Tutores", items: globalStats?.tutors || [] },
+          finance: { title: "Financeiro", items: globalStats?.finance || [] },
+        };
+
+        if (activeDetail === "bottlenecks") {
+          return (
+            <DetailModal
+              title="Gargalos Críticos"
+              subtitle="Lições com mais colaboradores parados ('in-progress') do que concluídos"
+              items={bottlenecks}
+              columns={[{ key: "lessonTitle", label: "Lição" }, { key: "stalledCount", label: "Colaboradores Parados", align: "right" }] as DetailModalColumn[]}
+              onClose={() => setActiveDetail(null)}
+            />
+          );
+        }
+
+        const config = DETAIL_CONFIG[activeDetail];
+        if (!config) return null;
+        return (
+          <DetailModal
+            title={config.title}
+            subtitle={config.subtitle}
+            items={config.items}
+            columns={[{ key: "name", label: "Nome" }, { key: "email", label: "E-mail" }] as DetailModalColumn[]}
+            onClose={() => setActiveDetail(null)}
+          />
+        );
+      })()}
 
       {/* COURSE ASSIGNMENT MODAL OVERLAY */}
       {selectedStudent && (

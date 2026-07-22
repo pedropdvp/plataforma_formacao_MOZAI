@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { CourseEditModal } from "@/components/ui/course-edit-modal";
 import {
   Sparkles,
   FileText,
@@ -18,7 +21,8 @@ import {
   UploadCloud,
   ChevronRight,
   ChevronDown,
-  Edit2
+  Edit2,
+  Eye
 } from "lucide-react";
 
 type Step = "BRIEF" | "OUTLINE" | "GENERATION" | "REVIEW";
@@ -64,6 +68,9 @@ export default function ContentFactoryPage() {
   const [reviewingAction, setReviewingAction] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const { showToast } = useToast();
+  const confirmDialog = useConfirm();
+  const router = useRouter();
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
 
   // --- HISTORY STATE ---
   const [savedCourses, setSavedCourses] = useState<any[]>([]);
@@ -89,6 +96,29 @@ export default function ContentFactoryPage() {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  const handleDeleteCourse = async (course: any) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar Curso",
+      message: `Tem a certeza que deseja apagar "${course.title}"? Esta ação é irreversível.`,
+      confirmLabel: "Apagar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/courses/review?courseId=${course._id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Curso apagado com sucesso.", "success");
+        fetchHistory();
+      } else {
+        showToast(data.error || "Erro ao apagar curso.", "error");
+      }
+    } catch (err) {
+      showToast("Erro de comunicação ao apagar curso.", "error");
+    }
+  };
 
   // Polling para progresso de geração
   useEffect(() => {
@@ -607,13 +637,14 @@ export default function ContentFactoryPage() {
                     <input
                       type="file"
                       multiple
+                      accept=".txt,.md,.pdf,.pptx"
                       onChange={handleFileUpload}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                       disabled={uploading}
                     />
                     <UploadCloud className="h-8 w-8 text-slate-500 mx-auto mb-2" />
                     <span className="block text-xs font-bold text-slate-300">Arraste arquivos ou clique para fazer upload</span>
-                    <span className="text-[10px] text-slate-500 block mt-1">Suporta .txt, .md, .pdf (apenas arquivos com texto legível)</span>
+                    <span className="text-[10px] text-slate-500 block mt-1">Suporta .txt, .md, .pdf e .pptx — texto e imagens são extraídos automaticamente</span>
                   </div>
 
                   {attachments.length > 0 && (
@@ -670,7 +701,7 @@ export default function ContentFactoryPage() {
                   savedCourses.map((c) => (
                     <div
                       key={c._id}
-                      className="p-3 rounded-xl border border-slate-900 bg-slate-950/40 hover:border-slate-800 text-slate-400 flex items-center justify-between"
+                      className="p-3 rounded-xl border border-slate-900 bg-slate-950/40 hover:border-slate-800 text-slate-400 flex items-center justify-between gap-2 no-3d-effect"
                     >
                       <div className="flex flex-col min-w-0 pr-2">
                         <span className="font-bold text-xs truncate text-slate-200">{c.title}</span>
@@ -678,6 +709,30 @@ export default function ContentFactoryPage() {
                           <Layers className="h-3 w-3" />
                           {c.lessonsCount} lições • {c.minutes}m
                         </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => router.push(`/dashboard/courses/${c._id}/lessons/${c.firstLesson}`)}
+                          disabled={!c.firstLesson}
+                          title="Visualizar"
+                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingCourseId(c._id)}
+                          title="Editar"
+                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCourse(c)}
+                          title="Apagar"
+                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-rose-455 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))
@@ -1085,6 +1140,17 @@ export default function ContentFactoryPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingCourseId && (
+        <CourseEditModal
+          courseId={editingCourseId}
+          onClose={() => setEditingCourseId(null)}
+          onSaved={() => {
+            setEditingCourseId(null);
+            fetchHistory();
+          }}
+        />
       )}
 
       <style jsx global>{`

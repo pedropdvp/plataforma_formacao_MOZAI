@@ -26,6 +26,7 @@ const INITIAL_LIVES: LiveSession[] = [
 ];
 
 export default function LiveClassesPage() {
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<LiveSession[]>(INITIAL_LIVES);
 
   return (
@@ -111,7 +112,7 @@ export default function LiveClassesPage() {
                 </span>
 
                 <button
-                  onClick={() => alert(`Inscrição confirmada na sessão do dia ${session.date}!`)}
+                  onClick={() => showToast(`Inscrição confirmada na sessão do dia ${session.date}!`, "success")}
                   className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/10"
                 >
                   <Bell className="h-3.5 w-3.5" />

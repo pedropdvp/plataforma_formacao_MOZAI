@@ -769,3 +769,49 @@ html.light .ai-tutor-user-avatar {
   color: #334155 !important;
 }
 
+/* ==========================================
+   EFEITO 3D + BORDA NOS CARDS (TODA A PLATAFORMA)
+   ========================================== */
+
+div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect) {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.35), 0 4px 8px -2px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+  position: relative;
+}
+
+/* Modo Escuro: borda fina azul clara */
+html:not(.light) div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+html:not(.light) div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+html:not(.light) div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect) {
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+html:not(.light) div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+html:not(.light) div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+html:not(.light) div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover {
+  border-color: rgba(96, 165, 250, 0.6) !important;
+}
+
+/* Modo Claro: borda fina azul escura */
+html.light div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+html.light div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect),
+html.light div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect) {
+  border-color: #1d4ed8 !important;
+}
+
+html.light div[class*="rounded-xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+html.light div[class*="rounded-2xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover,
+html.light div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-effect):hover {
+  border-color: #1e40af !important;
+}
+

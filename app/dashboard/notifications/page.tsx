@@ -42,12 +42,13 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export default function NotificationsPage() {
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [activeMode, setActiveMode] = useState(false);
 
   const handleToggleNotifications = () => {
     setActiveMode((prev) => !prev);
-    alert(activeMode ? "Notificações do sistema desativadas." : "Notificações ativadas! Receberá alertas em tempo real.");
+    showToast(activeMode ? "Notificações do sistema desativadas." : "Notificações ativadas! Receberá alertas em tempo real.", "success");
   };
 
   const handleMarkAllRead = () => {

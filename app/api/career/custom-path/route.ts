@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
-import { generateObject } from "ai";
+import { generateObject, jsonSchema } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { logAuditEvent } from "@/lib/audit";
@@ -36,6 +36,72 @@ const hybridPathSchema = z.object({
     })
   ),
 });
+
+// Schema JSON escrito à mão (em vez de deixar a conversão automática Zod→JSON-Schema tratar
+// dos 3 níveis de arrays aninhados: modules → lessons → exercises). A conversão automática desta
+// versão do SDK ("ai"@7 + "@ai-sdk/openai"@4) perde chaves do `required` nesse nível de profundidade,
+// causando o erro "Missing 'catalogCourseId'" da OpenAI (que exige `required` completo em modo estrito).
+// Escrever o schema à mão garante `required`/`additionalProperties: false` corretos em todos os níveis,
+// mantendo a validação e a tipagem via Zod (`validate`).
+const hybridPathJsonSchema = jsonSchema<z.infer<typeof hybridPathSchema>>(
+  {
+    type: "object",
+    properties: {
+      title: { type: "string", description: "Título do curso personalizado à medida" },
+      description: { type: "string", description: "Descrição explicativa de como este percurso atende aos objetivos do aluno" },
+      modules: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            title: { type: "string", description: "Título do módulo" },
+            order: { type: "number", description: "Ordem (1-indexed)" },
+            lessons: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string", description: "Título da lição" },
+                  isCatalogRef: { type: "boolean", description: "true se for uma aula já existente no catálogo, false se for uma lição gerada para preencher lacuna" },
+                  catalogCourseId: { type: "string", description: "ID do curso no catálogo. Obrigatório se isCatalogRef for true, caso contrário devolver string vazia." },
+                  catalogLessonId: { type: "string", description: "ID da lição no catálogo. Obrigatório se isCatalogRef for true, caso contrário devolver string vazia." },
+                  content: { type: "string", description: "Explicação teórica completa em Markdown. Obrigatória se isCatalogRef for false, descrição curta se for aula do catálogo." },
+                  exercises: {
+                    type: "array",
+                    description: "Exercícios rápidos. Obrigatório se for aula nova gerada, array vazio se for referência do catálogo.",
+                    items: {
+                      type: "object",
+                      properties: {
+                        question: { type: "string" },
+                        options: { type: "array", items: { type: "string" } },
+                        correctIndex: { type: "number" },
+                      },
+                      required: ["question", "options", "correctIndex"],
+                      additionalProperties: false,
+                    },
+                  },
+                  lab: { type: "string", description: "Laboratório de código prático. Obrigatório se for aula nova gerada, string vazia se for referência do catálogo." },
+                },
+                required: ["title", "isCatalogRef", "catalogCourseId", "catalogLessonId", "content", "exercises", "lab"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["title", "order", "lessons"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["title", "description", "modules"],
+    additionalProperties: false,
+  },
+  {
+    validate: (value) => {
+      const result = hybridPathSchema.safeParse(value);
+      return result.success ? { success: true, value: result.data } : { success: false, error: result.error };
+    },
+  }
+);
 
 export async function POST(req: NextRequest) {
   try {
@@ -97,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),
-      schema: hybridPathSchema,
+      schema: hybridPathJsonSchema,
       prompt,
     });
 

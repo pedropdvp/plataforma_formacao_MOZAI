@@ -1,6 +1,7 @@
 "use client";
 
 import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -29,10 +30,18 @@ const ACADEMY_COURSES: AcademyCourse[] = [
 
 export default function MozaiAcademyPage() {
   const { showToast } = useToast();
+  const confirmDialog = useConfirm();
   const [subActive, setSubActive] = useState(true);
 
-  const handleCancelSub = () => {
-    if (confirm("Tem a certeza de que deseja cancelar a sua subscrição?")) {
+  const handleCancelSub = async () => {
+    const confirmed = await confirmDialog({
+      title: "Cancelar Subscrição",
+      message: "Tem a certeza de que deseja cancelar a sua subscrição?",
+      confirmLabel: "Cancelar Subscrição",
+      cancelLabel: "Manter Subscrição",
+      destructive: true,
+    });
+    if (confirmed) {
       setSubActive(false);
       showToast("A subscrição foi agendada para cancelamento. Terá acesso até ao final do período pago.", "info");
     }

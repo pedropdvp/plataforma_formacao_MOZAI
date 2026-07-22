@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PortableText, PortableTextComponents } from "@portabletext/react";
 import AiTutorSidebar from "@/components/ai-tutor-sidebar";
 import LessonFooter from "@/components/lesson-footer";
-import { sanityClient, GET_COURSE_BY_ID_QUERY, GET_LESSON_QUERY } from "@/lib/sanity";
+import { sanityClient, urlFor, GET_COURSE_BY_ID_QUERY, GET_LESSON_QUERY } from "@/lib/sanity";
 import { ArrowLeft, Play, FileText, ExternalLink, CheckCircle2, ShieldAlert } from "lucide-react";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
@@ -67,8 +67,27 @@ const ptComponents: PortableTextComponents = {
         <code>{value?.code}</code>
       </pre>
     ),
+    // Imagens nativas do Sanity (Portable Text, campo "content" dos cursos curados no Studio)
+    image: ({ value }) => (
+      <img
+        src={urlFor(value).width(900).url()}
+        alt={value?.alt || ""}
+        className="rounded-2xl border border-slate-800 max-w-full h-auto"
+      />
+    ),
+    // Imagens extraídas de PDF/PPTX e embutidas em base64 nas lições geradas por IA (MongoDB)
+    customImage: ({ value }) => (
+      <img
+        src={value?.url}
+        alt={value?.alt || "Imagem do material original"}
+        className="rounded-2xl border border-slate-800 max-w-full h-auto"
+      />
+    ),
   },
 };
+
+// Deteta uma tag markdown de imagem isolada num parágrafo: ![alt](data:image/...;base64,...)
+const MARKDOWN_IMAGE_RE = /^!\[([^\]]*)\]\((data:image\/[a-zA-Z0-9+.-]+;base64,[^)]+)\)$/;
 
 interface LessonPageProps {
   params: Promise<{ courseId: string; lessonId: string }>;
@@ -243,16 +262,23 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
     // Converter o texto gerado da lição (plain string) para blocos Portable Text simulados
     const plainText = activeLesson?.content || "Conteúdo desta lição está a ser gerado.";
-    const blocks = plainText.split("\n\n").map((para: string) => ({
-      _type: "block",
-      style: "normal",
-      children: [
-        {
-          _type: "span",
-          text: para,
-        }
-      ]
-    }));
+    const blocks = plainText.split("\n\n").map((para: string) => {
+      const trimmed = para.trim();
+      const imageMatch = trimmed.match(MARKDOWN_IMAGE_RE);
+      if (imageMatch) {
+        return { _type: "customImage", alt: imageMatch[1], url: imageMatch[2] };
+      }
+      return {
+        _type: "block",
+        style: "normal",
+        children: [
+          {
+            _type: "span",
+            text: para,
+          }
+        ]
+      };
+    });
 
     return (
       <LessonShell

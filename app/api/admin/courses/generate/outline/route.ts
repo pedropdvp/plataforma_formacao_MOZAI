@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
     // 1. Extrair RAG dos materiais caso fornecido briefingId
     let contextTexts: string[] = [];
     if (briefingId) {
-      contextTexts = await searchUploadedMaterials(briefingId, topic, 4);
+      const contextChunks = await searchUploadedMaterials(briefingId, topic, 4);
+      contextTexts = contextChunks.map((c) => c.content);
     }
 
     // 2. Gerar Outline usando OpenAI

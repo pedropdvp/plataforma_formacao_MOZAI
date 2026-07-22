@@ -26,17 +26,41 @@ export async function GET(req: NextRequest) {
     const payments = await db.collection("payments").find({ tenant_id: tenantId }).toArray();
     let totalRevenue = payments.reduce((acc: number, p: any) => acc + (p.amount || 0), 0);
 
-    // Se estiver vazio (semeadura simulada para visualização rica no painel)
-    if (payments.length === 0) {
-      totalRevenue = tenantId === "root" ? 14950.00 : 2450.00;
-    }
-
     // 2. Inscrições: Alunos cadastrados no tenant
     const allUsers = await db.collection("users").find({}).toArray();
     const tenantUsers = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.tenantId === tenantId && t.roles.includes("ALUNO"))
     );
     const totalEnrollments = tenantUsers.length || 12; // Fallback rico
+
+    const findUserName = (userId: string) => {
+      const u = allUsers.find((x: any) => x._id === userId);
+      return u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email : "Aluno Individual";
+    };
+    const findUserEmail = (userId: string) => {
+      const u = allUsers.find((x: any) => x._id === userId);
+      return u?.email || "-";
+    };
+
+    // Receita detalhada por aluno (para drill-down "Ver por aluno")
+    let revenueByStudent = payments.map((p: any) => ({
+      name: findUserName(p.userId),
+      email: findUserEmail(p.userId),
+      amount: `${(p.amount || 0).toFixed(2)} €`
+    }));
+
+    // Se estiver vazio (semeadura simulada para visualização rica no painel)
+    if (payments.length === 0) {
+      totalRevenue = tenantId === "root" ? 14950.00 : 2450.00;
+      revenueByStudent = tenantUsers.slice(0, 5).map((u: any, idx: number) => ({
+        name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email,
+        email: u.email,
+        amount: `${(totalRevenue / Math.max(Math.min(tenantUsers.length, 5), 1)).toFixed(2)} €`
+      }));
+      if (revenueByStudent.length === 0) {
+        revenueByStudent = [{ name: "Sem pagamentos registados", email: "-", amount: `${totalRevenue.toFixed(2)} €` }];
+      }
+    }
 
     // 3. Conclusões: Cursos finalizados (todas as lições como completed)
     // Vamos buscar os registros de user_progress
@@ -57,8 +81,26 @@ export async function GET(req: NextRequest) {
       totalCompletions += completedMap[uId].size;
     });
 
+    // Lista de cursos concluídos, agrupada por curso (para drill-down "Taxa de Conclusão")
+    const completionsByCourse: Record<string, number> = {};
+    Object.values(completedMap).forEach((courseSet) => {
+      courseSet.forEach((courseId) => {
+        completionsByCourse[courseId] = (completionsByCourse[courseId] || 0) + 1;
+      });
+    });
+    let completedCourses = Object.entries(completionsByCourse).map(([courseId, completions]) => ({
+      courseId,
+      courseTitle: courseId,
+      completions
+    }));
+
     if (totalCompletions === 0) {
       totalCompletions = Math.round(totalEnrollments * 0.35) || 4; // Taxa média de conclusão simulada
+      completedCourses = [
+        { courseId: "course-1", courseTitle: "Engenharia de IA e RAG Avançado", completions: Math.max(Math.round(totalCompletions * 0.5), 1) },
+        { courseId: "course-2", courseTitle: "Next.js 16 e Arquiteturas Composable SaaS", completions: Math.max(Math.round(totalCompletions * 0.3), 1) },
+        { courseId: "course-3", courseTitle: "Smart Contracts e Criptografia com Solidity", completions: Math.max(totalCompletions - Math.round(totalCompletions * 0.8), 1) },
+      ];
     }
 
     // 4. Pontos de abandono por lição (Lesson dropoffs)
@@ -90,20 +132,44 @@ export async function GET(req: NextRequest) {
       console.warn("Erro ao obter títulos de lições no Sanity para dropoffs:", e);
     }
 
+    // Títulos de cursos concluídos (Sanity), se existirem registos reais
+    if (completedCourses.length > 0 && totalCompletions > 0) {
+      try {
+        const sanityCourses = await sanityClient.fetch(`*[_type == "course"]{ _id, title }`);
+        if (Array.isArray(sanityCourses)) {
+          const courseTitles: Record<string, string> = {};
+          sanityCourses.forEach((c: any) => { courseTitles[c._id] = c.title; });
+          completedCourses = completedCourses.map((c) => ({ ...c, courseTitle: courseTitles[c.courseId] || c.courseId }));
+        }
+      } catch (e) {
+        console.warn("Erro ao obter títulos de cursos no Sanity para conclusões:", e);
+      }
+    }
+
     const dropoffs = Object.entries(dropoffCounts)
       .map(([lessonId, count]) => ({
         lessonId,
         title: lessonsTitles[lessonId] || lessonId,
         count,
+        students: inProgressList
+          .filter((p: any) => p.lessonId === lessonId)
+          .map((p: any) => ({ name: findUserName(p.userId), email: findUserEmail(p.userId) }))
       }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
     // Dados simulados ricos para dropoffs se a base estiver vazia
     const finalDropoffs = dropoffs.length > 0 ? dropoffs : [
-      { lessonId: "lesson-1-2", title: "Definição de Cripto", count: 8 },
-      { lessonId: "lesson-1-3", title: "Blockchain e Consenso", count: 5 },
-      { lessonId: "lesson-2-1", title: "Mapeamento Digital Twin", count: 3 },
+      { lessonId: "lesson-1-2", title: "Definição de Cripto", count: 8, students: [
+        { name: "Ana Costa", email: "ana.costa@mozai.pt" },
+        { name: "João Silva", email: "joao.silva@mozai.pt" },
+      ] },
+      { lessonId: "lesson-1-3", title: "Blockchain e Consenso", count: 5, students: [
+        { name: "Mariana Ferreira", email: "mariana.ferreira@mozai.pt" },
+      ] },
+      { lessonId: "lesson-2-1", title: "Mapeamento Digital Twin", count: 3, students: [
+        { name: "Rui Almeida", email: "rui.almeida@mozai.pt" },
+      ] },
     ];
 
     // Tendências mensais fictícias para gráficos de receita e inscrições
@@ -129,6 +195,8 @@ export async function GET(req: NextRequest) {
         totalCompletions,
         revenueTrend,
         enrollmentTrend,
+        revenueByStudent,
+        completedCourses,
         dropoffs: finalDropoffs,
       },
     });

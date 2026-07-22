@@ -6,10 +6,11 @@ import React, { useState } from "react";
 import { Cpu, Zap, ShoppingBag, ArrowRight } from "lucide-react";
 
 export default function AiCreditsPage() {
+  const { showToast } = useToast();
   const [credits, setCredits] = useState(150);
 
   const handleBuyCredits = (amount: number, price: string) => {
-    alert(`Compra de ${amount} créditos IA iniciada no valor de ${price}.`);
+    showToast(`Compra de ${amount} créditos IA iniciada no valor de ${price}.`, "success");
     setCredits((prev) => prev + amount);
   };
 

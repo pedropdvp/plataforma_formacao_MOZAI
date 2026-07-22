@@ -20,6 +20,8 @@ const INVOICES: PaymentInvoice[] = [
 ];
 
 export default function PaymentsPage() {
+  const { showToast } = useToast();
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -58,7 +60,7 @@ export default function PaymentsPage() {
                 </span>
                 
                 <button
-                  onClick={() => alert(`A descarregar PDF da fatura ${inv.id}...`)}
+                  onClick={() => showToast(`A descarregar PDF da fatura ${inv.id}...`, "info")}
                   className="p-2 rounded-xl bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white border border-slate-900 transition-colors"
                   title="Descarregar Fatura"
                 >

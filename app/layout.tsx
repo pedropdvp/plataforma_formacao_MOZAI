@@ -22,6 +22,7 @@ import { AccessProvider } from "@/hooks/use-access";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/hooks/use-language";
 import { ToastProvider } from "@/components/ui/toast-provider";
+import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 
 export default function RootLayout({
   children,
@@ -52,7 +53,9 @@ export default function RootLayout({
             <ThemeProvider>
               <AccessProvider>
                 <ToastProvider>
-                  {children}
+                  <ConfirmDialogProvider>
+                    {children}
+                  </ConfirmDialogProvider>
                 </ToastProvider>
               </AccessProvider>
             </ThemeProvider>

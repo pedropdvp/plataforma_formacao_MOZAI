@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
 import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
+import { DetailModal, DetailModalColumn } from "@/components/ui/detail-modal";
 
 interface Company {
   _id: string;
@@ -38,6 +39,7 @@ export default function TeachersReportPage() {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [generatedReport, setGeneratedReport] = useState<any[] | null>(null);
   const [teacherMetrics, setTeacherMetrics] = useState<any>(null);
+  const [activeDetail, setActiveDetail] = useState<"activeStudents" | "erroredQuestions" | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -152,7 +154,7 @@ export default function TeachersReportPage() {
           <button
             onClick={handleGenerateReport}
             disabled={loadingReport}
-            className="col-span-2 h-9 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+            className="col-span-2 h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
           >
             {loadingReport ? (
               <>
@@ -171,7 +173,7 @@ export default function TeachersReportPage() {
             onClick={() => {
               reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -183,7 +185,7 @@ export default function TeachersReportPage() {
           <button
             disabled={!generatedReport}
             onClick={handlePrint}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -205,7 +207,7 @@ export default function TeachersReportPage() {
               ]);
               await exportToXLSX(headers, rows, `relatorio_professores_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -227,7 +229,7 @@ export default function TeachersReportPage() {
               ]);
               await exportToCSV(headers, rows, `relatorio_professores_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -260,7 +262,10 @@ export default function TeachersReportPage() {
                     <span className="text-[10px] uppercase font-bold text-slate-500 block">Média Geral nos Quizzes</span>
                     <span className="text-lg font-extrabold text-emerald-400 print:text-black">{teacherMetrics.averageQuizScore}%</span>
                   </div>
-                  <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black">
+                  <div
+                    onClick={() => setActiveDetail("activeStudents")}
+                    className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black cursor-pointer hover:border-indigo-500/40 transition-colors"
+                  >
                     <span className="text-[10px] uppercase font-bold text-slate-500 block">Alunos Ativos no Período</span>
                     <span className="text-lg font-extrabold text-indigo-400 print:text-black">{teacherMetrics.activeStudentsCount} alunos</span>
                   </div>
@@ -272,7 +277,10 @@ export default function TeachersReportPage() {
 
                 {/* Questões com Mais Erros */}
                 {teacherMetrics.erroredQuestions?.length > 0 && (
-                  <div className="space-y-3 pt-2 print:hidden">
+                  <div
+                    onClick={() => setActiveDetail("erroredQuestions")}
+                    className="space-y-3 pt-2 print:hidden cursor-pointer hover:opacity-90 transition-opacity rounded-2xl"
+                  >
                     <span className="text-[10px] uppercase font-bold text-rose-400 flex items-center gap-1">
                       <AlertTriangle className="h-3.5 w-3.5" />
                       Questões Críticas (Mais Erros de Alunos)
@@ -338,6 +346,39 @@ export default function TeachersReportPage() {
         </div>
       )}
       </div>
+
+      {activeDetail === "activeStudents" && (
+        <DetailModal
+          title="Alunos Ativos no Período"
+          subtitle={`${teacherMetrics?.activeStudentsCount || 0} alunos com atividade registada (tentativas de quiz)`}
+          items={teacherMetrics?.activeStudents || []}
+          columns={[
+            { key: "name", label: "Nome" },
+            { key: "email", label: "E-mail" },
+          ] as DetailModalColumn[]}
+          onClose={() => setActiveDetail(null)}
+        />
+      )}
+
+      {activeDetail === "erroredQuestions" && (
+        <DetailModal
+          title="Questões Críticas (Mais Erros de Alunos)"
+          subtitle="Perguntas com maior número de respostas incorretas"
+          items={teacherMetrics?.erroredQuestions || []}
+          renderItem={(q: any, idx: number) => (
+            <div key={idx} className="p-3 bg-slate-950/60 rounded-xl border border-slate-900 space-y-1 no-3d-effect">
+              <div className="flex justify-between text-[11px] gap-3">
+                <span className="font-semibold text-slate-300">{q.questionText}</span>
+                <span className="text-rose-400 font-bold shrink-0">{q.count} erros</span>
+              </div>
+              <p className="text-[10px] text-slate-500">
+                <span className="text-emerald-500 font-medium">Resposta Correta:</span> {q.correctOption}
+              </p>
+            </div>
+          )}
+          onClose={() => setActiveDetail(null)}
+        />
+      )}
     </div>
   );
 }

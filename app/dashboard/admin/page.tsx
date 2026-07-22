@@ -1,6 +1,7 @@
 "use client";
 
 import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 import React, { useState, useEffect } from "react";
 import { 
@@ -21,6 +22,7 @@ interface Company {
 
 export default function AdminSettingsPage() {
   const { showToast } = useToast();
+  const confirmDialog = useConfirm();
   const { activeRole } = useAccess();
   const isGlobalAdmin = activeRole === "ADMIN" || activeRole === "SUPORTE";
 
@@ -139,7 +141,13 @@ export default function AdminSettingsPage() {
   };
 
   const handleDeleteCompany = async (companyId: string) => {
-    if (!confirm("Deseja mesmo eliminar esta empresa? Todos os acessos de funcionários e alunos, progressos e cursos atribuídos serão removidos de forma permanente.")) {
+    const confirmed = await confirmDialog({
+      title: "Eliminar Empresa",
+      message: "Deseja mesmo eliminar esta empresa? Todos os acessos de funcionários e alunos, progressos e cursos atribuídos serão removidos de forma permanente.",
+      confirmLabel: "Eliminar",
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -149,7 +157,7 @@ export default function AdminSettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Erro ao eliminar empresa.");
+        showToast(data.error || "Erro ao eliminar empresa.", "error");
       } else {
         if (editingCompanyId === companyId) {
           handleCancelEdit();

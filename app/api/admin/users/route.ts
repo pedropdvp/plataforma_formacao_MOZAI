@@ -102,13 +102,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const requestTenantId = req.headers.get("x-tenant-id") || "root";
     const body = await req.json();
-    const { name, email, role } = body; 
+    const { name, email, role, registerAsIndividual } = body;
 
     if (!name || !email || !role) {
       return NextResponse.json({ error: "Preencha todos os campos obrigatórios." }, { status: 400 });
     }
+
+    // Registo de Aluno Individual (sem empresa): fica associado ao tenant "root",
+    // independentemente da empresa em que o administrador está a operar no momento.
+    // Só ADMIN/SUPORTE podem criar alunos individuais (evita que um GESTOR_EMPRESA
+    // registe utilizadores fora do âmbito da sua própria empresa).
+    if (registerAsIndividual) {
+      if (role !== "ALUNO") {
+        return NextResponse.json({ error: "Só é possível registar Alunos como individuais." }, { status: 400 });
+      }
+      if (!["ADMIN", "SUPORTE"].includes(activeRole)) {
+        return NextResponse.json({ error: "Não tem permissões para registar um aluno individual." }, { status: 403 });
+      }
+    }
+    const tenantId = registerAsIndividual ? "root" : requestTenantId;
 
     const db = await getDb();
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { generateLesson, searchUploadedMaterials } from "@/lib/ai/generator-engine";
+import { generateLesson, searchUploadedMaterials, ContextChunk } from "@/lib/ai/generator-engine";
 import { logAuditEvent } from "@/lib/audit";
 
 export const maxDuration = 120; // Permitir processar
@@ -46,9 +46,9 @@ async function runBackgroundGeneration(
         );
 
         // 1. Pesquisa contextual RAG específica para os objetivos desta aula
-        let contextTexts: string[] = [];
+        let contextChunks: ContextChunk[] = [];
         if (brief.briefingId) {
-          contextTexts = await searchUploadedMaterials(brief.briefingId, `${les.title} ${les.objectives?.join(" ")}`, 4);
+          contextChunks = await searchUploadedMaterials(brief.briefingId, `${les.title} ${les.objectives?.join(" ")}`, 4);
         }
 
         // 2. Chamar LLM para gerar conteúdo explicativo, código, quiz, etc.
@@ -56,7 +56,7 @@ async function runBackgroundGeneration(
           { topic: brief.topic, level: brief.level, objectives: brief.objectives },
           les.title,
           les.objectives || [],
-          contextTexts
+          contextChunks
         );
 
         // 3. Estruturar lição gerada

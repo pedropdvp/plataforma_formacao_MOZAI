@@ -186,7 +186,7 @@ export default function StudentsReportPage() {
                   setGeneratedReport(null);
                 }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  reportType === "all" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                  reportType === "all" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-indigo-500/40"
                 }`}
               >
                 Todos os Alunos (Global)
@@ -199,10 +199,10 @@ export default function StudentsReportPage() {
                 setGeneratedReport(null);
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                reportType === "by_company" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                reportType === "by_company" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-indigo-500/40"
               }`}
             >
-              Alunos de uma Empresa
+              Alunos da Empresa
             </button>
 
             <button
@@ -211,10 +211,10 @@ export default function StudentsReportPage() {
                 setGeneratedReport(null);
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                reportType === "single_student" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                reportType === "single_student" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-indigo-500/40"
               }`}
             >
-              Um Aluno Específico
+              Aluno Específico
             </button>
 
             <button
@@ -223,10 +223,10 @@ export default function StudentsReportPage() {
                 setGeneratedReport(null);
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                reportType === "multiple_students" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                reportType === "multiple_students" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-indigo-500/40"
               }`}
             >
-              Lista de Alunos Escolhidos
+              Escolhe vários Alunos
             </button>
 
             <button
@@ -235,7 +235,7 @@ export default function StudentsReportPage() {
                 setGeneratedReport(null);
               }}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                reportType === "individual" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                reportType === "individual" ? "bg-indigo-600 text-white" : "bg-slate-900 text-slate-400 border border-slate-800 hover:text-white hover:border-indigo-500/40"
               }`}
             >
               Alunos Individuais
@@ -331,7 +331,7 @@ export default function StudentsReportPage() {
           <legend className="text-[10px] uppercase font-extrabold text-slate-400 px-2 tracking-wider">Relatório</legend>
           <button
             onClick={handleGenerateReport}
-            className="col-span-2 h-9 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            className="col-span-2 h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
           >
             <FileText className="h-4 w-4" />
             Gerar
@@ -341,7 +341,7 @@ export default function StudentsReportPage() {
             onClick={() => {
               reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -353,7 +353,7 @@ export default function StudentsReportPage() {
           <button
             disabled={!generatedReport}
             onClick={handlePrint}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -391,7 +391,7 @@ export default function StudentsReportPage() {
               });
               await exportToXLSX(headers, rows, `relatorio_alunos_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
@@ -429,7 +429,7 @@ export default function StudentsReportPage() {
               });
               await exportToCSV(headers, rows, `relatorio_alunos_${new Date().toISOString().split("T")[0]}`);
             }}
-            className={`h-9 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+            className={`h-9 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
               generatedReport
                 ? "bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer"
                 : "bg-slate-800/50 text-slate-500 border border-slate-850 cursor-not-allowed opacity-40"
