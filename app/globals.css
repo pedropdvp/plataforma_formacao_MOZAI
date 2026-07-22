@@ -699,6 +699,24 @@ html.light .menu-group-container.group-relatorios.active {
   background-color: rgba(13, 148, 136, 0.08) !important;
 }
 
+/* 8. ADMINISTRAÇÃO (Orange Theme) */
+html:not(.light) .menu-group-container.group-administracao {
+  border-color: rgba(251, 146, 60, 0.15) !important;
+  background-color: transparent !important;
+}
+html:not(.light) .menu-group-container.group-administracao.active {
+  border-color: rgba(251, 146, 60, 0.5) !important;
+  background-color: rgba(251, 146, 60, 0.12) !important;
+}
+html.light .menu-group-container.group-administracao {
+  border-color: rgba(234, 88, 12, 0.15) !important;
+  background-color: transparent !important;
+}
+html.light .menu-group-container.group-administracao.active {
+  border-color: rgba(234, 88, 12, 0.4) !important;
+  background-color: rgba(234, 88, 12, 0.08) !important;
+}
+
 /* Distinct Header text and icon colors for each group */
 .group-aprendizagem button.group-header-btn,
 .group-aprendizagem button.group-header-btn svg {
@@ -761,6 +779,15 @@ html.light .group-suporte button.group-header-btn svg {
 html.light .group-relatorios button.group-header-btn,
 html.light .group-relatorios button.group-header-btn svg {
   color: #0d9488 !important; /* Teal text/icon in light mode */
+}
+
+.group-administracao button.group-header-btn,
+.group-administracao button.group-header-btn svg {
+  color: #fb923c !important; /* Orange text/icon in dark mode */
+}
+html.light .group-administracao button.group-header-btn,
+html.light .group-administracao button.group-header-btn svg {
+  color: #ea580c !important; /* Orange text/icon in light mode */
 }
 
 /* Correção do avatar do utilizador no Tutor de IA em Modo Claro */

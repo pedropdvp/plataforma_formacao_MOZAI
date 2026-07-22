@@ -35,7 +35,9 @@ import {
   FileText,
   Building,
   Activity,
-  Briefcase
+  Briefcase,
+  ShieldCheck,
+  Database
 } from "lucide-react";
 
 export default function SidebarNav() {
@@ -51,6 +53,7 @@ export default function SidebarNav() {
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [guiasOpen, setGuiasOpen] = useState(true);
   const [relatoriosOpen, setRelatoriosOpen] = useState(true);
+  const [administracaoOpen, setAdministracaoOpen] = useState(true);
 
   // Helper para verificar se a rota está ativa
   const isActive = (path: string) => pathname === path;
@@ -113,6 +116,10 @@ export default function SidebarNav() {
     "/dashboard/reports/employees",
     "/dashboard/reports/teachers",
     "/dashboard/personal/history"
+  ].some(path => pathname === path || pathname.startsWith(path + "/"));
+
+  const isAdministracaoActive = [
+    "/dashboard/admin/backups"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const linkClass = (path: string) =>
@@ -466,6 +473,36 @@ export default function SidebarNav() {
               <Link href="/dashboard/reports/teachers" className={linkClass("/dashboard/reports/teachers")}>
                 <GraduationCap className="h-4 w-4 text-cyan-400" />
                 {t("nav_rep_teachers", "Professores")}
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Agrupador: ADMINISTRAÇÃO — só visível para ADMIN ou SUPORTE (ações sensíveis/destrutivas) */}
+      {(activeRole === "ADMIN" || activeRole === "SUPORTE") && (
+        <div className={`menu-group-container group-administracao space-y-1.5 ${isAdministracaoActive ? "active" : ""}`}>
+          <button
+            onClick={() => setAdministracaoOpen(!administracaoOpen)}
+            className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="h-4 w-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
+              <span>{t("nav_administracao_group", "Administração")}</span>
+            </div>
+            {administracaoOpen ? (
+              <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
+            )}
+          </button>
+
+          {sidebarSection(
+            administracaoOpen,
+            <>
+              <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
+                <Database className="h-4 w-4 text-orange-400" />
+                {t("nav_backup_restore", "Backup & Restore")}
               </Link>
             </>
           )}
