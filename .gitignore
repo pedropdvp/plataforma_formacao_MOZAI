@@ -43,5 +43,5 @@ next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 
-.vercel
-.env*
+# database backups (contain user PII — never commit)
+/backups/
