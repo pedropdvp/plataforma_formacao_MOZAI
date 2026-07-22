@@ -370,7 +370,7 @@ export default function SidebarNav() {
             <SecureRender requiredPermission="COURSES_CREATE">
               <Link href="/dashboard/admin/content-factory" className={linkClass("/dashboard/admin/content-factory")}>
                 <Settings className="h-4 w-4 text-violet-400" />
-                {t("nav_content_factory", "Content Factory (IA)")}
+                {t("nav_content_factory", "Fábrica de Cursos (IA)")}
               </Link>
             </SecureRender>
             <SecureRender requiredPermission="PAYMENTS_MANAGE">
