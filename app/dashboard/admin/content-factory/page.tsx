@@ -650,7 +650,7 @@ export default function ContentFactoryPage() {
               <form onSubmit={handleBriefSubmit} className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-400">Tema do Curso</label>
+                    <label className="text-xs font-medium text-slate-300">Tema do Curso</label>
                     <input
                       type="text"
                       value={topic}
@@ -662,7 +662,7 @@ export default function ContentFactoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-400">Nível do Curso</label>
+                    <label className="text-xs font-medium text-slate-300">Nível do Curso</label>
                     <select
                       value={level}
                       onChange={(e) => setLevel(e.target.value)}
@@ -677,7 +677,7 @@ export default function ContentFactoryPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-400">Duração Planeada</label>
+                    <label className="text-xs font-medium text-slate-300">Duração Planeada</label>
                     <input
                       type="text"
                       value={duration}
@@ -688,7 +688,7 @@ export default function ContentFactoryPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-400">Público-alvo</label>
+                    <label className="text-xs font-medium text-slate-300">Público-alvo</label>
                     <input
                       type="text"
                       value={targetAudience}
@@ -700,7 +700,7 @@ export default function ContentFactoryPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-400">Objetivos Pedagógicos</label>
+                  <label className="text-xs font-medium text-slate-300">Objetivos Pedagógicos</label>
                   <textarea
                     value={objectives}
                     onChange={(e) => setObjectives(e.target.value)}
@@ -711,7 +711,7 @@ export default function ContentFactoryPage() {
 
                 {/* File Attachment Area */}
                 <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-6 space-y-4">
-                  <span className="text-xs font-semibold text-slate-400 block">Anexar Materiais Auxiliares (PDFs, Slides, Artigos)</span>
+                  <span className="text-xs font-semibold text-slate-300 block">Anexar Materiais Auxiliares (PDFs, Slides, Artigos)</span>
                   <div className="border-2 border-dashed border-slate-800 rounded-xl p-6 text-center hover:border-indigo-500/50 transition-colors relative cursor-pointer">
                     <input
                       type="file"
@@ -723,7 +723,7 @@ export default function ContentFactoryPage() {
                     />
                     <UploadCloud className="h-8 w-8 text-slate-500 mx-auto mb-2" />
                     <span className="block text-xs font-bold text-slate-300">Arraste arquivos ou clique para fazer upload</span>
-                    <span className="text-[10px] text-slate-500 block mt-1">Suporta .txt, .md, .pdf, .pptx e .docx — texto e imagens são extraídos automaticamente</span>
+                    <span className="text-[10px] text-slate-400 block mt-1">Suporta .txt, .md, .pdf, .pptx e .docx — texto e imagens são extraídos automaticamente</span>
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-3">
@@ -739,7 +739,7 @@ export default function ContentFactoryPage() {
                         type="button"
                         onClick={handleImportUrl}
                         disabled={importingUrl || !urlInput.trim()}
-                        className="h-9 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-bold flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                        className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold flex items-center gap-1.5 disabled:bg-slate-800 disabled:text-slate-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
                       >
                         {importingUrl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
                         Importar Site
@@ -757,7 +757,7 @@ export default function ContentFactoryPage() {
                         type="button"
                         onClick={handleImportYoutube}
                         disabled={importingYoutube || !youtubeInput.trim()}
-                        className="h-9 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-bold flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                        className="h-9 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold flex items-center gap-1.5 disabled:bg-slate-800 disabled:text-slate-500 cursor-pointer disabled:cursor-not-allowed shrink-0"
                       >
                         {importingYoutube ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SquarePlay className="h-3.5 w-3.5" />}
                         Importar Transcrição
@@ -775,7 +775,7 @@ export default function ContentFactoryPage() {
                               <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
                               {file.name}
                             </span>
-                            {file.size > 0 && <span className="text-[10px] text-slate-500 shrink-0">{(file.size / 1024).toFixed(1)} KB</span>}
+                            {file.size > 0 && <span className="text-[10px] text-slate-400 shrink-0">{(file.size / 1024).toFixed(1)} KB</span>}
                           </div>
                         );
                       })}

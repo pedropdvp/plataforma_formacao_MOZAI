@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb";
 import { put } from "@vercel/blob";
 import { generateLesson, generateLessonImage, searchUploadedMaterials, ContextChunk } from "@/lib/ai/generator-engine";
 import { logAuditEvent } from "@/lib/audit";
-import { newBlockId } from "@/lib/lesson-blocks";
+import { LessonBlock, blocksToPlainText, newBlockId } from "@/lib/lesson-blocks";
 
 /**
  * Converte um data URI base64 (imagem gerada por IA) num blob público persistente,
@@ -40,6 +40,42 @@ async function persistGeneratedImage(dataUrl: string, tenantId: string, userId: 
   }
 }
 
+/**
+ * Substitui blocos de imagem com data URIs base64 (vindos do RAG do PDF/PPTX) por
+ * URLs reais no Vercel Blob. Sem isto, imagens grandes/numerosas ficam embutidas em
+ * base64 diretamente no documento MongoDB do curso — com um PPTX rico em imagens,
+ * a soma de todas as lições facilmente ultrapassa limites internos de buffer do
+ * driver do Mongo, causando erros como "offset is out of range" ao gravar o curso.
+ * `cache` evita re-carregar a mesma imagem quando é partilhada por várias lições
+ * (o mesmo slide pode ser relevante para o RAG de mais do que uma lição).
+ */
+async function resolveImageBlocks(
+  blocks: LessonBlock[],
+  cache: Map<string, string>,
+  tenantId: string,
+  userId: string,
+  label: string
+): Promise<LessonBlock[]> {
+  const resolved: LessonBlock[] = [];
+  for (const block of blocks) {
+    if (block.type === "image" && block.url && block.url.startsWith("data:")) {
+      let blobUrl = cache.get(block.url);
+      if (!blobUrl) {
+        const uploaded = await persistGeneratedImage(block.url, tenantId, userId, label);
+        if (uploaded) {
+          blobUrl = uploaded;
+          cache.set(block.url, uploaded);
+        }
+      }
+      // Se o upload falhar, descarta o bloco em vez de gravar um base64 gigante no Mongo.
+      if (blobUrl) resolved.push({ ...block, url: blobUrl });
+      continue;
+    }
+    resolved.push(block);
+  }
+  return resolved;
+}
+
 export const maxDuration = 120; // Permitir processar
 
 // Função em background assíncrona para geração lição a lição
@@ -60,6 +96,8 @@ async function runBackgroundGeneration(
     let currentIdx = 0;
 
     const completedModules = [];
+    // Partilhado entre lições: evita re-carregar a mesma imagem do RAG mais do que uma vez.
+    const imageUploadCache = new Map<string, string>();
 
     for (const mod of outlineModules) {
       const completedLessons = [];
@@ -94,7 +132,9 @@ async function runBackgroundGeneration(
           contextChunks
         );
 
-        let blocks = lessonDetails.blocks;
+        // Substituir imagens base64 do RAG (PDF/PPTX) por URLs reais no Blob — nunca
+        // gravar base64 grande diretamente no documento MongoDB do curso.
+        let blocks = await resolveImageBlocks(lessonDetails.blocks, imageUploadCache, tenantId, userId, les.title);
 
         // Se não havia nenhuma imagem nos materiais anexados (RAG), gerar uma
         // ilustração por IA para acompanhar a lição — evita gerar imagens
@@ -112,13 +152,15 @@ async function runBackgroundGeneration(
           }
         }
 
-        // 3. Estruturar lição gerada
+        // 3. Estruturar lição gerada — recalcular 'content' a partir dos blocks já
+        // resolvidos (sem base64), já que lessonDetails.content ainda tem as imagens
+        // originais embutidas em base64 (foi calculado antes de resolveImageBlocks).
         completedLessons.push({
           id: `lesson-${mod.order}-${completedLessons.length + 1}`,
           slug: `les-${mod.order}-${completedLessons.length + 1}-${les.title.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 30)}`,
           title: les.title,
           objectives: les.objectives || [],
-          content: lessonDetails.content,
+          content: blocksToPlainText(blocks),
           blocks,
           videoProvider: lessonDetails.videoProvider || "youtube",
           videoId: lessonDetails.videoId || "",
