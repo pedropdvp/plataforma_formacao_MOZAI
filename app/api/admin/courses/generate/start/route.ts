@@ -2,8 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { generateLesson, searchUploadedMaterials, ContextChunk } from "@/lib/ai/generator-engine";
+import { put } from "@vercel/blob";
+import { generateLesson, generateLessonImage, searchUploadedMaterials, ContextChunk } from "@/lib/ai/generator-engine";
 import { logAuditEvent } from "@/lib/audit";
+import { newBlockId } from "@/lib/lesson-blocks";
+
+/**
+ * Converte um data URI base64 (imagem gerada por IA) num blob público persistente,
+ * registando-o também na Biblioteca de Media do tenant para reutilização noutras lições.
+ */
+async function persistGeneratedImage(dataUrl: string, tenantId: string, userId: string, label: string): Promise<string | null> {
+  try {
+    const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!match) return null;
+    const [, ext, base64] = match;
+    const buffer = Buffer.from(base64, "base64");
+    const pathname = `media/${tenantId}/ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const blob = await put(pathname, buffer, { access: "public", contentType: `image/${ext}`, addRandomSuffix: false });
+
+    const db = await getDb();
+    await db.collection("media_library").insertOne({
+      tenantId,
+      type: "image",
+      url: blob.url,
+      filename: label,
+      alt: label,
+      size: buffer.length,
+      generatedByAI: true,
+      createdAt: new Date(),
+      createdBy: userId,
+    });
+
+    return blob.url;
+  } catch (error: any) {
+    console.warn("Falha ao persistir imagem gerada por IA:", error?.message);
+    return null;
+  }
+}
 
 export const maxDuration = 120; // Permitir processar
 
@@ -51,13 +86,31 @@ async function runBackgroundGeneration(
           contextChunks = await searchUploadedMaterials(brief.briefingId, `${les.title} ${les.objectives?.join(" ")}`, 4);
         }
 
-        // 2. Chamar LLM para gerar conteúdo explicativo, código, quiz, etc.
+        // 2. Chamar LLM para gerar conteúdo explicativo, código, quiz, etc. (em blocks[])
         const lessonDetails = await generateLesson(
           { topic: brief.topic, level: brief.level, objectives: brief.objectives },
           les.title,
           les.objectives || [],
           contextChunks
         );
+
+        let blocks = lessonDetails.blocks;
+
+        // Se não havia nenhuma imagem nos materiais anexados (RAG), gerar uma
+        // ilustração por IA para acompanhar a lição — evita gerar imagens
+        // redundantes quando o material original do professor já as fornece.
+        const hasRagImages = contextChunks.some((c) => (c.images || []).length > 0);
+        if (!hasRagImages) {
+          const imageDataUrl = await generateLessonImage(
+            `Ilustração educativa, estilo diagrama minimalista, sobre: ${les.title} (${brief.topic})`
+          );
+          if (imageDataUrl) {
+            const blobUrl = await persistGeneratedImage(imageDataUrl, tenantId, userId, les.title);
+            if (blobUrl) {
+              blocks = [...blocks, { id: newBlockId(), type: "image" as const, url: blobUrl, alt: les.title }];
+            }
+          }
+        }
 
         // 3. Estruturar lição gerada
         completedLessons.push({
@@ -66,6 +119,7 @@ async function runBackgroundGeneration(
           title: les.title,
           objectives: les.objectives || [],
           content: lessonDetails.content,
+          blocks,
           videoProvider: lessonDetails.videoProvider || "youtube",
           videoId: lessonDetails.videoId || "",
           exercises: lessonDetails.exercises || [],

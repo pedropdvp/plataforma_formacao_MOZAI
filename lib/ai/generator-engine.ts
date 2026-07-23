@@ -2,8 +2,10 @@ import { getDb } from "../mongodb";
 import { openai } from "@ai-sdk/openai";
 import { generateObject, embed } from "ai";
 import { z } from "zod";
+import { LessonBlock, blocksToPlainText, newBlockId } from "../lesson-blocks";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
+const IMAGE_MODEL = "gpt-image-1";
 
 // Esquema Zod do Outline
 export const outlineSchema = z.object({
@@ -23,9 +25,25 @@ export const outlineSchema = z.object({
   ),
 });
 
+// Blocos de conteúdo que o modelo pode gerar diretamente (estruturados, não uma
+// única string de Markdown). Blocos que dependem de artefactos reais — "image"
+// (extraídas do RAG ou geradas por generateLessonImage) e "quiz" (a partir de
+// 'exercises') — são anexados programaticamente depois da geração, não pelo LLM,
+// para evitar URLs inventadas e manter o schema simples (1 nível de array-de-objeto,
+// evitando o bug conhecido de nested arrays-of-objects a 3+ níveis no ai-sdk).
+const aiBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("heading"), text: z.string().describe("Texto do título"), level: z.union([z.literal(2), z.literal(3)]).describe("Nível do título (2 = secção principal, 3 = subsecção)") }),
+  z.object({ type: z.literal("text"), markdown: z.string().describe("Parágrafo de texto didático, pode conter Markdown simples (negrito, listas, código inline)") }),
+  z.object({ type: z.literal("callout"), style: z.enum(["info", "warning", "tip"]).describe("Estilo do destaque"), text: z.string().describe("Texto do destaque (ex: nota importante, aviso, dica prática)") }),
+  z.object({ type: z.literal("code"), language: z.string().describe("Linguagem do código (ex: javascript, python)"), code: z.string().describe("Bloco de código de exemplo") }),
+]);
+
 // Esquema Zod da Lição Completa
 export const lessonContentSchema = z.object({
-  content: z.string().describe("Texto teórico explicativo completo da lição formatado em Markdown, com introdução, desenvolvimento e conclusão. Deve ser detalhado e didático."),
+  blocks: z.array(aiBlockSchema).describe(
+    "Conteúdo didático completo da lição, estruturado em blocos: comece com um bloco 'heading' (nível 2) de introdução, " +
+    "desenvolva com blocos 'text' (parágrafos), use 'code' quando o curso envolver programação, e 'callout' para notas ou dicas importantes."
+  ),
   videoProvider: z.string().describe("O fornecedor de vídeo. Deve ser sempre 'youtube'."),
   videoId: z.string().describe("ID do vídeo do YouTube relevante para a lição. Se não houver vídeo, devolver string vazia."),
   exercises: z.array(
@@ -37,6 +55,15 @@ export const lessonContentSchema = z.object({
   ).describe("Lista de 2 a 3 perguntas de escolha múltipla para fixação"),
   lab: z.string().describe("Uma atividade prática de programação ou laboratório de código guiado correspondente à matéria da lição"),
 });
+
+export interface GeneratedLesson {
+  content: string; // derivado de 'blocks', mantido para indexação RAG e compatibilidade
+  blocks: LessonBlock[];
+  videoProvider: string;
+  videoId: string;
+  exercises: Array<{ question: string; options: string[]; correctIndex: number }>;
+  lab: string;
+}
 
 /**
  * 1. Gera a estrutura Outline inicial com base no Briefing e contexto opcional
@@ -86,7 +113,7 @@ export async function generateLesson(
   lessonTitle: string,
   lessonObjectives: string[],
   contextChunks: ContextChunk[] = []
-): Promise<z.infer<typeof lessonContentSchema>> {
+): Promise<GeneratedLesson> {
   const contextBlock = contextChunks.length > 0
     ? `\nCONTEXTO OFICIAL PARA USO OBRIGATÓRIO (RAG):\n${contextChunks.map((c) => c.content).join("\n---\n")}\n`
     : "";
@@ -98,10 +125,10 @@ export async function generateLesson(
     Objetivos Específicos: ${lessonObjectives.join("; ")}
     Nível: ${briefing.level}
     ${contextBlock}
-    
+
     REGRAS DE CONTEÚDO:
-    1. O campo 'content' deve conter uma explicação teórica robusta, rica em parágrafos pedagógicos. Se houver o "CONTEXTO OFICIAL" acima, extraia os fatos, definições e conceitos diretamente dele de forma a garantir total fidelidade ao material original do professor.
-    2. Adicione exemplos de código no campo 'content' se o curso envolver programação.
+    1. O campo 'blocks' deve conter uma explicação teórica robusta, rica em blocos pedagógicos (título, parágrafos, código, destaques). Se houver o "CONTEXTO OFICIAL" acima, extraia os fatos, definições e conceitos diretamente dele de forma a garantir total fidelidade ao material original do professor.
+    2. Use blocos 'code' para exemplos de código se o curso envolver programação.
     3. Crie 2 a 3 perguntas de quiz com as respetivas opções no campo 'exercises'.
     4. Indique uma proposta de laboratório prático de código no campo 'lab'.
   `;
@@ -112,18 +139,81 @@ export async function generateLesson(
     prompt,
   });
 
+  // Atribuir ids (o LLM não os gera) aos blocos de conteúdo narrativo.
+  const blocks: LessonBlock[] = object.blocks.map((b) => ({ ...b, id: newBlockId() }) as LessonBlock);
+
   // Anexar (programaticamente, não via LLM) as imagens do material original associadas
   // ao contexto usado nesta lição — evita enviar base64 ao modelo (custo/token) e o risco
   // de o LLM corromper a string ao tentar "reproduzir" a imagem.
   const uniqueImages = Array.from(new Set(contextChunks.flatMap((c) => c.images || [])));
-  if (uniqueImages.length > 0) {
-    const imageBlock = uniqueImages
-      .map((dataUrl, idx) => `![Imagem do material original ${idx + 1}](${dataUrl})`)
-      .join("\n\n");
-    object.content = `${object.content}\n\n${imageBlock}`;
+  for (const dataUrl of uniqueImages) {
+    blocks.push({ id: newBlockId(), type: "image", url: dataUrl, alt: "Imagem do material original" });
   }
 
-  return object;
+  // Inserir os exercícios de quiz também como blocos reais dentro do conteúdo
+  // (além de continuarem disponíveis em 'exercises' para a fixação no final da lição).
+  for (const ex of object.exercises) {
+    blocks.push({
+      id: newBlockId(),
+      type: "quiz",
+      question: ex.question,
+      options: ex.options,
+      correctIndex: ex.correctIndex,
+    });
+  }
+
+  return {
+    content: blocksToPlainText(blocks),
+    blocks,
+    videoProvider: object.videoProvider,
+    videoId: object.videoId,
+    exercises: object.exercises,
+    lab: object.lab,
+  };
+}
+
+/**
+ * Gera uma imagem (diagrama/ilustração) para acompanhar uma lição, via API de
+ * imagens da OpenAI. Devolve um data URI (base64) pronto a ser carregado para o
+ * Vercel Blob e registado na Biblioteca de Media pelo chamador — esta função é
+ * propositadamente "pura" (não escreve na base de dados nem no Blob).
+ */
+export async function generateLessonImage(prompt: string): Promise<string | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    console.warn("generateLessonImage: OPENAI_API_KEY não configurada.");
+    return null;
+  }
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: IMAGE_MODEL,
+        prompt,
+        size: "1024x1024",
+        n: 1,
+      }),
+    });
+
+    if (!res.ok) {
+      console.warn(`generateLessonImage: OpenAI devolveu ${res.status}: ${await res.text()}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const b64 = data?.data?.[0]?.b64_json;
+    if (!b64) return null;
+
+    return `data:image/png;base64,${b64}`;
+  } catch (error: any) {
+    console.warn("generateLessonImage: falha ao gerar imagem:", error?.message);
+    return null;
+  }
 }
 
 /**

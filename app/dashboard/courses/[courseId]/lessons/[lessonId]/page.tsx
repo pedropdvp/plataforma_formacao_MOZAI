@@ -8,6 +8,8 @@ import { ArrowLeft, Play, FileText, ExternalLink, CheckCircle2, ShieldAlert } fr
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { headers } from "next/headers";
+import { BlockRenderer } from "@/components/lesson-blocks/BlockRenderer";
+import { getOrMigrateBlocks } from "@/lib/lesson-blocks";
 
 // ---------------------------------------------------------------------------
 // Fallback estático para os cursos-demo que ainda não existem no Sanity.
@@ -85,9 +87,6 @@ const ptComponents: PortableTextComponents = {
     ),
   },
 };
-
-// Deteta uma tag markdown de imagem isolada num parágrafo: ![alt](data:image/...;base64,...)
-const MARKDOWN_IMAGE_RE = /^!\[([^\]]*)\]\((data:image\/[a-zA-Z0-9+.-]+;base64,[^)]+)\)$/;
 
 interface LessonPageProps {
   params: Promise<{ courseId: string; lessonId: string }>;
@@ -260,25 +259,9 @@ export default async function LessonPage({ params }: LessonPageProps) {
       correct: ex.options ? (ex.options[ex.correctIndex] || ex.options[0] || "") : "",
     }));
 
-    // Converter o texto gerado da lição (plain string) para blocos Portable Text simulados
-    const plainText = activeLesson?.content || "Conteúdo desta lição está a ser gerado.";
-    const blocks = plainText.split("\n\n").map((para: string) => {
-      const trimmed = para.trim();
-      const imageMatch = trimmed.match(MARKDOWN_IMAGE_RE);
-      if (imageMatch) {
-        return { _type: "customImage", alt: imageMatch[1], url: imageMatch[2] };
-      }
-      return {
-        _type: "block",
-        style: "normal",
-        children: [
-          {
-            _type: "span",
-            text: para,
-          }
-        ]
-      };
-    });
+    // Lições geradas por IA: usar blocks[] estruturados quando existirem; lições
+    // antigas (só com 'content' em Markdown) são migradas automaticamente para blocos.
+    const lessonBlocks = getOrMigrateBlocks(activeLesson || {});
 
     return (
       <LessonShell
@@ -288,7 +271,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
         activeSlug={activeSlug}
         title={activeLesson?.title || lessons[idx]?.title || "Lição"}
         video={{ provider: activeLesson?.videoProvider, id: activeLesson?.videoId }}
-        content={blocks}
+        lessonBlocks={lessonBlocks}
         resources={activeLesson?.resources || []}
         nextHref={next ? `/dashboard/courses/${courseId}/lessons/${next.slug}` : null}
         exercises={parsedExercises}
@@ -329,12 +312,13 @@ function LessonShell(props: {
   title: string;
   description?: string;
   content?: any[];
+  lessonBlocks?: import("@/lib/lesson-blocks").LessonBlock[];
   video: { provider?: string; id?: string };
   resources: { title: string; url: string }[];
   nextHref: string | null;
   exercises?: Array<{ question: string; options: string[]; correct: string }>;
 }) {
-  const { courseId, courseTitle, lessons, activeSlug, title, description, content, video, resources, nextHref, exercises } = props;
+  const { courseId, courseTitle, lessons, activeSlug, title, description, content, lessonBlocks, video, resources, nextHref, exercises } = props;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 -m-8">
@@ -358,9 +342,11 @@ function LessonShell(props: {
             <h1 className="text-2xl font-bold text-white leading-tight">{title}</h1>
           </div>
 
-          {/* Conteúdo (Portable Text real ou descrição demo) */}
+          {/* Conteúdo: blocks[] (cursos gerados por IA), Portable Text (Sanity) ou descrição demo */}
           <div className="border-t border-slate-900 pt-6 space-y-3">
-            {content && content.length > 0 ? (
+            {lessonBlocks ? (
+              <BlockRenderer blocks={lessonBlocks} />
+            ) : content && content.length > 0 ? (
               <PortableText value={content} components={ptComponents} />
             ) : (
               <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">

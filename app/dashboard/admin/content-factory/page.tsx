@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CourseEditModal } from "@/components/ui/course-edit-modal";
+import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
+import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
+import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
 import {
   Sparkles,
   FileText,
@@ -63,8 +66,7 @@ export default function ContentFactoryPage() {
   const [fullCourse, setFullCourse] = useState<any>(null);
   const [selectedModuleIdx, setSelectedModuleIdx] = useState(0);
   const [selectedLessonIdx, setSelectedLessonIdx] = useState(0);
-  const [editingContent, setEditingContent] = useState(false);
-  const [tempContentText, setTempContentText] = useState("");
+  const [savingContent, setSavingContent] = useState(false);
   const [reviewingAction, setReviewingAction] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const { showToast } = useToast();
@@ -370,9 +372,6 @@ export default function ContentFactoryPage() {
       if (res.ok) {
         const data = await res.json();
         setFullCourse(data.course);
-        if (data.course?.modules?.[0]?.lessons?.[0]) {
-          setTempContentText(data.course.modules[0].lessons[0].content);
-        }
       }
     } catch (e) {
       console.error(e);
@@ -385,25 +384,37 @@ export default function ContentFactoryPage() {
     }
   }, [step, courseId]);
 
-  // Salvar edições de conteúdo feitas pelo professor no rascunho
+  // Atualiza os blocks[] da lição selecionada no estado local (edição em tempo real no BlockEditor)
+  const updateSelectedLessonBlocks = (blocks: LessonBlock[]) => {
+    setFullCourse((prev: any) => {
+      if (!prev) return prev;
+      const updated = { ...prev, modules: [...prev.modules] };
+      const mod = { ...updated.modules[selectedModuleIdx], lessons: [...updated.modules[selectedModuleIdx].lessons] };
+      mod.lessons[selectedLessonIdx] = { ...mod.lessons[selectedLessonIdx], blocks, content: blocksToPlainText(blocks) };
+      updated.modules[selectedModuleIdx] = mod;
+      return updated;
+    });
+  };
+
+  // Persiste as edições de conteúdo (blocks) do rascunho no MongoDB
   const handleSaveContentEdit = async () => {
-    if (!fullCourse) return;
-
-    const updated = { ...fullCourse };
-    updated.modules[selectedModuleIdx].lessons[selectedLessonIdx].content = tempContentText;
-
-    // Atualizar no banco de dados temporariamente chamando uma rota de salvar
-    // Podemos salvar as alterações enviando o outline atualizado no start ou estendendo uma API
+    if (!fullCourse || !courseId) return;
+    setSavingContent(true);
     try {
-      const res = await fetch(`/api/admin/courses/generate/start`, {
-        method: "POST",
+      const res = await fetch("/api/admin/courses/review", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobId, outline: updated, updateOnly: true }) // Simples update
+        body: JSON.stringify({ courseId, modules: fullCourse.modules }),
       });
-      setFullCourse(updated);
-      setEditingContent(false);
+      if (res.ok) {
+        showToast("Alterações guardadas no rascunho.", "success");
+      } else {
+        showToast("Erro ao guardar alterações.", "error");
+      }
     } catch (e) {
-      showToast("Erro ao salvar edições.", "error");
+      showToast("Erro de comunicação ao guardar edições.", "error");
+    } finally {
+      setSavingContent(false);
     }
   };
 
@@ -632,7 +643,7 @@ export default function ContentFactoryPage() {
 
                 {/* File Attachment Area */}
                 <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-6 space-y-4">
-                  <span className="text-xs font-semibold text-slate-350 block">Anexar Materiais Auxiliares (PDFs, Slides, Artigos)</span>
+                  <span className="text-xs font-semibold text-slate-400 block">Anexar Materiais Auxiliares (PDFs, Slides, Artigos)</span>
                   <div className="border-2 border-dashed border-slate-800 rounded-xl p-6 text-center hover:border-indigo-500/50 transition-colors relative cursor-pointer">
                     <input
                       type="file"
@@ -715,14 +726,14 @@ export default function ContentFactoryPage() {
                           onClick={() => router.push(`/dashboard/courses/${c._id}/lessons/${c.firstLesson}`)}
                           disabled={!c.firstLesson}
                           title="Visualizar"
-                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setEditingCourseId(c._id)}
                           title="Editar"
-                          className="p-1.5 rounded-lg border border-slate-805 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
@@ -855,7 +866,7 @@ export default function ContentFactoryPage() {
                             />
                             <button
                               onClick={() => handleRemoveLesson(mIdx, lIdx)}
-                              className="text-slate-600 hover:text-rose-450 p-1 hover:bg-slate-900 rounded"
+                              className="text-slate-600 hover:text-rose-400 p-1 hover:bg-slate-900 rounded"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -897,7 +908,7 @@ export default function ContentFactoryPage() {
 
             <button
               onClick={handleAddModule}
-              className="w-full border border-dashed border-slate-800 rounded-xl p-3 text-center text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-450 transition-colors"
+              className="w-full border border-dashed border-slate-800 rounded-xl p-3 text-center text-xs font-semibold text-slate-500 hover:border-slate-700 hover:text-slate-400 transition-colors"
             >
               Adicionar Módulo
             </button>
@@ -986,8 +997,6 @@ export default function ContentFactoryPage() {
                         onClick={() => {
                           setSelectedModuleIdx(mIdx);
                           setSelectedLessonIdx(lIdx);
-                          setTempContentText(les.content);
-                          setEditingContent(false);
                         }}
                         className={`p-2.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
                           selectedModuleIdx === mIdx && selectedLessonIdx === lIdx
@@ -1045,45 +1054,24 @@ export default function ContentFactoryPage() {
                     <h3 className="font-bold text-sm text-white">
                       Lição: {fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].title}
                     </h3>
-                    {!editingContent ? (
-                      <button
-                        onClick={() => {
-                          setTempContentText(fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].content);
-                          setEditingContent(true);
-                        }}
-                        className="text-xs text-indigo-450 hover:text-indigo-400 font-semibold"
-                      >
-                        Editar Texto
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setEditingContent(false)}
-                          className="text-xs text-slate-500 font-semibold"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={handleSaveContentEdit}
-                          className="text-xs text-indigo-450 hover:text-indigo-400 font-semibold"
-                        >
-                          Salvar
-                        </button>
-                      </div>
-                    )}
+                    <button
+                      onClick={handleSaveContentEdit}
+                      disabled={savingContent}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {savingContent && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Guardar Alterações
+                    </button>
                   </div>
 
-                  {editingContent ? (
-                    <textarea
-                      value={tempContentText}
-                      onChange={(e) => setTempContentText(e.target.value)}
-                      className="w-full h-[350px] p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 focus:outline-none focus:border-indigo-500 font-mono"
-                    />
-                  ) : (
-                    <div className="text-xs text-slate-400 leading-relaxed bg-slate-950 p-6 rounded-2xl border border-slate-900 whitespace-pre-line max-h-[400px] overflow-y-auto pr-1">
-                      {fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].content}
-                    </div>
-                  )}
+                  <div className="border border-slate-800 rounded-2xl overflow-hidden h-[420px] flex bg-slate-950/50">
+                    <BlockEditor
+                      blocks={getOrMigrateBlocks(fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx])}
+                      onChange={updateSelectedLessonBlocks}
+                    >
+                      <MediaLibraryPanel />
+                    </BlockEditor>
+                  </div>
                 </div>
 
                 {/* Quizzes e Labs */}

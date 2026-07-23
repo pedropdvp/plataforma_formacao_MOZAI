@@ -3,12 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
+import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
+import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
 
 interface Lesson {
   id?: string;
   slug?: string;
   title: string;
   content: string;
+  blocks?: LessonBlock[];
   videoProvider?: string;
   videoId?: string;
   [key: string]: any;
@@ -95,7 +99,7 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
 
   return (
     <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl max-h-[88vh] flex flex-col border border-slate-850 bg-slate-950 rounded-3xl p-6 shadow-2xl relative space-y-4 no-3d-effect">
+      <div className="w-full max-w-5xl max-h-[88vh] flex flex-col border border-slate-850 bg-slate-950 rounded-3xl p-6 shadow-2xl relative space-y-4 no-3d-effect">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 text-slate-550 hover:text-white transition-colors cursor-pointer"
@@ -145,7 +149,14 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                     return (
                       <div key={lesson.id || lIdx} className="border border-slate-900 bg-slate-900/10 rounded-xl overflow-hidden no-3d-effect">
                         <button
-                          onClick={() => setOpenLessonKey(isOpen ? null : key)}
+                          onClick={() => {
+                            const nextKey = isOpen ? null : key;
+                            setOpenLessonKey(nextKey);
+                            // Migra conteúdo legado (só 'content' em Markdown) para blocks[] na primeira abertura.
+                            if (nextKey && (!lesson.blocks || lesson.blocks.length === 0)) {
+                              updateLesson(mIdx, lIdx, { blocks: getOrMigrateBlocks(lesson) });
+                            }
+                          }}
                           className="w-full flex items-center justify-between gap-2 p-3 text-left cursor-pointer hover:bg-slate-900/30 transition-colors"
                         >
                           <span className="text-xs font-semibold text-slate-200 truncate">{lesson.title}</span>
@@ -162,18 +173,10 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
                               />
                             </div>
-                            <div className="space-y-1.5">
-                              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">Conteúdo (Markdown)</label>
-                              <textarea
-                                value={lesson.content}
-                                onChange={(e) => updateLesson(mIdx, lIdx, { content: e.target.value })}
-                                className="w-full h-32 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500 resize-y"
-                              />
-                            </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div className="space-y-1.5">
                                 <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                                  <Video className="h-3 w-3" /> Fornecedor de Vídeo
+                                  <Video className="h-3 w-3" /> Vídeo Principal (topo da lição) — Fornecedor
                                 </label>
                                 <select
                                   value={lesson.videoProvider || "youtube"}
@@ -185,13 +188,25 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                                 </select>
                               </div>
                               <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">ID do Vídeo</label>
+                                <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">ID do Vídeo Principal</label>
                                 <input
                                   value={lesson.videoId || ""}
                                   onChange={(e) => updateLesson(mIdx, lIdx, { videoId: e.target.value })}
                                   placeholder="ex: dQw4w9WgXcQ"
                                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
                                 />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">Conteúdo da Lição</label>
+                              <div className="border border-slate-800 rounded-xl overflow-hidden h-[420px] flex bg-slate-950/50">
+                                <BlockEditor
+                                  blocks={getOrMigrateBlocks(lesson)}
+                                  onChange={(blocks) => updateLesson(mIdx, lIdx, { blocks, content: blocksToPlainText(blocks) })}
+                                >
+                                  <MediaLibraryPanel />
+                                </BlockEditor>
                               </div>
                             </div>
                             <a
