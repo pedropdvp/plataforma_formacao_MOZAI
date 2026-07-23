@@ -1,6 +1,6 @@
 import { getDb } from "../mongodb";
 import { openai } from "@ai-sdk/openai";
-import { generateObject, embed } from "ai";
+import { generateObject, embed, jsonSchema } from "ai";
 import { z } from "zod";
 import { LessonBlock, blocksToPlainText, newBlockId } from "../lesson-blocks";
 
@@ -55,6 +55,95 @@ export const lessonContentSchema = z.object({
   ).describe("Lista de 2 a 3 perguntas de escolha múltipla para fixação"),
   lab: z.string().describe("Uma atividade prática de programação ou laboratório de código guiado correspondente à matéria da lição"),
 });
+
+// Schema JSON escrito à mão para o mesmo formato de `lessonContentSchema` acima.
+// A conversão automática Zod→JSON-Schema de `z.discriminatedUnion` produz `oneOf`,
+// que o modo estrito de Structured Outputs da OpenAI rejeita ("'oneOf' is not
+// permitted") quando aninhado dentro de um array (contexto 'properties'.'blocks'.'items').
+// A OpenAI aceita `anyOf` no lugar de `oneOf`, por isso escrevemos o schema à mão com
+// `anyOf`, mantendo a validação e a tipagem via Zod (`validate`) — mesmo padrão já
+// usado em app/api/career/custom-path/route.ts para outro bug de conversão do SDK.
+const lessonContentJsonSchema = jsonSchema<z.infer<typeof lessonContentSchema>>(
+  {
+    type: "object",
+    properties: {
+      blocks: {
+        type: "array",
+        description:
+          "Conteúdo didático completo da lição, estruturado em blocos: comece com um bloco 'heading' (nível 2) de introdução, " +
+          "desenvolva com blocos 'text' (parágrafos), use 'code' quando o curso envolver programação, e 'callout' para notas ou dicas importantes.",
+        items: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["heading"] },
+                text: { type: "string", description: "Texto do título" },
+                level: { type: "number", enum: [2, 3], description: "Nível do título (2 = secção principal, 3 = subsecção)" },
+              },
+              required: ["type", "text", "level"],
+              additionalProperties: false,
+            },
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["text"] },
+                markdown: { type: "string", description: "Parágrafo de texto didático, pode conter Markdown simples (negrito, listas, código inline)" },
+              },
+              required: ["type", "markdown"],
+              additionalProperties: false,
+            },
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["callout"] },
+                style: { type: "string", enum: ["info", "warning", "tip"], description: "Estilo do destaque" },
+                text: { type: "string", description: "Texto do destaque (ex: nota importante, aviso, dica prática)" },
+              },
+              required: ["type", "style", "text"],
+              additionalProperties: false,
+            },
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["code"] },
+                language: { type: "string", description: "Linguagem do código (ex: javascript, python)" },
+                code: { type: "string", description: "Bloco de código de exemplo" },
+              },
+              required: ["type", "language", "code"],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+      videoProvider: { type: "string", description: "O fornecedor de vídeo. Deve ser sempre 'youtube'." },
+      videoId: { type: "string", description: "ID do vídeo do YouTube relevante para a lição. Se não houver vídeo, devolver string vazia." },
+      exercises: {
+        type: "array",
+        description: "Lista de 2 a 3 perguntas de escolha múltipla para fixação",
+        items: {
+          type: "object",
+          properties: {
+            question: { type: "string", description: "Pergunta do quiz rápido" },
+            options: { type: "array", items: { type: "string" }, description: "Lista de 3 a 4 opções de resposta" },
+            correctIndex: { type: "number", description: "Índice base 0 da opção correta" },
+          },
+          required: ["question", "options", "correctIndex"],
+          additionalProperties: false,
+        },
+      },
+      lab: { type: "string", description: "Uma atividade prática de programação ou laboratório de código guiado correspondente à matéria da lição" },
+    },
+    required: ["blocks", "videoProvider", "videoId", "exercises", "lab"],
+    additionalProperties: false,
+  },
+  {
+    validate: (value) => {
+      const result = lessonContentSchema.safeParse(value);
+      return result.success ? { success: true, value: result.data } : { success: false, error: result.error };
+    },
+  }
+);
 
 export interface GeneratedLesson {
   content: string; // derivado de 'blocks', mantido para indexação RAG e compatibilidade
@@ -135,7 +224,7 @@ export async function generateLesson(
 
   const { object } = await generateObject({
     model: openai("gpt-4o-mini"),
-    schema: lessonContentSchema,
+    schema: lessonContentJsonSchema,
     prompt,
   });
 
