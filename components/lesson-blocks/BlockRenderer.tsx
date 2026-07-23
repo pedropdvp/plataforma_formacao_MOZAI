@@ -367,9 +367,9 @@ function QuizBlockView({
               disabled={showResult}
               className={`w-full flex items-center justify-between gap-2 text-left px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-colors cursor-pointer disabled:cursor-default ${
                 showResult && isCorrect
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                  ? "border-[#4d7c0f] bg-[#ecfccb] text-[#365314]"
                   : showResult && isSelected && !isCorrect
-                  ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                  ? "border-[#ef4444] bg-[#fee2e2] text-[#991b1b]"
                   : "border-slate-800 bg-slate-950 text-slate-300 hover:border-indigo-500/40"
               }`}
             >
