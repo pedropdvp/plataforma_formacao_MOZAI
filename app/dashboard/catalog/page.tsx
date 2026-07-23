@@ -520,23 +520,15 @@ function CatalogCard({
         <div className="absolute inset-0 bg-black/10" />
         
         {/* Category Badge */}
-        <span className="relative z-10 self-start text-[10px] font-semibold px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/10">
+        <span className="relative z-10 self-start text-[10px] font-semibold px-2.5 py-1 rounded-full bg-indigo-600 text-white border border-white/10 transition-colors hover:bg-slate-200 hover:text-indigo-700">
           {course.category}
         </span>
 
         {/* Pricing Badge Overlay */}
-        <span className="relative z-10 self-end text-[10px] font-bold px-3 py-1 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-white flex items-center gap-1.5">
-          {course.paymentType === "basic_subscription" && (
-            <span className="text-emerald-400">Incluído no Basic</span>
-          )}
-          {course.paymentType === "single_purchase" && (
-            <span className="text-cyan-400">
-              {isUnlocked ? "Comprado" : course.price}
-            </span>
-          )}
-          {course.paymentType === "enterprise" && (
-            <span className="text-amber-400 font-semibold">Exclusivo B2B</span>
-          )}
+        <span className="relative z-10 self-end text-[10px] font-bold px-3 py-1 rounded-lg bg-indigo-600 border border-white/10 text-white flex items-center gap-1.5 transition-colors hover:bg-slate-200 hover:text-indigo-700">
+          {course.paymentType === "basic_subscription" && <span>Incluído no Basic</span>}
+          {course.paymentType === "single_purchase" && <span>{isUnlocked ? "Comprado" : course.price}</span>}
+          {course.paymentType === "enterprise" && <span>Exclusivo B2B</span>}
         </span>
       </div>
 
@@ -561,10 +553,10 @@ function CatalogCard({
           {course.paymentType === "basic_subscription" && (
             <Link
               href={`/dashboard/courses/${course._id}/lessons/${course.firstLesson || "lesson-1-1"}`}
-              className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white transition-colors group-hover:bg-indigo-600 transition-all gap-1 cursor-pointer"
+              className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-indigo-600 hover:bg-slate-200 text-xs font-semibold text-white hover:text-indigo-700 transition-all gap-1 cursor-pointer"
             >
               Começar Estudo
-              <Play className="h-3.5 w-3.5 fill-white" />
+              <Play className="h-3.5 w-3.5 fill-current" />
             </Link>
           )}
 
@@ -580,7 +572,7 @@ function CatalogCard({
             ) : (
               <button
                 onClick={() => onAcquire(course)}
-                className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-slate-900 hover:bg-slate-850 text-xs font-semibold text-cyan-400 hover:text-white border border-cyan-500/20 hover:bg-cyan-600 transition-all gap-1.5 cursor-pointer"
+                className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-indigo-600 hover:bg-slate-200 text-xs font-semibold text-white hover:text-indigo-700 transition-all gap-1.5 cursor-pointer"
               >
                 Adquirir Curso ({course.price})
                 <ShoppingCart className="h-3.5 w-3.5" />

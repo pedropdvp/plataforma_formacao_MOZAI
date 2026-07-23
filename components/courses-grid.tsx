@@ -260,7 +260,7 @@ function CourseCard({ course, onCategoryClick }: { course: Course; onCategoryCli
               e.stopPropagation(); // Evitar navegação ao clicar na tag da categoria
               onCategoryClick(course.category);
             }}
-            className="relative z-10 self-start text-xs font-semibold px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md text-white border border-white/10 hover:bg-black/50 transition-colors cursor-pointer"
+            className="relative z-10 self-start text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-600 text-white border border-white/10 hover:bg-slate-200 hover:text-indigo-700 transition-colors cursor-pointer"
           >
             {course.category}
           </button>
@@ -305,7 +305,7 @@ function CourseCard({ course, onCategoryClick }: { course: Course; onCategoryCli
               </div>
             </div>
 
-            <div className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-slate-900 text-xs font-semibold text-white transition-all group-hover:bg-indigo-600">
+            <div className="w-full inline-flex items-center justify-center h-10 rounded-xl bg-indigo-600 text-xs font-semibold text-white transition-all group-hover:bg-slate-200 group-hover:text-indigo-700">
               {course.progress === 100
                 ? "Rever Conteúdo"
                 : course.progress > 0
