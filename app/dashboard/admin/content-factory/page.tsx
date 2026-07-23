@@ -1148,6 +1148,14 @@ export default function ContentFactoryPage() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => courseId && setEditingCourseId(courseId)}
+                  disabled={reviewingAction}
+                  className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-950/30 text-slate-300 hover:text-indigo-400 text-xs font-semibold border border-slate-800 transition-colors flex items-center gap-1.5"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  Editar Curso
+                </button>
+                <button
                   onClick={handleReject}
                   disabled={reviewingAction}
                   className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-rose-950/20 text-slate-400 hover:text-rose-400 text-xs font-semibold border border-slate-800 transition-colors"
@@ -1275,6 +1283,7 @@ export default function ContentFactoryPage() {
           onSaved={() => {
             setEditingCourseId(null);
             fetchHistory();
+            if (editingCourseId === courseId) loadDraftCourse();
           }}
         />
       )}
