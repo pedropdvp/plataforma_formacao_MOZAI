@@ -403,7 +403,7 @@ function LessonShell(props: {
                           isActive ? "bg-indigo-600/10 border border-indigo-500/20 text-white font-semibold" : "text-slate-400 hover:bg-slate-900 hover:text-white border border-transparent"
                         }`}
                       >
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-mono ${isActive ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400"}`}>
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[10px] font-mono ${isActive ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400 lesson-index-num"}`}>
                           {i + 1}
                         </span>
                         <span className="flex-1 truncate">{l.title}</span>

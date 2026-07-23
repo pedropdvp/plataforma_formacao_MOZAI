@@ -796,6 +796,14 @@ html.light .ai-tutor-user-avatar {
   color: #334155 !important;
 }
 
+/* Numeração das aulas não selecionadas no índice do curso (modo claro):
+   o quadrado (bg-slate-800) não é coberto pelas regras gerais de modo claro,
+   por isso fica escuro; o texto tem de ficar branco para se ler. Modo escuro
+   não é afetado (fica exatamente como estava). */
+html.light .lesson-index-num {
+  color: #ffffff !important;
+}
+
 /* ==========================================
    EFEITO 3D + BORDA NOS CARDS (TODA A PLATAFORMA)
    ========================================== */
