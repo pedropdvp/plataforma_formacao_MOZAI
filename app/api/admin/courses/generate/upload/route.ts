@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getDb } from "@/lib/mongodb";
-import { chunkText } from "@/lib/vector-store";
-import { openai } from "@ai-sdk/openai";
-import { embedMany } from "ai";
-
-const EMBEDDING_MODEL = "text-embedding-3-small";
+import { ingestExtractedPages, ExtractedPage } from "@/lib/ai/ingest";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-interface ExtractedPage {
-  text: string;
-  images: string[]; // data: URIs
-}
 
 /**
  * Extrai texto e imagens embutidas de um PDF usando pdf-parse (getText + getImage).
@@ -96,6 +86,18 @@ async function extractPptxContent(buffer: Buffer): Promise<ExtractedPage[]> {
   return pages;
 }
 
+/**
+ * Extrai o texto de um DOCX usando mammoth. Sem paginação real num .docx (ao
+ * contrário de PDF/PPTX), pelo que o documento inteiro é tratado como uma única
+ * "página" — a fragmentação em chunks acontece depois, em ingestExtractedPages().
+ */
+async function extractDocxContent(buffer: Buffer): Promise<ExtractedPage[]> {
+  const mammoth = await import("mammoth");
+  const result = await mammoth.extractRawText({ buffer });
+  const text = (result.value || "").trim();
+  return text ? [{ text, images: [] }] : [];
+}
+
 async function extractFileContent(file: File): Promise<ExtractedPage[]> {
   const name = file.name.toLowerCase();
 
@@ -107,6 +109,11 @@ async function extractFileContent(file: File): Promise<ExtractedPage[]> {
   if (name.endsWith(".pptx")) {
     const buffer = Buffer.from(await file.arrayBuffer());
     return extractPptxContent(buffer);
+  }
+
+  if (name.endsWith(".docx")) {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    return extractDocxContent(buffer);
   }
 
   // .txt, .md e outros ficheiros de texto simples
@@ -126,9 +133,6 @@ export async function POST(req: NextRequest) {
     const files = formData.getAll("files") as File[];
     const briefingId = formData.get("briefingId")?.toString() || Math.random().toString(36).substring(7);
 
-    const db = await getDb();
-    const col = db.collection("uploaded_chunks");
-
     let totalChunks = 0;
     let totalImages = 0;
 
@@ -141,50 +145,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Fragmentar cada página/slide separadamente, associando as suas imagens a todos os chunks dessa página
-      const pageChunkGroups = pages
-        .filter((p) => p.text && p.text.trim())
-        .map((p) => ({
-          textChunks: chunkText(p.text, 600, 100),
-          images: p.images,
-        }))
-        .filter((g) => g.textChunks.length > 0);
-
-      if (pageChunkGroups.length === 0) continue;
-
-      const allChunks = pageChunkGroups.flatMap((g) => g.textChunks);
-
-      let embeddings: number[][] = [];
-      try {
-        const r = await embedMany({
-          model: openai.embedding(EMBEDDING_MODEL),
-          values: allChunks,
-        });
-        embeddings = r.embeddings;
-      } catch (err) {
-        console.warn("Upload RAG: falha ao gerar embeddings, a ignorar vetores:", err);
-      }
-
-      const docs: any[] = [];
-      let flatIdx = 0;
-      for (const group of pageChunkGroups) {
-        for (const chunk of group.textChunks) {
-          docs.push({
-            briefingId,
-            tenant_id: tenantId,
-            fileName: file.name,
-            content: chunk,
-            images: group.images,
-            embedding: embeddings[flatIdx] || [],
-            createdAt: new Date(),
-          });
-          flatIdx++;
-        }
-        totalImages += group.images.length;
-      }
-
-      await col.insertMany(docs);
-      totalChunks += docs.length;
+      const result = await ingestExtractedPages(pages, { briefingId, tenantId, sourceName: file.name });
+      totalChunks += result.chunksCount;
+      totalImages += result.imagesCount;
     }
 
     return NextResponse.json({

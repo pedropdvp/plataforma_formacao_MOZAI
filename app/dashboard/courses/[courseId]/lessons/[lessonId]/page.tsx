@@ -345,7 +345,7 @@ function LessonShell(props: {
           {/* Conteúdo: blocks[] (cursos gerados por IA), Portable Text (Sanity) ou descrição demo */}
           <div className="border-t border-slate-900 pt-6 space-y-3">
             {lessonBlocks ? (
-              <BlockRenderer blocks={lessonBlocks} />
+              <BlockRenderer blocks={lessonBlocks} courseId={courseId} lessonKey={activeSlug} />
             ) : content && content.length > 0 ? (
               <PortableText value={content} components={ptComponents} />
             ) : (

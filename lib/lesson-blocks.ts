@@ -30,8 +30,17 @@ export type LessonBlock =
       correctIndex: number;
       explanation?: string;
     }
-  | { id: string; type: "callout"; style: "info" | "warning" | "tip"; text: string }
-  | { id: string; type: "code"; language: string; code: string };
+  | { id: string; type: "callout"; style: "info" | "warning" | "tip"; text: string; alternateText?: string }
+  | { id: string; type: "code"; language: string; code: string }
+  | { id: string; type: "accordion"; items: { id: string; title: string; content: string }[] }
+  | { id: string; type: "tabs"; items: { id: string; label: string; content: string }[] }
+  | { id: string; type: "flashcards"; cards: { id: string; front: string; back: string }[] }
+  | {
+      id: string;
+      type: "hotspot";
+      imageUrl: string;
+      points: { id: string; x: number; y: number; label: string; description: string }[];
+    };
 
 export type LessonBlockType = LessonBlock["type"];
 
@@ -43,6 +52,10 @@ export const BLOCK_TYPE_LABELS: Record<LessonBlockType, string> = {
   quiz: "Quiz",
   callout: "Destaque",
   code: "Código",
+  accordion: "Acordeão",
+  tabs: "Separadores",
+  flashcards: "Cartões de Memória",
+  hotspot: "Imagem Interativa",
 };
 
 export function newBlockId(): string {
@@ -71,6 +84,14 @@ export function createEmptyBlock(type: LessonBlockType): LessonBlock {
       return { id, type: "callout", style: "info", text: "" };
     case "code":
       return { id, type: "code", language: "javascript", code: "" };
+    case "accordion":
+      return { id, type: "accordion", items: [{ id: newBlockId(), title: "Pergunta ou tópico", content: "" }] };
+    case "tabs":
+      return { id, type: "tabs", items: [{ id: newBlockId(), label: "Separador 1", content: "" }] };
+    case "flashcards":
+      return { id, type: "flashcards", cards: [{ id: newBlockId(), front: "", back: "" }] };
+    case "hotspot":
+      return { id, type: "hotspot", imageUrl: "", points: [] };
   }
 }
 
@@ -136,6 +157,14 @@ export function blocksToPlainText(blocks: LessonBlock[]): string {
           return `![${block.alt || ""}](${block.url})`;
         case "quiz":
           return `**Pergunta:** ${block.question}`;
+        case "accordion":
+          return block.items.map((it) => `**${it.title}**\n${it.content}`).join("\n\n");
+        case "tabs":
+          return block.items.map((it) => `**${it.label}**\n${it.content}`).join("\n\n");
+        case "flashcards":
+          return block.cards.map((c) => `**${c.front}** — ${c.back}`).join("\n\n");
+        case "hotspot":
+          return block.points.map((p) => `**${p.label}:** ${p.description}`).join("\n\n");
         case "video":
           return "";
         default:

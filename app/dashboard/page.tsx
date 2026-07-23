@@ -1,10 +1,12 @@
 import React from "react";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, Award, Clock } from "lucide-react";
+import { BookOpen, Award, Clock, TrendingUp, ArrowRight } from "lucide-react";
 import CoursesGrid from "@/components/courses-grid";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
+import { getWeakAreas, WeakArea } from "@/lib/adaptive-learning";
 
 // Nº de lições por curso: cursos reais do Sanity + fallback dos cursos-demo
 const DEMO_LESSON_COUNTS: Record<string, number> = { "course-1": 3, "course-2": 3, "course-3": 3 };
@@ -21,8 +23,15 @@ export default async function DashboardPage() {
   let coursesInProgressCount = 0;
   let formattedWatchTime = "0m";
   let completedCoursesCount = 0;
+  let weakAreas: WeakArea[] = [];
 
   if (userId) {
+    try {
+      weakAreas = await getWeakAreas(tenantId, userId, 3);
+    } catch (error) {
+      console.warn("Falha ao calcular áreas de reforço adaptativo:", error);
+    }
+
     try {
       const db = await getDb();
 
@@ -135,6 +144,35 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* Recomendado para Reforçar — sugestões de dificuldade adaptativa, só quando há dados reais */}
+      {weakAreas.length > 0 && (
+        <section className="border border-amber-500/15 bg-amber-500/5 rounded-3xl p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4.5 w-4.5 text-amber-400" />
+            <h2 className="text-sm font-bold text-white">Recomendado para Reforçar</h2>
+          </div>
+          <p className="text-xs text-slate-400 -mt-2">
+            Com base no seu desempenho nos quizzes, sugerimos rever estas lições antes de avançar.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {weakAreas.map((w) => (
+              <Link
+                key={`${w.courseId}-${w.lessonId}`}
+                href={`/dashboard/courses/${w.courseId}/lessons/${w.lessonSlug}`}
+                className="group border border-slate-900 bg-slate-950/60 hover:border-amber-500/30 rounded-2xl p-4 space-y-2 transition-colors"
+              >
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide block truncate">{w.courseTitle}</span>
+                <span className="text-sm font-semibold text-white block leading-snug">{w.lessonTitle}</span>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-slate-500">{Math.round(w.avgScore * 100)}% de acerto médio</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Courses Grid section */}
       <section className="space-y-6">

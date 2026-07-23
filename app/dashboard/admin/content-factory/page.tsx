@@ -7,6 +7,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CourseEditModal } from "@/components/ui/course-edit-modal";
 import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
 import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
+import { EditingPresenceIndicator } from "@/components/lesson-blocks/EditingPresenceIndicator";
 import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
 import {
   Sparkles,
@@ -25,8 +26,13 @@ import {
   ChevronRight,
   ChevronDown,
   Edit2,
-  Eye
+  Eye,
+  Globe,
+  SquarePlay,
+  FileIcon,
+  BarChart3,
 } from "lucide-react";
+import { CourseAnalyticsPanel } from "@/components/lesson-blocks/CourseAnalyticsPanel";
 
 type Step = "BRIEF" | "OUTLINE" | "GENERATION" | "REVIEW";
 
@@ -42,9 +48,13 @@ export default function ContentFactoryPage() {
   const [objectives, setObjectives] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [briefingId, setBriefingId] = useState<string>("");
-  const [attachments, setAttachments] = useState<{ name: string; size: number }[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; size: number; source?: "file" | "url" | "youtube" }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [generatingOutline, setGeneratingOutline] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [importingUrl, setImportingUrl] = useState(false);
+  const [youtubeInput, setYoutubeInput] = useState("");
+  const [importingYoutube, setImportingYoutube] = useState(false);
 
   // --- STEP 2: OUTLINE STATE ---
   const [outline, setOutline] = useState<any>(null);
@@ -73,6 +83,7 @@ export default function ContentFactoryPage() {
   const confirmDialog = useConfirm();
   const router = useRouter();
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+  const [analyticsCourseId, setAnalyticsCourseId] = useState<string | null>(null);
 
   // --- HISTORY STATE ---
   const [savedCourses, setSavedCourses] = useState<any[]>([]);
@@ -225,7 +236,7 @@ export default function ContentFactoryPage() {
 
     for (let i = 0; i < files.length; i++) {
       formData.append("files", files[i]);
-      newAttachments.push({ name: files[i].name, size: files[i].size });
+      newAttachments.push({ name: files[i].name, size: files[i].size, source: "file" as const });
     }
 
     const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
@@ -249,6 +260,62 @@ export default function ContentFactoryPage() {
       showToast("Erro ao enviar ficheiros.", "error");
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Tratar Importação de uma URL de site (artigo/documentação)
+  const handleImportUrl = async () => {
+    if (!urlInput.trim()) return;
+    setImportingUrl(true);
+    try {
+      const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
+      const res = await fetch("/api/admin/courses/generate/import-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: urlInput.trim(), briefingId: currentBriefingId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBriefingId(data.briefingId);
+        setAttachments((prev) => [...prev, { name: data.sourceName || urlInput.trim(), size: 0, source: "url" as const }]);
+        setUrlInput("");
+        showToast("Conteúdo do site importado com sucesso.", "success");
+      } else {
+        showToast(data.error || "Erro ao importar o site.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Erro de comunicação ao importar o site.", "error");
+    } finally {
+      setImportingUrl(false);
+    }
+  };
+
+  // Tratar Importação de transcrição de um vídeo do YouTube
+  const handleImportYoutube = async () => {
+    if (!youtubeInput.trim()) return;
+    setImportingYoutube(true);
+    try {
+      const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
+      const res = await fetch("/api/admin/courses/generate/import-youtube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: youtubeInput.trim(), briefingId: currentBriefingId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBriefingId(data.briefingId);
+        setAttachments((prev) => [...prev, { name: data.sourceName || youtubeInput.trim(), size: 0, source: "youtube" as const }]);
+        setYoutubeInput("");
+        showToast("Transcrição do YouTube importada com sucesso.", "success");
+      } else {
+        showToast(data.error || "Erro ao importar a transcrição.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("Erro de comunicação ao importar a transcrição.", "error");
+    } finally {
+      setImportingYoutube(false);
     }
   };
 
@@ -648,24 +715,69 @@ export default function ContentFactoryPage() {
                     <input
                       type="file"
                       multiple
-                      accept=".txt,.md,.pdf,.pptx"
+                      accept=".txt,.md,.pdf,.pptx,.docx"
                       onChange={handleFileUpload}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                       disabled={uploading}
                     />
                     <UploadCloud className="h-8 w-8 text-slate-500 mx-auto mb-2" />
                     <span className="block text-xs font-bold text-slate-300">Arraste arquivos ou clique para fazer upload</span>
-                    <span className="text-[10px] text-slate-500 block mt-1">Suporta .txt, .md, .pdf e .pptx — texto e imagens são extraídos automaticamente</span>
+                    <span className="text-[10px] text-slate-500 block mt-1">Suporta .txt, .md, .pdf, .pptx e .docx — texto e imagens são extraídos automaticamente</span>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        placeholder="URL de um artigo/site"
+                        className="flex-1 h-9 px-3 rounded-lg border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleImportUrl}
+                        disabled={importingUrl || !urlInput.trim()}
+                        className="h-9 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-bold flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                      >
+                        {importingUrl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                        Importar Site
+                      </button>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="url"
+                        value={youtubeInput}
+                        onChange={(e) => setYoutubeInput(e.target.value)}
+                        placeholder="URL de um vídeo do YouTube"
+                        className="flex-1 h-9 px-3 rounded-lg border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleImportYoutube}
+                        disabled={importingYoutube || !youtubeInput.trim()}
+                        className="h-9 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-bold flex items-center gap-1.5 disabled:opacity-40 cursor-pointer"
+                      >
+                        {importingYoutube ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SquarePlay className="h-3.5 w-3.5" />}
+                        Importar Transcrição
+                      </button>
+                    </div>
                   </div>
 
                   {attachments.length > 0 && (
                     <div className="space-y-1.5 pt-2 border-t border-slate-900">
-                      {attachments.map((file, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-900 text-xs">
-                          <span className="font-medium text-slate-300 truncate max-w-[80%]">{file.name}</span>
-                          <span className="text-[10px] text-slate-500">{(file.size / 1024).toFixed(1)} KB</span>
-                        </div>
-                      ))}
+                      {attachments.map((file, idx) => {
+                        const SourceIcon = file.source === "url" ? Globe : file.source === "youtube" ? SquarePlay : FileIcon;
+                        return (
+                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-900 text-xs">
+                            <span className="font-medium text-slate-300 truncate max-w-[80%] flex items-center gap-1.5">
+                              <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
+                              {file.name}
+                            </span>
+                            {file.size > 0 && <span className="text-[10px] text-slate-500 shrink-0">{(file.size / 1024).toFixed(1)} KB</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -736,6 +848,13 @@ export default function ContentFactoryPage() {
                           className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setAnalyticsCourseId(c._id)}
+                          title="Analytics"
+                          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+                        >
+                          <BarChart3 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteCourse(c)}
@@ -1064,6 +1183,17 @@ export default function ContentFactoryPage() {
                     </button>
                   </div>
 
+                  {courseId && (
+                    <EditingPresenceIndicator
+                      courseId={courseId}
+                      lessonKey={
+                        fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].slug ||
+                        fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].id ||
+                        `${selectedModuleIdx}-${selectedLessonIdx}`
+                      }
+                    />
+                  )}
+
                   <div className="border border-slate-800 rounded-2xl overflow-hidden h-[420px] flex bg-slate-950/50">
                     <BlockEditor
                       blocks={getOrMigrateBlocks(fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx])}
@@ -1139,6 +1269,10 @@ export default function ContentFactoryPage() {
             fetchHistory();
           }}
         />
+      )}
+
+      {analyticsCourseId && (
+        <CourseAnalyticsPanel courseId={analyticsCourseId} onClose={() => setAnalyticsCourseId(null)} />
       )}
 
       <style jsx global>{`

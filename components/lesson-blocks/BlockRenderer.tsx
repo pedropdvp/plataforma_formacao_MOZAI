@@ -1,14 +1,21 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Info, AlertTriangle, Lightbulb, CheckCircle2, XCircle } from "lucide-react";
+import { Play, Info, AlertTriangle, Lightbulb, CheckCircle2, XCircle, ChevronDown, Sparkles, Loader2, RotateCw } from "lucide-react";
 import type { LessonBlock } from "@/lib/lesson-blocks";
+
+interface BlockRendererProps {
+  blocks: LessonBlock[];
+  /** Contexto opcional (curso + lição), permite cachear no servidor a explicação alternativa gerada por IA nos callouts. */
+  courseId?: string;
+  lessonKey?: string;
+}
 
 /**
  * Renderiza um array de LessonBlock. Usado tanto no editor (pré-visualização)
  * como no visualizador do aluno — garante que o que o autor vê é o que o aluno vê.
  */
-export function BlockRenderer({ blocks }: { blocks: LessonBlock[] }) {
+export function BlockRenderer({ blocks, courseId, lessonKey }: BlockRendererProps) {
   if (!blocks || blocks.length === 0) {
     return <p className="text-sm text-slate-400 leading-relaxed">Conteúdo desta lição ainda em preparação.</p>;
   }
@@ -16,13 +23,13 @@ export function BlockRenderer({ blocks }: { blocks: LessonBlock[] }) {
   return (
     <div className="space-y-4">
       {blocks.map((block) => (
-        <BlockView key={block.id} block={block} />
+        <BlockView key={block.id} block={block} courseId={courseId} lessonKey={lessonKey} />
       ))}
     </div>
   );
 }
 
-function BlockView({ block }: { block: LessonBlock }) {
+function BlockView({ block, courseId, lessonKey }: { block: LessonBlock; courseId?: string; lessonKey?: string }) {
   switch (block.type) {
     case "heading": {
       const Tag = block.level === 2 ? "h2" : "h3";
@@ -58,7 +65,7 @@ function BlockView({ block }: { block: LessonBlock }) {
       return <QuizBlockView block={block} />;
 
     case "callout":
-      return <CalloutBlockView block={block} />;
+      return <CalloutBlockView block={block} courseId={courseId} lessonKey={lessonKey} />;
 
     case "code":
       return (
@@ -66,6 +73,18 @@ function BlockView({ block }: { block: LessonBlock }) {
           <code>{block.code}</code>
         </pre>
       );
+
+    case "accordion":
+      return <AccordionBlockView block={block} />;
+
+    case "tabs":
+      return <TabsBlockView block={block} />;
+
+    case "flashcards":
+      return <FlashcardsBlockView block={block} />;
+
+    case "hotspot":
+      return <HotspotBlockView block={block} />;
 
     default:
       return null;
@@ -128,13 +147,157 @@ const CALLOUT_STYLES: Record<string, { icon: React.ElementType; classes: string 
   tip: { icon: Lightbulb, classes: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" },
 };
 
-function CalloutBlockView({ block }: { block: Extract<LessonBlock, { type: "callout" }> }) {
+function CalloutBlockView({
+  block,
+  courseId,
+  lessonKey,
+}: {
+  block: Extract<LessonBlock, { type: "callout" }>;
+  courseId?: string;
+  lessonKey?: string;
+}) {
   const cfg = CALLOUT_STYLES[block.style] || CALLOUT_STYLES.info;
   const Icon = cfg.icon;
+  const [alternateText, setAlternateText] = useState<string | undefined>(block.alternateText);
+  const [showAlternate, setShowAlternate] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleExplainDifferently = async () => {
+    if (alternateText) {
+      setShowAlternate((prev) => !prev);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/lessons/explain-differently", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: block.text, courseId, lessonKey, blockId: block.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.explanation) {
+        setAlternateText(data.explanation);
+        setShowAlternate(true);
+      }
+    } catch {
+      // silencioso — o texto original continua visível
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className={`flex items-start gap-3 rounded-2xl border p-4 text-sm leading-relaxed ${cfg.classes}`}>
-      <Icon className="h-4 w-4 mt-0.5 shrink-0" />
-      <span>{block.text}</span>
+    <div className={`rounded-2xl border p-4 text-sm leading-relaxed space-y-2.5 ${cfg.classes}`}>
+      <div className="flex items-start gap-3">
+        <Icon className="h-4 w-4 mt-0.5 shrink-0" />
+        <span>{showAlternate && alternateText ? alternateText : block.text}</span>
+      </div>
+      <button
+        onClick={handleExplainDifferently}
+        disabled={loading}
+        className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider opacity-80 hover:opacity-100 cursor-pointer disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : showAlternate ? <RotateCw className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+        {loading ? "A gerar explicação..." : showAlternate ? "Ver texto original" : "Explicar de outra forma"}
+      </button>
+    </div>
+  );
+}
+
+function AccordionBlockView({ block }: { block: Extract<LessonBlock, { type: "accordion" }> }) {
+  const [openId, setOpenId] = useState<string | null>(block.items[0]?.id ?? null);
+  return (
+    <div className="space-y-1.5">
+      {block.items.map((item) => {
+        const isOpen = openId === item.id;
+        return (
+          <div key={item.id} className="rounded-xl border border-slate-800 bg-slate-900/20 overflow-hidden no-3d-effect">
+            <button
+              onClick={() => setOpenId(isOpen ? null : item.id)}
+              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left cursor-pointer hover:bg-slate-900/30 transition-colors"
+            >
+              <span className="text-sm font-semibold text-white">{item.title}</span>
+              <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isOpen && <div className="px-4 pb-3 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{item.content}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TabsBlockView({ block }: { block: Extract<LessonBlock, { type: "tabs" }> }) {
+  const [activeId, setActiveId] = useState<string | undefined>(block.items[0]?.id);
+  const active = block.items.find((it) => it.id === activeId) || block.items[0];
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/20 overflow-hidden no-3d-effect">
+      <div className="flex items-center gap-1 p-1.5 border-b border-slate-800 overflow-x-auto">
+        {block.items.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveId(item.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors ${
+              active?.id === item.id ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-900 hover:text-white"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="p-4 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{active?.content}</div>
+    </div>
+  );
+}
+
+function FlashcardsBlockView({ block }: { block: Extract<LessonBlock, { type: "flashcards" }> }) {
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  return (
+    <div className="grid sm:grid-cols-2 gap-3">
+      {block.cards.map((card) => {
+        const isFlipped = !!flipped[card.id];
+        return (
+          <button
+            key={card.id}
+            onClick={() => setFlipped((prev) => ({ ...prev, [card.id]: !prev[card.id] }))}
+            className="text-left rounded-2xl border border-slate-800 bg-slate-900/20 hover:border-indigo-500/40 p-4 min-h-[96px] flex items-center justify-center text-center cursor-pointer transition-colors no-3d-effect"
+          >
+            <span className={`text-sm ${isFlipped ? "text-slate-400 italic" : "text-white font-semibold"}`}>
+              {isFlipped ? card.back : card.front}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HotspotBlockView({ block }: { block: Extract<LessonBlock, { type: "hotspot" }> }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const active = block.points.find((p) => p.id === activeId);
+  if (!block.imageUrl) return null;
+  return (
+    <div className="space-y-2">
+      <div className="relative rounded-2xl border border-slate-800 overflow-hidden">
+        <img src={block.imageUrl} alt="" className="w-full h-auto block" />
+        {block.points.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setActiveId(activeId === p.id ? null : p.id)}
+            className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500 hover:bg-indigo-400 border-2 border-white shadow-lg flex items-center justify-center text-[10px] font-bold text-white cursor-pointer transition-transform hover:scale-110"
+            style={{ left: `${p.x}%`, top: `${p.y}%` }}
+            title={p.label}
+          >
+            +
+          </button>
+        ))}
+      </div>
+      {active && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/20 p-3">
+          <p className="text-xs font-bold text-white mb-1">{active.label}</p>
+          <p className="text-xs text-slate-400 leading-relaxed">{active.description}</p>
+        </div>
+      )}
     </div>
   );
 }

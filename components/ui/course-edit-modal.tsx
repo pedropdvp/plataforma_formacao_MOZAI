@@ -5,6 +5,7 @@ import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink } from
 import { useToast } from "@/components/ui/toast-provider";
 import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
 import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
+import { EditingPresenceIndicator } from "@/components/lesson-blocks/EditingPresenceIndicator";
 import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
 
 interface Lesson {
@@ -165,6 +166,7 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
 
                         {isOpen && (
                           <div className="p-3 pt-0 space-y-3 border-t border-slate-900">
+                            <EditingPresenceIndicator courseId={courseId} lessonKey={lesson.slug || lesson.id || key} />
                             <div className="space-y-1.5 pt-3">
                               <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">Título da Lição</label>
                               <input

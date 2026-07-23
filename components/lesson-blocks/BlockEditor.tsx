@@ -31,6 +31,10 @@ import {
   MessageSquare,
   Code2,
   X,
+  ChevronsUpDown,
+  LayoutPanelTop,
+  Layers,
+  Target,
 } from "lucide-react";
 import {
   LessonBlock,
@@ -49,9 +53,25 @@ const BLOCK_TYPE_ICONS: Record<LessonBlockType, React.ElementType> = {
   quiz: HelpCircle,
   callout: MessageSquare,
   code: Code2,
+  accordion: ChevronsUpDown,
+  tabs: LayoutPanelTop,
+  flashcards: Layers,
+  hotspot: Target,
 };
 
-const BLOCK_TYPES: LessonBlockType[] = ["heading", "text", "image", "video", "quiz", "callout", "code"];
+const BLOCK_TYPES: LessonBlockType[] = [
+  "heading",
+  "text",
+  "image",
+  "video",
+  "quiz",
+  "callout",
+  "code",
+  "accordion",
+  "tabs",
+  "flashcards",
+  "hotspot",
+];
 
 const END_ZONE_ID = "block-editor-end-zone";
 
@@ -399,6 +419,226 @@ function BlockFields({ block, onUpdate }: { block: LessonBlock; onUpdate: (patch
             className={`${fieldClass} h-24 resize-y font-mono`}
             placeholder="Código"
           />
+        </div>
+      );
+
+    case "accordion":
+      return (
+        <div className="space-y-2">
+          {block.items.map((item, i) => (
+            <div key={item.id} className="border border-slate-800 rounded-lg p-2 space-y-1.5 bg-slate-950/60">
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={item.title}
+                  onChange={(e) => {
+                    const next = block.items.map((it, idx) => (idx === i ? { ...it, title: e.target.value } : it));
+                    onUpdate({ items: next });
+                  }}
+                  className={fieldClass}
+                  placeholder={`Título ${i + 1}`}
+                />
+                {block.items.length > 1 && (
+                  <button
+                    onClick={() => onUpdate({ items: block.items.filter((_, idx) => idx !== i) })}
+                    className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={item.content}
+                onChange={(e) => {
+                  const next = block.items.map((it, idx) => (idx === i ? { ...it, content: e.target.value } : it));
+                  onUpdate({ items: next });
+                }}
+                className={`${fieldClass} h-16 resize-y`}
+                placeholder="Conteúdo (aparece ao expandir)"
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate({ items: [...block.items, { id: newBlockId(), title: "", content: "" }] })}
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            + Adicionar item
+          </button>
+        </div>
+      );
+
+    case "tabs":
+      return (
+        <div className="space-y-2">
+          {block.items.map((item, i) => (
+            <div key={item.id} className="border border-slate-800 rounded-lg p-2 space-y-1.5 bg-slate-950/60">
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={item.label}
+                  onChange={(e) => {
+                    const next = block.items.map((it, idx) => (idx === i ? { ...it, label: e.target.value } : it));
+                    onUpdate({ items: next });
+                  }}
+                  className={fieldClass}
+                  placeholder={`Nome do separador ${i + 1}`}
+                />
+                {block.items.length > 1 && (
+                  <button
+                    onClick={() => onUpdate({ items: block.items.filter((_, idx) => idx !== i) })}
+                    className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={item.content}
+                onChange={(e) => {
+                  const next = block.items.map((it, idx) => (idx === i ? { ...it, content: e.target.value } : it));
+                  onUpdate({ items: next });
+                }}
+                className={`${fieldClass} h-16 resize-y`}
+                placeholder="Conteúdo deste separador"
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate({ items: [...block.items, { id: newBlockId(), label: `Separador ${block.items.length + 1}`, content: "" }] })}
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            + Adicionar separador
+          </button>
+        </div>
+      );
+
+    case "flashcards":
+      return (
+        <div className="space-y-2">
+          {block.cards.map((card, i) => (
+            <div key={card.id} className="border border-slate-800 rounded-lg p-2 grid grid-cols-2 gap-1.5 bg-slate-950/60">
+              <input
+                value={card.front}
+                onChange={(e) => {
+                  const next = block.cards.map((c, idx) => (idx === i ? { ...c, front: e.target.value } : c));
+                  onUpdate({ cards: next });
+                }}
+                className={fieldClass}
+                placeholder="Frente"
+              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={card.back}
+                  onChange={(e) => {
+                    const next = block.cards.map((c, idx) => (idx === i ? { ...c, back: e.target.value } : c));
+                    onUpdate({ cards: next });
+                  }}
+                  className={fieldClass}
+                  placeholder="Verso"
+                />
+                {block.cards.length > 1 && (
+                  <button
+                    onClick={() => onUpdate({ cards: block.cards.filter((_, idx) => idx !== i) })}
+                    className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate({ cards: [...block.cards, { id: newBlockId(), front: "", back: "" }] })}
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            + Adicionar cartão
+          </button>
+        </div>
+      );
+
+    case "hotspot":
+      return (
+        <div className="space-y-2">
+          {block.imageUrl && (
+            <div className="relative">
+              <img src={block.imageUrl} alt="" className="max-h-40 rounded-lg border border-slate-800 w-full object-cover" />
+              {block.points.map((p) => (
+                <div
+                  key={p.id}
+                  className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500 border-2 border-white/80 shadow"
+                  style={{ left: `${p.x}%`, top: `${p.y}%` }}
+                  title={p.label}
+                />
+              ))}
+            </div>
+          )}
+          <input value={block.imageUrl} onChange={(e) => onUpdate({ imageUrl: e.target.value })} className={fieldClass} placeholder="URL da imagem (ou arraste da Biblioteca de Media)" />
+          <div className="space-y-1.5">
+            {block.points.map((p, i) => (
+              <div key={p.id} className="border border-slate-800 rounded-lg p-2 space-y-1.5 bg-slate-950/60">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="space-y-1">
+                    <label className="text-[8px] text-slate-500 uppercase font-bold">X (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={p.x}
+                      onChange={(e) => {
+                        const next = block.points.map((pt, idx) => (idx === i ? { ...pt, x: Number(e.target.value) } : pt));
+                        onUpdate({ points: next });
+                      }}
+                      className={fieldClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[8px] text-slate-500 uppercase font-bold">Y (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={p.y}
+                      onChange={(e) => {
+                        const next = block.points.map((pt, idx) => (idx === i ? { ...pt, y: Number(e.target.value) } : pt));
+                        onUpdate({ points: next });
+                      }}
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={p.label}
+                    onChange={(e) => {
+                      const next = block.points.map((pt, idx) => (idx === i ? { ...pt, label: e.target.value } : pt));
+                      onUpdate({ points: next });
+                    }}
+                    className={fieldClass}
+                    placeholder="Rótulo do ponto"
+                  />
+                  <button
+                    onClick={() => onUpdate({ points: block.points.filter((_, idx) => idx !== i) })}
+                    className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <textarea
+                  value={p.description}
+                  onChange={(e) => {
+                    const next = block.points.map((pt, idx) => (idx === i ? { ...pt, description: e.target.value } : pt));
+                    onUpdate({ points: next });
+                  }}
+                  className={`${fieldClass} h-12 resize-y`}
+                  placeholder="Descrição ao clicar neste ponto"
+                />
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => onUpdate({ points: [...block.points, { id: newBlockId(), x: 50, y: 50, label: "", description: "" }] })}
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            + Adicionar ponto
+          </button>
         </div>
       );
 
