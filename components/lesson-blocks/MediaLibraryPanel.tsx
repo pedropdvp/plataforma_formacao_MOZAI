@@ -121,15 +121,15 @@ export function MediaLibraryPanel() {
   };
 
   return (
-    <div className="w-64 shrink-0 border-l border-slate-900 flex flex-col h-full">
-      <div className="p-3 border-b border-slate-900 space-y-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">Biblioteca de Media</span>
-        <p className="text-[10px] text-slate-400 leading-relaxed">Arraste uma imagem ou vídeo para a lista de blocos.</p>
+    <div className="w-64 shrink-0 border-l border-[#1e293b] bg-[#0b1120] flex flex-col h-full no-3d-effect">
+      <div className="p-3 border-b border-[#1e293b] space-y-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#e2e8f0] block">Biblioteca de Media</span>
+        <p className="text-[10px] text-[#94a3b8] leading-relaxed">Arraste uma imagem ou vídeo para a lista de blocos.</p>
         <div className="flex gap-1.5">
           <button
             onClick={() => imageInputRef.current?.click()}
             disabled={uploadingImage}
-            className="flex-1 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-8 rounded-lg bg-[#4f46e5] hover:bg-[#6366f1] text-[#ffffff] text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
           >
             {uploadingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
             Imagem
@@ -137,7 +137,7 @@ export function MediaLibraryPanel() {
           <button
             onClick={() => videoInputRef.current?.click()}
             disabled={uploadingVideo}
-            className="flex-1 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-8 rounded-lg bg-[#4f46e5] hover:bg-[#6366f1] text-[#ffffff] text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
           >
             {uploadingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
             Vídeo
@@ -169,11 +169,11 @@ export function MediaLibraryPanel() {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-slate-400">
+          <div className="flex items-center justify-center py-8 text-[#94a3b8]">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : items.length === 0 ? (
-          <p className="text-[10px] text-slate-400 text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
+          <p className="text-[10px] text-[#94a3b8] text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
         ) : (
           items.map((item) => <DraggableMediaItem key={item._id} item={item} />)
         )}
@@ -195,34 +195,34 @@ function DraggableMediaItem({ item }: { item: MediaItem }) {
       ref={setNodeRef}
       {...(isReady ? listeners : {})}
       {...(isReady ? attributes : {})}
-      className={`group flex items-center gap-2 p-1.5 rounded-lg border border-slate-900 bg-slate-900/20 transition-opacity ${
-        isReady ? "cursor-grab active:cursor-grabbing hover:border-indigo-500/30" : "opacity-60 cursor-not-allowed"
+      className={`group flex items-center gap-2 p-1.5 rounded-lg border border-[#1e293b] bg-[#111827] transition-opacity ${
+        isReady ? "cursor-grab active:cursor-grabbing hover:border-[#6366f1]/50" : "opacity-60 cursor-not-allowed"
       } ${isDragging ? "opacity-30" : ""}`}
       title={isReady ? "Arraste para a lista de blocos" : "Ainda a processar"}
     >
       {item.type === "image" ? (
-        <img src={item.url} alt={item.alt || ""} className="h-9 w-9 rounded object-cover border border-slate-800 shrink-0" />
+        <img src={item.url} alt={item.alt || ""} className="h-9 w-9 rounded object-cover border border-[#334155] shrink-0" />
       ) : (
-        <div className="h-9 w-9 rounded bg-slate-950 border border-slate-800 flex items-center justify-center shrink-0">
-          <Video className="h-3.5 w-3.5 text-slate-500" />
+        <div className="h-9 w-9 rounded bg-[#0b1120] border border-[#334155] flex items-center justify-center shrink-0">
+          <Video className="h-3.5 w-3.5 text-[#94a3b8]" />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] text-slate-300 truncate font-medium">{item.filename || item.alt || (item.type === "image" ? "Imagem" : "Vídeo")}</p>
+        <p className="text-[10px] text-[#e2e8f0] truncate font-medium">{item.filename || item.alt || (item.type === "image" ? "Imagem" : "Vídeo")}</p>
         <div className="flex items-center gap-1">
           {item.type === "video" && item.status === "processing" && (
-            <><Clock className="h-2.5 w-2.5 text-amber-500" /><span className="text-[9px] text-amber-500">A processar</span></>
+            <><Clock className="h-2.5 w-2.5 text-[#f59e0b]" /><span className="text-[9px] font-semibold text-[#f59e0b]">A processar</span></>
           )}
           {item.type === "video" && item.status === "ready" && (
-            <><CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" /><span className="text-[9px] text-emerald-500">Pronto</span></>
+            <><CheckCircle2 className="h-2.5 w-2.5 text-[#22c55e]" /><span className="text-[9px] font-semibold text-[#22c55e]">Pronto</span></>
           )}
           {item.type === "video" && item.status === "error" && (
-            <><XCircle className="h-2.5 w-2.5 text-rose-500" /><span className="text-[9px] text-rose-500">Erro</span></>
+            <><XCircle className="h-2.5 w-2.5 text-[#ef4444]" /><span className="text-[9px] font-semibold text-[#ef4444]">Erro</span></>
           )}
-          {item.type === "image" && <ImageIcon className="h-2.5 w-2.5 text-slate-600" />}
+          {item.type === "image" && <ImageIcon className="h-2.5 w-2.5 text-[#64748b]" />}
         </div>
       </div>
-      {isReady && <GripVertical className="h-3.5 w-3.5 text-slate-700 shrink-0 opacity-0 group-hover:opacity-100" />}
+      {isReady && <GripVertical className="h-3.5 w-3.5 text-[#64748b] shrink-0 opacity-0 group-hover:opacity-100" />}
     </div>
   );
 }

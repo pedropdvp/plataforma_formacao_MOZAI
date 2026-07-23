@@ -171,10 +171,14 @@ function VideoBlockView({ provider, videoId, status }: { provider?: string; vide
   );
 }
 
+// Cores fixas e opacas (não dependem do fundo à volta) para garantir leitura em
+// modo claro e escuro — os tons translúcidos anteriores (ex: text-emerald-200)
+// não estavam cobertos pelo sistema de overrides de tema da app e ficavam
+// ilegíveis em modo claro (texto claro sobre fundo também claro).
 const CALLOUT_STYLES: Record<string, { icon: React.ElementType; classes: string }> = {
-  info: { icon: Info, classes: "border-indigo-500/30 bg-indigo-500/10 text-indigo-200" },
-  warning: { icon: AlertTriangle, classes: "border-amber-500/30 bg-amber-500/10 text-amber-200" },
-  tip: { icon: Lightbulb, classes: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" },
+  info: { icon: Info, classes: "border-[#3b82f6]/40 bg-[#1e3a5f] text-[#bfdbfe]" },
+  warning: { icon: AlertTriangle, classes: "border-[#f59e0b]/40 bg-[#451a03] text-[#fde68a]" },
+  tip: { icon: Lightbulb, classes: "border-[#22c55e]/40 bg-[#052e16] text-[#bbf7d0]" },
 };
 
 function CalloutBlockView({

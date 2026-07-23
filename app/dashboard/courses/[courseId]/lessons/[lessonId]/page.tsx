@@ -132,7 +132,7 @@ function VideoBlock({ provider, videoId }: { provider?: string; videoId?: string
       <div className="p-5 rounded-full bg-slate-800 text-slate-500">
         <Play className="h-10 w-10 fill-slate-500" />
       </div>
-      <span className="text-[11px] text-slate-500">Vídeo por configurar — adicione um Playback ID (Mux) no Studio.</span>
+      <span className="text-[11px] text-slate-500">Vídeo por configurar — edite esta lição e defina um vídeo (YouTube ou Mux) no campo "Vídeo Principal".</span>
     </div>
   );
 }
