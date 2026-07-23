@@ -35,6 +35,8 @@ import {
   LayoutPanelTop,
   Layers,
   Target,
+  SquareTerminal,
+  GitBranch,
 } from "lucide-react";
 import {
   LessonBlock,
@@ -57,6 +59,7 @@ const BLOCK_TYPE_ICONS: Record<LessonBlockType, React.ElementType> = {
   tabs: LayoutPanelTop,
   flashcards: Layers,
   hotspot: Target,
+  codeLab: SquareTerminal,
 };
 
 const BLOCK_TYPES: LessonBlockType[] = [
@@ -71,6 +74,7 @@ const BLOCK_TYPES: LessonBlockType[] = [
   "tabs",
   "flashcards",
   "hotspot",
+  "codeLab",
 ];
 
 const END_ZONE_ID = "block-editor-end-zone";
@@ -94,13 +98,15 @@ interface BlockEditorProps {
   onChange: (blocks: LessonBlock[]) => void;
   /** Slot para a MediaLibraryPanel — fica dentro do mesmo DndContext, permitindo arrastar media para a lista. */
   children?: React.ReactNode;
+  /** Lições do curso atual, para o seletor de ramificação (branchTargets) do bloco quiz. */
+  availableLessons?: { slug: string; title: string }[];
 }
 
 /**
  * Editor visual em blocos, com arrastar-e-largar (reordenar blocos e arrastar
  * itens da Biblioteca de Media — `children` — para dentro da lista).
  */
-export function BlockEditor({ blocks, onChange, children }: BlockEditorProps) {
+export function BlockEditor({ blocks, onChange, children, availableLessons = [] }: BlockEditorProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [insertPickerAt, setInsertPickerAt] = useState<number | null>(null);
 
@@ -173,7 +179,12 @@ export function BlockEditor({ blocks, onChange, children }: BlockEditorProps) {
           <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
             {blocks.map((block, idx) => (
               <React.Fragment key={block.id}>
-                <SortableBlockRow block={block} onUpdate={(patch) => updateBlock(block.id, patch)} onRemove={() => removeBlock(block.id)} />
+                <SortableBlockRow
+                  block={block}
+                  onUpdate={(patch) => updateBlock(block.id, patch)}
+                  onRemove={() => removeBlock(block.id)}
+                  availableLessons={availableLessons}
+                />
                 <InsertBar
                   active={insertPickerAt === idx + 1}
                   onToggle={() => setInsertPickerAt(insertPickerAt === idx + 1 ? null : idx + 1)}
@@ -248,10 +259,12 @@ function SortableBlockRow({
   block,
   onUpdate,
   onRemove,
+  availableLessons,
 }: {
   block: LessonBlock;
   onUpdate: (patch: Partial<LessonBlock>) => void;
   onRemove: () => void;
+  availableLessons: { slug: string; title: string }[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
   const Icon = BLOCK_TYPE_ICONS[block.type];
@@ -275,7 +288,7 @@ function SortableBlockRow({
         </button>
       </div>
       <div className="p-2.5">
-        <BlockFields block={block} onUpdate={onUpdate} />
+        <BlockFields block={block} onUpdate={onUpdate} availableLessons={availableLessons} />
       </div>
     </div>
   );
@@ -284,7 +297,15 @@ function SortableBlockRow({
 const fieldClass =
   "w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500";
 
-function BlockFields({ block, onUpdate }: { block: LessonBlock; onUpdate: (patch: Partial<LessonBlock>) => void }) {
+function BlockFields({
+  block,
+  onUpdate,
+  availableLessons,
+}: {
+  block: LessonBlock;
+  onUpdate: (patch: Partial<LessonBlock>) => void;
+  availableLessons: { slug: string; title: string }[];
+}) {
   switch (block.type) {
     case "heading":
       return (
@@ -348,34 +369,58 @@ function BlockFields({ block, onUpdate }: { block: LessonBlock; onUpdate: (patch
           <input value={block.question} onChange={(e) => onUpdate({ question: e.target.value })} className={fieldClass} placeholder="Pergunta" />
           <div className="space-y-1.5">
             {block.options.map((opt, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={block.correctIndex === i}
-                  onChange={() => onUpdate({ correctIndex: i })}
-                  className="shrink-0 accent-indigo-500"
-                  title="Resposta correta"
-                />
-                <input
-                  value={opt}
-                  onChange={(e) => {
-                    const next = [...block.options];
-                    next[i] = e.target.value;
-                    onUpdate({ options: next });
-                  }}
-                  className={fieldClass}
-                  placeholder={`Opção ${i + 1}`}
-                />
-                {block.options.length > 2 && (
-                  <button
-                    onClick={() => {
-                      const next = block.options.filter((_, idx) => idx !== i);
-                      onUpdate({ options: next, correctIndex: block.correctIndex >= next.length ? 0 : block.correctIndex });
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    checked={block.correctIndex === i}
+                    onChange={() => onUpdate({ correctIndex: i })}
+                    className="shrink-0 accent-indigo-500"
+                    title="Resposta correta"
+                  />
+                  <input
+                    value={opt}
+                    onChange={(e) => {
+                      const next = [...block.options];
+                      next[i] = e.target.value;
+                      onUpdate({ options: next });
                     }}
-                    className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
+                    className={fieldClass}
+                    placeholder={`Opção ${i + 1}`}
+                  />
+                  {block.options.length > 2 && (
+                    <button
+                      onClick={() => {
+                        const next = block.options.filter((_, idx) => idx !== i);
+                        onUpdate({ options: next, correctIndex: block.correctIndex >= next.length ? 0 : block.correctIndex });
+                      }}
+                      className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {availableLessons.length > 0 && (
+                  <div className="flex items-center gap-1.5 pl-5">
+                    <GitBranch className="h-3 w-3 text-slate-600 shrink-0" />
+                    <select
+                      value={block.branchTargets?.find((bt) => bt.optionIndex === i)?.nextLessonSlug || ""}
+                      onChange={(e) => {
+                        const nextLessonSlug = e.target.value;
+                        const existing = (block.branchTargets || []).filter((bt) => bt.optionIndex !== i);
+                        const branchTargets = nextLessonSlug ? [...existing, { optionIndex: i, nextLessonSlug }] : existing;
+                        onUpdate({ branchTargets: branchTargets.length > 0 ? branchTargets : undefined });
+                      }}
+                      className={`${fieldClass} text-[10px] py-1`}
+                    >
+                      <option value="">Sem ramificação (segue lição seguinte)</option>
+                      {availableLessons.map((l) => (
+                        <option key={l.slug} value={l.slug}>
+                          Ramificar para: {l.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 )}
               </div>
             ))}
@@ -639,6 +684,38 @@ function BlockFields({ block, onUpdate }: { block: LessonBlock; onUpdate: (patch
           >
             + Adicionar ponto
           </button>
+        </div>
+      );
+
+    case "codeLab":
+      return (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <select value={block.language} onChange={(e) => onUpdate({ language: e.target.value })} className={fieldClass}>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+            </select>
+            <input
+              value={block.expectedOutput || ""}
+              onChange={(e) => onUpdate({ expectedOutput: e.target.value })}
+              className={fieldClass}
+              placeholder="Output esperado (opcional)"
+            />
+          </div>
+          <input
+            value={block.instructions || ""}
+            onChange={(e) => onUpdate({ instructions: e.target.value })}
+            className={fieldClass}
+            placeholder="Instruções para o aluno"
+          />
+          <textarea
+            value={block.starterCode}
+            onChange={(e) => onUpdate({ starterCode: e.target.value })}
+            className={`${fieldClass} h-28 resize-y font-mono`}
+            placeholder="Código inicial (starter code)"
+          />
+          <p className="text-[9px] text-slate-600">Execução real via Piston (API pública). Sem estado persistente entre execuções.</p>
         </div>
       );
 

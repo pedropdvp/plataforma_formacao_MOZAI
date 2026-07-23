@@ -9,6 +9,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { headers } from "next/headers";
 import { BlockRenderer } from "@/components/lesson-blocks/BlockRenderer";
+import { CourseMapButton } from "@/components/lesson-blocks/CourseMapCanvas";
 import { getOrMigrateBlocks } from "@/lib/lesson-blocks";
 
 // ---------------------------------------------------------------------------
@@ -272,6 +273,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
         title={activeLesson?.title || lessons[idx]?.title || "Lição"}
         video={{ provider: activeLesson?.videoProvider, id: activeLesson?.videoId }}
         lessonBlocks={lessonBlocks}
+        courseModules={aiCourse.modules}
         resources={activeLesson?.resources || []}
         nextHref={next ? `/dashboard/courses/${courseId}/lessons/${next.slug}` : null}
         exercises={parsedExercises}
@@ -313,12 +315,13 @@ function LessonShell(props: {
   description?: string;
   content?: any[];
   lessonBlocks?: import("@/lib/lesson-blocks").LessonBlock[];
+  courseModules?: any[];
   video: { provider?: string; id?: string };
   resources: { title: string; url: string }[];
   nextHref: string | null;
   exercises?: Array<{ question: string; options: string[]; correct: string }>;
 }) {
-  const { courseId, courseTitle, lessons, activeSlug, title, description, content, lessonBlocks, video, resources, nextHref, exercises } = props;
+  const { courseId, courseTitle, lessons, activeSlug, title, description, content, lessonBlocks, courseModules, video, resources, nextHref, exercises } = props;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 -m-8">
@@ -333,6 +336,12 @@ function LessonShell(props: {
             </Link>
             <span className="text-slate-700">/</span>
             <span className="text-xs text-slate-500 font-medium truncate max-w-[240px]">{courseTitle}</span>
+            {courseModules && courseModules.length > 0 && (
+              <>
+                <span className="text-slate-700">/</span>
+                <CourseMapButton courseTitle={courseTitle} modules={courseModules} />
+              </>
+            )}
           </div>
 
           <VideoBlock provider={video.provider} videoId={video.id} />
@@ -345,7 +354,7 @@ function LessonShell(props: {
           {/* Conteúdo: blocks[] (cursos gerados por IA), Portable Text (Sanity) ou descrição demo */}
           <div className="border-t border-slate-900 pt-6 space-y-3">
             {lessonBlocks ? (
-              <BlockRenderer blocks={lessonBlocks} courseId={courseId} lessonKey={activeSlug} />
+              <BlockRenderer blocks={lessonBlocks} courseId={courseId} lessonKey={activeSlug} lessons={lessons} />
             ) : content && content.length > 0 ? (
               <PortableText value={content} components={ptComponents} />
             ) : (

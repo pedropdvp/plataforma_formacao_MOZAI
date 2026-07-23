@@ -169,18 +169,46 @@ export async function PUT(req: NextRequest) {
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const body = await req.json();
-    const { courseId, title, description, modules, videoUrl } = body;
+    const { courseId, title, description, modules, videoUrl, isPublicMarketplace, marketplaceDescription } = body;
 
     if (!courseId) {
       return NextResponse.json({ error: "courseId é obrigatório." }, { status: 400 });
     }
 
     const db = await getDb();
+
+    // Snapshot de segurança: grava o estado ANTES de sobrescrever, tal como o
+    // sistema de backup faz para a BD inteira, mas aqui ao nível de um único curso —
+    // permite comparar/restaurar versões anteriores em app/api/admin/courses/[courseId]/versions.
+    if (modules) {
+      const current = await db.collection("courses").findOne({ _id: new ObjectId(courseId), tenant_id: tenantId });
+      if (current) {
+        const lastVersion = await db
+          .collection("course_versions")
+          .find({ courseId: courseId.toString(), tenantId })
+          .sort({ versionNumber: -1 })
+          .limit(1)
+          .toArray();
+        const nextVersionNumber = (lastVersion[0]?.versionNumber || 0) + 1;
+        await db.collection("course_versions").insertOne({
+          courseId: courseId.toString(),
+          tenantId,
+          versionNumber: nextVersionNumber,
+          title: current.title,
+          modules: current.modules || [],
+          editedBy: userId,
+          createdAt: new Date(),
+        });
+      }
+    }
+
     const updateFields: any = { updatedAt: new Date() };
     if (title) updateFields.title = title;
     if (description) updateFields.description = description;
     if (modules) updateFields.modules = modules;
     if (videoUrl !== undefined) updateFields.videoUrl = videoUrl;
+    if (isPublicMarketplace !== undefined) updateFields.isPublicMarketplace = isPublicMarketplace;
+    if (marketplaceDescription !== undefined) updateFields.marketplaceDescription = marketplaceDescription;
 
     await db.collection("courses").updateOne(
       { _id: new ObjectId(courseId), tenant_id: tenantId },

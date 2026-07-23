@@ -37,7 +37,8 @@ import {
   Activity,
   Briefcase,
   ShieldCheck,
-  Database
+  Database,
+  Store
 } from "lucide-react";
 
 export default function SidebarNav() {
@@ -61,6 +62,7 @@ export default function SidebarNav() {
   // Active status of each group
   const isAprendizagemActive = [
     "/dashboard/catalog",
+    "/dashboard/marketplace",
     "/dashboard/challenges",
     "/dashboard/gamification",
     "/dashboard/mozai-academy",
@@ -162,6 +164,10 @@ export default function SidebarNav() {
             <Link href="/dashboard/catalog" className={linkClass("/dashboard/catalog")}>
               <Library className="h-4 w-4 text-violet-400" />
               {t("nav_catalog", "Catálogo")}
+            </Link>
+            <Link href="/dashboard/marketplace" className={linkClass("/dashboard/marketplace")}>
+              <Store className="h-4 w-4 text-violet-400" />
+              {t("nav_marketplace", "Marketplace")}
             </Link>
             <Link href="/dashboard/challenges" className={linkClass("/dashboard/challenges")}>
               <Terminal className="h-4 w-4 text-cyan-400" />

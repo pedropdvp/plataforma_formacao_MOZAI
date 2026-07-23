@@ -1,12 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink, History, RotateCcw } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
 import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
 import { EditingPresenceIndicator } from "@/components/lesson-blocks/EditingPresenceIndicator";
 import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
+
+interface CourseVersion {
+  versionNumber: number;
+  title: string;
+  editedByName: string;
+  createdAt: string;
+}
 
 interface Lesson {
   id?: string;
@@ -35,12 +43,18 @@ interface CourseEditModalProps {
 
 export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalProps) {
   const { showToast } = useToast();
+  const confirmDialog = useConfirm();
   const [loading, setLoading] = useState(true);
+  const [versions, setVersions] = useState<CourseVersion[]>([]);
+  const [showVersions, setShowVersions] = useState(false);
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [openLessonKey, setOpenLessonKey] = useState<string | null>(null);
+  const [isPublicMarketplace, setIsPublicMarketplace] = useState(false);
+  const [marketplaceDescription, setMarketplaceDescription] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -51,6 +65,8 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
           setTitle(data.course.title || "");
           setDescription(data.course.description || "");
           setModules(data.course.modules || []);
+          setIsPublicMarketplace(!!data.course.isPublicMarketplace);
+          setMarketplaceDescription(data.course.marketplaceDescription || "");
         } else {
           showToast(data.error || "Erro ao carregar curso.", "error");
         }
@@ -63,6 +79,57 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
+
+  const availableLessons = modules.flatMap((mod) =>
+    mod.lessons.map((l) => ({ slug: l.slug || l.id || l.title, title: l.title }))
+  );
+
+  const loadVersions = async () => {
+    try {
+      const res = await fetch(`/api/admin/courses/${courseId}/versions`);
+      const data = await res.json();
+      if (res.ok) setVersions(data.versions || []);
+    } catch {
+      // silencioso — histórico é informativo, não bloqueia a edição
+    }
+  };
+
+  const handleToggleVersions = () => {
+    const next = !showVersions;
+    setShowVersions(next);
+    if (next && versions.length === 0) loadVersions();
+  };
+
+  const handleRestoreVersion = async (versionNumber: number) => {
+    const confirmed = await confirmDialog({
+      title: "Restaurar Versão",
+      message: `Tem a certeza que deseja restaurar a versão #${versionNumber}? O estado atual será guardado como uma nova versão antes de restaurar, mas as alterações não guardadas neste editor serão perdidas.`,
+      confirmLabel: "Restaurar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setRestoringVersion(versionNumber);
+    try {
+      const res = await fetch(`/api/admin/courses/${courseId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionNumber }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setModules(data.course.modules || []);
+        showToast(`Versão #${versionNumber} restaurada.`, "success");
+        loadVersions();
+      } else {
+        showToast(data.error || "Erro ao restaurar versão.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao restaurar versão.", "error");
+    } finally {
+      setRestoringVersion(null);
+    }
+  };
 
   const updateLesson = (mIdx: number, lIdx: number, patch: Partial<Lesson>) => {
     setModules((prev) => {
@@ -82,7 +149,7 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
       const res = await fetch("/api/admin/courses/review", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ courseId, title, description, modules }),
+        body: JSON.stringify({ courseId, title, description, modules, isPublicMarketplace, marketplaceDescription }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -136,6 +203,25 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full h-16 px-3.5 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
                 />
+              </div>
+              <div className="border border-slate-900 bg-slate-900/10 rounded-xl p-3 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublicMarketplace}
+                    onChange={(e) => setIsPublicMarketplace(e.target.checked)}
+                    className="accent-indigo-500"
+                  />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Publicar no Marketplace (visível a outras organizações)</span>
+                </label>
+                {isPublicMarketplace && (
+                  <textarea
+                    value={marketplaceDescription}
+                    onChange={(e) => setMarketplaceDescription(e.target.value)}
+                    placeholder="Descrição pública para o marketplace (opcional — usa a descrição do curso se vazio)"
+                    className="w-full h-14 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                )}
               </div>
             </div>
 
@@ -206,6 +292,7 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                                 <BlockEditor
                                   blocks={getOrMigrateBlocks(lesson)}
                                   onChange={(blocks) => updateLesson(mIdx, lIdx, { blocks, content: blocksToPlainText(blocks) })}
+                                  availableLessons={availableLessons.filter((l) => l.slug !== (lesson.slug || lesson.id))}
                                 >
                                   <MediaLibraryPanel />
                                 </BlockEditor>
@@ -227,6 +314,45 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                   })}
                 </div>
               ))}
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-900">
+              <button
+                onClick={handleToggleVersions}
+                className="w-full flex items-center justify-between gap-2 text-left cursor-pointer"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5" />
+                  Histórico de Versões
+                </span>
+                {showVersions ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+              </button>
+              {showVersions && (
+                <div className="space-y-1.5">
+                  {versions.length === 0 ? (
+                    <p className="text-[11px] text-slate-600 italic">Ainda não há versões anteriores guardadas — aparecem aqui a partir da próxima vez que guardar alterações.</p>
+                  ) : (
+                    versions.map((v) => (
+                      <div key={v.versionNumber} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-900 bg-slate-900/10 text-xs">
+                        <div className="min-w-0">
+                          <span className="font-semibold text-slate-200">Versão #{v.versionNumber}</span>
+                          <span className="text-[10px] text-slate-500 block">
+                            {v.editedByName} — {new Date(v.createdAt).toLocaleString("pt-PT")}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleRestoreVersion(v.versionNumber)}
+                          disabled={restoringVersion !== null}
+                          className="h-7 px-2.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-300 hover:text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer disabled:opacity-50 shrink-0"
+                        >
+                          {restoringVersion === v.versionNumber ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                          Restaurar
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

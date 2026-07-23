@@ -8,6 +8,7 @@ import { CourseEditModal } from "@/components/ui/course-edit-modal";
 import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
 import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
 import { EditingPresenceIndicator } from "@/components/lesson-blocks/EditingPresenceIndicator";
+import { CourseMapButton } from "@/components/lesson-blocks/CourseMapCanvas";
 import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
 import {
   Sparkles,
@@ -1099,9 +1100,12 @@ export default function ContentFactoryPage() {
         <div className="grid lg:grid-cols-4 gap-8">
           {/* Navegador lateral do rascunho completo */}
           <div className="lg:col-span-1 border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-              Lições Geradas
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+                Lições Geradas
+              </span>
+              <CourseMapButton courseTitle={fullCourse.title} modules={fullCourse.modules || []} />
+            </div>
 
             <div className="space-y-4">
               {fullCourse.modules?.map((mod: any, mIdx: number) => (
@@ -1198,6 +1202,10 @@ export default function ContentFactoryPage() {
                     <BlockEditor
                       blocks={getOrMigrateBlocks(fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx])}
                       onChange={updateSelectedLessonBlocks}
+                      availableLessons={(fullCourse.modules || [])
+                        .flatMap((m: any) => m.lessons || [])
+                        .map((l: any) => ({ slug: l.slug || l.id, title: l.title }))
+                        .filter((l: any) => l.slug !== (fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].slug || fullCourse.modules[selectedModuleIdx].lessons[selectedLessonIdx].id))}
                     >
                       <MediaLibraryPanel />
                     </BlockEditor>

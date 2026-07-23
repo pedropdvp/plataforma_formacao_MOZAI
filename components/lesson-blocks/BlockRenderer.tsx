@@ -1,21 +1,25 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Info, AlertTriangle, Lightbulb, CheckCircle2, XCircle, ChevronDown, Sparkles, Loader2, RotateCw } from "lucide-react";
+import Link from "next/link";
+import { Play, Info, AlertTriangle, Lightbulb, CheckCircle2, XCircle, ChevronDown, Sparkles, Loader2, RotateCw, GitBranch, Volume2 } from "lucide-react";
 import type { LessonBlock } from "@/lib/lesson-blocks";
+import { CodeLabBlockView } from "@/components/lesson-blocks/CodeLabBlockView";
 
 interface BlockRendererProps {
   blocks: LessonBlock[];
   /** Contexto opcional (curso + lição), permite cachear no servidor a explicação alternativa gerada por IA nos callouts. */
   courseId?: string;
   lessonKey?: string;
+  /** Lições do curso (slug + título), usadas para resolver o destino de quizzes ramificados. */
+  lessons?: { slug: string; title: string }[];
 }
 
 /**
  * Renderiza um array de LessonBlock. Usado tanto no editor (pré-visualização)
  * como no visualizador do aluno — garante que o que o autor vê é o que o aluno vê.
  */
-export function BlockRenderer({ blocks, courseId, lessonKey }: BlockRendererProps) {
+export function BlockRenderer({ blocks, courseId, lessonKey, lessons }: BlockRendererProps) {
   if (!blocks || blocks.length === 0) {
     return <p className="text-sm text-slate-400 leading-relaxed">Conteúdo desta lição ainda em preparação.</p>;
   }
@@ -23,26 +27,42 @@ export function BlockRenderer({ blocks, courseId, lessonKey }: BlockRendererProp
   return (
     <div className="space-y-4">
       {blocks.map((block) => (
-        <BlockView key={block.id} block={block} courseId={courseId} lessonKey={lessonKey} />
+        <BlockView key={block.id} block={block} courseId={courseId} lessonKey={lessonKey} lessons={lessons} />
       ))}
     </div>
   );
 }
 
-function BlockView({ block, courseId, lessonKey }: { block: LessonBlock; courseId?: string; lessonKey?: string }) {
+function BlockView({
+  block,
+  courseId,
+  lessonKey,
+  lessons,
+}: {
+  block: LessonBlock;
+  courseId?: string;
+  lessonKey?: string;
+  lessons?: { slug: string; title: string }[];
+}) {
   switch (block.type) {
     case "heading": {
       const Tag = block.level === 2 ? "h2" : "h3";
       return (
-        <Tag className={block.level === 2 ? "text-lg font-bold text-white mt-6 mb-1" : "text-base font-semibold text-white mt-4 mb-1"}>
-          {block.text}
-        </Tag>
+        <div className="flex items-center gap-2 mt-6 mb-1 group">
+          <Tag className={block.level === 2 ? "text-lg font-bold text-white m-0" : "text-base font-semibold text-white m-0"}>
+            {block.text}
+          </Tag>
+          <NarrationButton text={block.text} audioUrl={block.audioUrl} courseId={courseId} lessonKey={lessonKey} blockId={block.id} />
+        </div>
       );
     }
 
     case "text":
       return (
-        <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{block.markdown}</p>
+        <div className="space-y-1.5">
+          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap m-0">{block.markdown}</p>
+          <NarrationButton text={block.markdown} audioUrl={block.audioUrl} courseId={courseId} lessonKey={lessonKey} blockId={block.id} />
+        </div>
       );
 
     case "image":
@@ -62,7 +82,7 @@ function BlockView({ block, courseId, lessonKey }: { block: LessonBlock; courseI
       return <VideoBlockView provider={block.provider} videoId={block.videoId} status={block.status} />;
 
     case "quiz":
-      return <QuizBlockView block={block} />;
+      return <QuizBlockView block={block} courseId={courseId} lessons={lessons} />;
 
     case "callout":
       return <CalloutBlockView block={block} courseId={courseId} lessonKey={lessonKey} />;
@@ -85,6 +105,16 @@ function BlockView({ block, courseId, lessonKey }: { block: LessonBlock; courseI
 
     case "hotspot":
       return <HotspotBlockView block={block} />;
+
+    case "codeLab":
+      return (
+        <CodeLabBlockView
+          language={block.language}
+          starterCode={block.starterCode}
+          expectedOutput={block.expectedOutput}
+          instructions={block.instructions}
+        />
+      );
 
     default:
       return null;
@@ -302,10 +332,21 @@ function HotspotBlockView({ block }: { block: Extract<LessonBlock, { type: "hots
   );
 }
 
-function QuizBlockView({ block }: { block: Extract<LessonBlock, { type: "quiz" }> }) {
+function QuizBlockView({
+  block,
+  courseId,
+  lessons,
+}: {
+  block: Extract<LessonBlock, { type: "quiz" }>;
+  courseId?: string;
+  lessons?: { slug: string; title: string }[];
+}) {
   const [selected, setSelected] = useState<number | null>(null);
 
   if (!block.question) return null;
+
+  const branchTarget = selected !== null ? block.branchTargets?.find((bt) => bt.optionIndex === selected) : undefined;
+  const branchLesson = branchTarget ? lessons?.find((l) => l.slug === branchTarget.nextLessonSlug) : undefined;
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/20 p-4 space-y-3 no-3d-effect">
@@ -338,6 +379,93 @@ function QuizBlockView({ block }: { block: Extract<LessonBlock, { type: "quiz" }
       {selected !== null && block.explanation && (
         <p className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-800 pt-2.5">{block.explanation}</p>
       )}
+      {branchTarget && courseId && (
+        <Link
+          href={`/dashboard/courses/${courseId}/lessons/${branchTarget.nextLessonSlug}`}
+          className="flex items-center justify-between gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-500/20 transition-colors"
+        >
+          <span className="flex items-center gap-1.5">
+            <GitBranch className="h-3.5 w-3.5" />
+            Continuar para: {branchLesson?.title || branchTarget.nextLessonSlug}
+          </span>
+          <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
+        </Link>
+      )}
     </div>
+  );
+}
+
+/**
+ * Botão "Ouvir" — gera (ou reaproveita, se já em cache) narração por voz sintética
+ * de um bloco heading/text. Ação explícita por bloco, nunca automática, para manter
+ * o custo (a ElevenLabs cobra por carácter) sempre visível e controlado pelo autor.
+ */
+function NarrationButton({
+  text,
+  audioUrl: initialAudioUrl,
+  courseId,
+  lessonKey,
+  blockId,
+}: {
+  text: string;
+  audioUrl?: string;
+  courseId?: string;
+  lessonKey?: string;
+  blockId: string;
+}) {
+  const [audioUrl, setAudioUrl] = useState<string | undefined>(initialAudioUrl);
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!text || !text.trim()) return null;
+
+  const handleClick = async () => {
+    if (audioUrl) {
+      const audio = new Audio(audioUrl);
+      audio.play();
+      setPlaying(true);
+      audio.onended = () => setPlaying(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/lessons/narrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, courseId, lessonKey, blockId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.audioUrl) {
+        setAudioUrl(data.audioUrl);
+        const audio = new Audio(data.audioUrl);
+        audio.play();
+        setPlaying(true);
+        audio.onended = () => setPlaying(false);
+      } else {
+        setError(data.error || "Narração indisponível.");
+      }
+    } catch {
+      setError("Erro de comunicação ao gerar narração.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1 shrink-0">
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        title={error || "Ouvir narração por voz sintética"}
+        className={`opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 rounded-full flex items-center justify-center cursor-pointer disabled:opacity-50 ${
+          playing ? "text-indigo-400 opacity-100" : error ? "text-rose-500 opacity-100" : "text-slate-600 hover:text-indigo-400"
+        }`}
+      >
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Volume2 className="h-3.5 w-3.5" />}
+      </button>
+    </span>
   );
 }

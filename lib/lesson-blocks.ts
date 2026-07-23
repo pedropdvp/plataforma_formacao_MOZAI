@@ -11,8 +11,8 @@
  */
 
 export type LessonBlock =
-  | { id: string; type: "heading"; text: string; level: 2 | 3 }
-  | { id: string; type: "text"; markdown: string }
+  | { id: string; type: "heading"; text: string; level: 2 | 3; audioUrl?: string }
+  | { id: string; type: "text"; markdown: string; audioUrl?: string }
   | { id: string; type: "image"; url: string; alt?: string; caption?: string }
   | {
       id: string;
@@ -29,6 +29,8 @@ export type LessonBlock =
       options: string[];
       correctIndex: number;
       explanation?: string;
+      /** Ramificação opcional: escolher a opção `optionIndex` navega para `nextLessonSlug` em vez da lição seguinte linear. */
+      branchTargets?: { optionIndex: number; nextLessonSlug: string }[];
     }
   | { id: string; type: "callout"; style: "info" | "warning" | "tip"; text: string; alternateText?: string }
   | { id: string; type: "code"; language: string; code: string }
@@ -40,6 +42,14 @@ export type LessonBlock =
       type: "hotspot";
       imageUrl: string;
       points: { id: string; x: number; y: number; label: string; description: string }[];
+    }
+  | {
+      id: string;
+      type: "codeLab";
+      language: string;
+      starterCode: string;
+      expectedOutput?: string;
+      instructions?: string;
     };
 
 export type LessonBlockType = LessonBlock["type"];
@@ -56,6 +66,7 @@ export const BLOCK_TYPE_LABELS: Record<LessonBlockType, string> = {
   tabs: "Separadores",
   flashcards: "Cartões de Memória",
   hotspot: "Imagem Interativa",
+  codeLab: "Laboratório de Código",
 };
 
 export function newBlockId(): string {
@@ -92,6 +103,8 @@ export function createEmptyBlock(type: LessonBlockType): LessonBlock {
       return { id, type: "flashcards", cards: [{ id: newBlockId(), front: "", back: "" }] };
     case "hotspot":
       return { id, type: "hotspot", imageUrl: "", points: [] };
+    case "codeLab":
+      return { id, type: "codeLab", language: "python", starterCode: "", instructions: "" };
   }
 }
 
@@ -165,6 +178,8 @@ export function blocksToPlainText(blocks: LessonBlock[]): string {
           return block.cards.map((c) => `**${c.front}** — ${c.back}`).join("\n\n");
         case "hotspot":
           return block.points.map((p) => `**${p.label}:** ${p.description}`).join("\n\n");
+        case "codeLab":
+          return block.instructions || "";
         case "video":
           return "";
         default:
