@@ -123,13 +123,13 @@ export function MediaLibraryPanel() {
   return (
     <div className="w-64 shrink-0 border-l border-slate-900 flex flex-col h-full">
       <div className="p-3 border-b border-slate-900 space-y-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Biblioteca de Media</span>
-        <p className="text-[10px] text-slate-600 leading-relaxed">Arraste uma imagem ou vídeo para a lista de blocos.</p>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">Biblioteca de Media</span>
+        <p className="text-[10px] text-slate-400 leading-relaxed">Arraste uma imagem ou vídeo para a lista de blocos.</p>
         <div className="flex gap-1.5">
           <button
             onClick={() => imageInputRef.current?.click()}
             disabled={uploadingImage}
-            className="flex-1 h-8 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
           >
             {uploadingImage ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
             Imagem
@@ -137,7 +137,7 @@ export function MediaLibraryPanel() {
           <button
             onClick={() => videoInputRef.current?.click()}
             disabled={uploadingVideo}
-            className="flex-1 h-8 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+            className="flex-1 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-semibold flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
           >
             {uploadingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
             Vídeo
@@ -169,11 +169,11 @@ export function MediaLibraryPanel() {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {loading ? (
-          <div className="flex items-center justify-center py-8 text-slate-600">
+          <div className="flex items-center justify-center py-8 text-slate-400">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : items.length === 0 ? (
-          <p className="text-[10px] text-slate-600 text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
+          <p className="text-[10px] text-slate-400 text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
         ) : (
           items.map((item) => <DraggableMediaItem key={item._id} item={item} />)
         )}
