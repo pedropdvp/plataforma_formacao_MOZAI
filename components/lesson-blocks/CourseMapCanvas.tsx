@@ -103,17 +103,17 @@ function buildGraph(modules: CanvasModule[]): { nodes: Node[]; edges: Edge[] } {
       const slug = slugOf(lesson);
       nodes.push({
         id: slug,
-        position: { x: lIdx * 240, y: mIdx * 160 },
+        position: { x: lIdx * 190, y: mIdx * 105 },
         data: { label: lesson.title },
         style: {
           background: "#0f172a",
           color: "#e2e8f0",
           border: "1px solid #334155",
           borderRadius: 12,
-          fontSize: 11,
+          fontSize: 14,
           fontWeight: 600,
-          padding: "10px 14px",
-          width: 200,
+          padding: "8px 12px",
+          width: 170,
         },
       });
 
