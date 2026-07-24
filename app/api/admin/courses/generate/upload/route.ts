@@ -136,13 +136,20 @@ export async function POST(req: NextRequest) {
     let totalChunks = 0;
     let totalImages = 0;
     const processedFiles: { name: string; size: number; sourceId: string; chunksCount: number }[] = [];
+    const failures: { name: string; error: string }[] = [];
 
     for (const file of files) {
       let pages: ExtractedPage[] = [];
       try {
         pages = await extractFileContent(file);
-      } catch (err) {
-        console.warn(`Falha ao extrair conteúdo de "${file.name}", a ignorar ficheiro:`, err);
+      } catch (err: any) {
+        console.warn(`Falha ao extrair conteúdo de "${file.name}":`, err);
+        failures.push({ name: file.name, error: err?.message || "Formato de ficheiro inválido ou corrompido." });
+        continue;
+      }
+
+      if (pages.length === 0 || pages.every((p) => !p.text.trim())) {
+        failures.push({ name: file.name, error: "Não foi possível extrair texto deste ficheiro (pode estar vazio, protegido ou ser apenas imagens sem texto)." });
         continue;
       }
 
@@ -158,6 +165,7 @@ export async function POST(req: NextRequest) {
       chunksCount: totalChunks,
       imagesCount: totalImages,
       files: processedFiles,
+      failures,
     });
   } catch (error: any) {
     console.error("Erro no upload de materiais:", error);

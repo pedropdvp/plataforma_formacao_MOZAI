@@ -72,10 +72,10 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: number) =
       <div className={`absolute -top-px left-1/2 -translate-x-1/2 w-1/2 h-px bg-gradient-to-r from-transparent ${GLOW_COLORS[toast.type]} to-transparent`} />
       
       {ICONS[toast.type]}
-      <p className="text-sm text-slate-200 leading-relaxed flex-1 pr-1">{toast.message}</p>
+      <p className="text-sm text-[#e2e8f0] leading-relaxed flex-1 pr-1">{toast.message}</p>
       <button
         onClick={handleDismiss}
-        className="text-slate-500 hover:text-white transition-colors flex-shrink-0 cursor-pointer mt-0.5"
+        className="text-[#94a3b8] hover:text-[#ffffff] transition-colors flex-shrink-0 cursor-pointer mt-0.5"
       >
         <X className="h-4 w-4" />
       </button>

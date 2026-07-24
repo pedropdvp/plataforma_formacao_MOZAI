@@ -269,8 +269,17 @@ export default function ContentFactoryPage() {
           sourceId: f.sourceId,
         }));
         setAttachments((prev) => [...prev, ...newOnes]);
+
+        if (newOnes.length > 0) {
+          showToast(`${newOnes.length} ficheiro(s) processado(s) com sucesso.`, "success");
+        }
+        // Mostrar o motivo exato de cada ficheiro que falhou (em vez de ficar sem feedback nenhum)
+        for (const failure of data.failures || []) {
+          showToast(`Falha em "${failure.name}": ${failure.error}`, "error", 8000);
+        }
       } else {
-        showToast("Falha ao carregar ficheiros.", "error");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Falha ao carregar ficheiros.", "error");
       }
     } catch (err) {
       console.error(err);
