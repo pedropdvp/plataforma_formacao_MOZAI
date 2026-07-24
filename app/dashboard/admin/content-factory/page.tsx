@@ -323,8 +323,14 @@ export default function ContentFactoryPage() {
         const file = files[i];
         try {
           const blob = await withTimeout(
+            // access "private": o store de Blob desta conta (mozai-db-backups, partilhado com
+            // o sistema de backups) está configurado como privado — um pedido "public" é
+            // rejeitado pela Vercel Blob com um 400 cuja resposta não inclui cabeçalhos CORS,
+            // o que o browser reporta (de forma enganadora) como bloqueio de CORS/timeout em
+            // vez do erro real. O download destes materiais no servidor (upload/route.ts) usa
+            // o token de leitura/escrita para autenticar o acesso a este blob privado.
             upload(file.name, file, {
-              access: "public",
+              access: "private",
               handleUploadUrl: "/api/admin/courses/generate/upload-token",
             }),
             `Carregar "${file.name}"`

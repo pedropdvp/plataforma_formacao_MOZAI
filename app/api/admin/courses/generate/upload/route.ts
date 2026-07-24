@@ -172,7 +172,12 @@ export async function POST(req: NextRequest) {
     for (const blobRef of blobs) {
       let buffer: Buffer;
       try {
-        const blobRes = await fetch(blobRef.url);
+        // O blob foi carregado como "private" (ver content-factory/page.tsx) — precisa do
+        // token de leitura/escrita para autenticar o download, tal como um GET normal a um
+        // blob privado exige (um fetch sem este header recebe 403).
+        const blobRes = await fetch(blobRef.url, {
+          headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+        });
         if (!blobRes.ok) throw new Error(`Não foi possível descarregar o ficheiro (HTTP ${blobRes.status}).`);
         buffer = Buffer.from(await blobRes.arrayBuffer());
       } catch (err: any) {
