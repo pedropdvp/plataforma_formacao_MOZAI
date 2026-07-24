@@ -281,26 +281,54 @@ export default function ContentFactoryPage() {
   // Tratar Upload de Ficheiros
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
+    // Tripwire de diagnóstico: se este toast não aparecer, o próprio onChange não disparou
+    // (ex: bloqueador de anúncios/extensão a interferir com o input, ou o evento nunca chegou a
+    // ser processado) — nesse caso o problema está antes de qualquer código nosso correr.
+    showToast(`A iniciar: ${files?.length || 0} ficheiro(s) selecionado(s)...`, "info", 3000);
     if (!files || files.length === 0) return;
 
     setUploading(true);
     const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
 
+    // Nenhuma etapa desta função pode falhar em silêncio: um bloqueador de anúncios ou
+    // extensão de privacidade pode fazer um pedido/chunk "ficar pendurado" (nem resolve nem
+    // rejeita) em vez de dar erro — isso pareceria "não acontece nada". Esta função de
+    // timeout transforma qualquer passo pendurado num erro visível ao fim de 20s.
+    function withTimeout<T>(promise: Promise<T>, label: string, ms = 20000): Promise<T> {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`"${label}" demorou demasiado tempo (>20s) — pode ser um bloqueador de anúncios/extensão a impedir o pedido. Tenta numa janela privada/anónima.`)), ms)
+        ),
+      ]);
+    }
+
     try {
       // 1. Carregar cada ficheiro diretamente para o Vercel Blob a partir do browser —
       // o ficheiro nunca passa pelo corpo do nosso pedido, evitando limites de tamanho
       // e falhas de parsing de multipart/form-data em ficheiros grandes/binários.
-      const { upload } = await import("@vercel/blob/client");
+      let upload: typeof import("@vercel/blob/client").upload;
+      try {
+        ({ upload } = await withTimeout(import("@vercel/blob/client"), "Carregar módulo de upload"));
+      } catch (importErr: any) {
+        showToast(`Falha ao carregar o módulo de upload: ${importErr?.message || importErr}`, "error", 10000);
+        setUploading(false);
+        return;
+      }
+
       const blobs: { url: string; filename: string; size: number }[] = [];
       const uploadFailures: { name: string; error: string }[] = [];
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         try {
-          const blob = await upload(file.name, file, {
-            access: "public",
-            handleUploadUrl: "/api/admin/courses/generate/upload-token",
-          });
+          const blob = await withTimeout(
+            upload(file.name, file, {
+              access: "public",
+              handleUploadUrl: "/api/admin/courses/generate/upload-token",
+            }),
+            `Carregar "${file.name}"`
+          );
           blobs.push({ url: blob.url, filename: file.name, size: file.size });
         } catch (uploadErr: any) {
           uploadFailures.push({ name: file.name, error: uploadErr?.message || "Falha ao carregar o ficheiro." });
