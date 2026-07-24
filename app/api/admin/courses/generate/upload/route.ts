@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
 
     let totalChunks = 0;
     let totalImages = 0;
+    const processedFiles: { name: string; size: number; sourceId: string; chunksCount: number }[] = [];
 
     for (const file of files) {
       let pages: ExtractedPage[] = [];
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
       const result = await ingestExtractedPages(pages, { briefingId, tenantId, sourceName: file.name });
       totalChunks += result.chunksCount;
       totalImages += result.imagesCount;
+      processedFiles.push({ name: file.name, size: file.size, sourceId: result.sourceId, chunksCount: result.chunksCount });
     }
 
     return NextResponse.json({
@@ -155,6 +157,7 @@ export async function POST(req: NextRequest) {
       briefingId,
       chunksCount: totalChunks,
       imagesCount: totalImages,
+      files: processedFiles,
     });
   } catch (error: any) {
     console.error("Erro no upload de materiais:", error);

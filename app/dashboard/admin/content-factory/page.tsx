@@ -37,6 +37,15 @@ import { CourseAnalyticsPanel } from "@/components/lesson-blocks/CourseAnalytics
 
 type Step = "BRIEF" | "OUTLINE" | "GENERATION" | "REVIEW";
 
+interface Attachment {
+  sourceId: string;
+  name: string;
+  size: number;
+  source: "file" | "url" | "youtube";
+  /** Texto original do link — só para "url"/"youtube", permite reabrir para edição. */
+  sourceUrl?: string;
+}
+
 export default function ContentFactoryPage() {
   const [step, setStep] = useState<Step>("BRIEF");
   const [jobId, setJobId] = useState<string | null>(null);
@@ -49,13 +58,17 @@ export default function ContentFactoryPage() {
   const [objectives, setObjectives] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [briefingId, setBriefingId] = useState<string>("");
-  const [attachments, setAttachments] = useState<{ name: string; size: number; source?: "file" | "url" | "youtube" }[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [generatingOutline, setGeneratingOutline] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [importingUrl, setImportingUrl] = useState(false);
   const [youtubeInput, setYoutubeInput] = useState("");
   const [importingYoutube, setImportingYoutube] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
+  const [editingAttachmentId, setEditingAttachmentId] = useState<string | null>(null);
+  const [editAttachmentValue, setEditAttachmentValue] = useState("");
+  const [savingAttachmentEdit, setSavingAttachmentEdit] = useState(false);
 
   // --- STEP 2: OUTLINE STATE ---
   const [outline, setOutline] = useState<any>(null);
@@ -233,11 +246,8 @@ export default function ContentFactoryPage() {
 
     setUploading(true);
     const formData = new FormData();
-    const newAttachments = [...attachments];
-
     for (let i = 0; i < files.length; i++) {
       formData.append("files", files[i]);
-      newAttachments.push({ name: files[i].name, size: files[i].size, source: "file" as const });
     }
 
     const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
@@ -252,7 +262,13 @@ export default function ContentFactoryPage() {
       if (res.ok) {
         const data = await res.json();
         setBriefingId(data.briefingId);
-        setAttachments(newAttachments);
+        const newOnes: Attachment[] = (data.files || []).map((f: any) => ({
+          name: f.name,
+          size: f.size,
+          source: "file" as const,
+          sourceId: f.sourceId,
+        }));
+        setAttachments((prev) => [...prev, ...newOnes]);
       } else {
         showToast("Falha ao carregar ficheiros.", "error");
       }
@@ -278,7 +294,10 @@ export default function ContentFactoryPage() {
       const data = await res.json();
       if (res.ok) {
         setBriefingId(data.briefingId);
-        setAttachments((prev) => [...prev, { name: data.sourceName || urlInput.trim(), size: 0, source: "url" as const }]);
+        setAttachments((prev) => [
+          ...prev,
+          { name: data.sourceName || urlInput.trim(), size: 0, source: "url" as const, sourceId: data.sourceId, sourceUrl: urlInput.trim() },
+        ]);
         setUrlInput("");
         showToast("Conteúdo do site importado com sucesso.", "success");
       } else {
@@ -306,7 +325,10 @@ export default function ContentFactoryPage() {
       const data = await res.json();
       if (res.ok) {
         setBriefingId(data.briefingId);
-        setAttachments((prev) => [...prev, { name: data.sourceName || youtubeInput.trim(), size: 0, source: "youtube" as const }]);
+        setAttachments((prev) => [
+          ...prev,
+          { name: data.sourceName || youtubeInput.trim(), size: 0, source: "youtube" as const, sourceId: data.sourceId, sourceUrl: youtubeInput.trim() },
+        ]);
         setYoutubeInput("");
         showToast("Transcrição do YouTube importada com sucesso.", "success");
       } else {
@@ -317,6 +339,84 @@ export default function ContentFactoryPage() {
       showToast("Erro de comunicação ao importar a transcrição.", "error");
     } finally {
       setImportingYoutube(false);
+    }
+  };
+
+  // Apagar um anexo (ficheiro, site ou transcrição) — remove também os chunks RAG já indexados
+  const handleDeleteAttachment = async (att: Attachment) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar Anexo",
+      message: `Tem a certeza que deseja apagar "${att.name}"? O conteúdo já indexado deste material deixará de ser usado na geração do curso.`,
+      confirmLabel: "Apagar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    setDeletingAttachmentId(att.sourceId);
+    try {
+      const res = await fetch(`/api/admin/courses/generate/attachments?briefingId=${briefingId}&sourceId=${att.sourceId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setAttachments((prev) => prev.filter((a) => a.sourceId !== att.sourceId));
+        showToast("Anexo apagado.", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao apagar o anexo.", "error");
+      }
+    } catch (err) {
+      showToast("Erro de comunicação ao apagar o anexo.", "error");
+    } finally {
+      setDeletingAttachmentId(null);
+    }
+  };
+
+  const handleStartEditAttachment = (att: Attachment) => {
+    setEditingAttachmentId(att.sourceId);
+    setEditAttachmentValue(att.sourceUrl || "");
+  };
+
+  const handleCancelEditAttachment = () => {
+    setEditingAttachmentId(null);
+    setEditAttachmentValue("");
+  };
+
+  // Guardar edição do link de um anexo do tipo "url"/"youtube": reimporta com o novo link e,
+  // só depois de confirmado o sucesso, apaga os chunks do link antigo (evita perder dados se o novo link falhar).
+  const handleSaveEditAttachment = async (att: Attachment) => {
+    if (!editAttachmentValue.trim()) return;
+    setSavingAttachmentEdit(true);
+    try {
+      const endpoint = att.source === "url" ? "/api/admin/courses/generate/import-url" : "/api/admin/courses/generate/import-youtube";
+      const body = att.source === "url"
+        ? { url: editAttachmentValue.trim(), briefingId }
+        : { videoUrl: editAttachmentValue.trim(), briefingId };
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        await fetch(`/api/admin/courses/generate/attachments?briefingId=${briefingId}&sourceId=${att.sourceId}`, { method: "DELETE" }).catch(() => {});
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.sourceId === att.sourceId
+              ? { name: data.sourceName || editAttachmentValue.trim(), size: 0, source: att.source, sourceId: data.sourceId, sourceUrl: editAttachmentValue.trim() }
+              : a
+          )
+        );
+        setEditingAttachmentId(null);
+        showToast("Anexo atualizado.", "success");
+      } else {
+        showToast(data.error || "Erro ao atualizar o anexo — o anexo original foi mantido.", "error");
+      }
+    } catch (err) {
+      showToast("Erro de comunicação ao atualizar o anexo.", "error");
+    } finally {
+      setSavingAttachmentEdit(false);
     }
   };
 
@@ -767,15 +867,76 @@ export default function ContentFactoryPage() {
 
                   {attachments.length > 0 && (
                     <div className="space-y-1.5 pt-2 border-t border-slate-900">
-                      {attachments.map((file, idx) => {
+                      {attachments.map((file) => {
                         const SourceIcon = file.source === "url" ? Globe : file.source === "youtube" ? SquarePlay : FileIcon;
+                        const isEditing = editingAttachmentId === file.sourceId;
+                        const isDeleting = deletingAttachmentId === file.sourceId;
+                        const canEdit = file.source === "url" || file.source === "youtube";
+
+                        if (isEditing) {
+                          return (
+                            <div key={file.sourceId} className="p-2 rounded-lg bg-slate-950/60 border border-indigo-500/30 text-xs space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
+                                <input
+                                  type="url"
+                                  value={editAttachmentValue}
+                                  onChange={(e) => setEditAttachmentValue(e.target.value)}
+                                  autoFocus
+                                  className="flex-1 h-7 px-2 rounded-md border border-slate-800 bg-slate-950 text-white text-[11px] focus:border-indigo-500 focus:outline-none"
+                                />
+                              </div>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEditAttachment}
+                                  disabled={savingAttachmentEdit}
+                                  className="h-6 px-2 rounded-md text-[10px] font-semibold text-slate-400 hover:text-white cursor-pointer disabled:opacity-50"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditAttachment(file)}
+                                  disabled={savingAttachmentEdit || !editAttachmentValue.trim()}
+                                  className="h-6 px-2.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-[10px] font-semibold text-white cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {savingAttachmentEdit && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  Guardar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-900 text-xs">
-                            <span className="font-medium text-slate-300 truncate max-w-[80%] flex items-center gap-1.5">
+                          <div key={file.sourceId} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-900 text-xs">
+                            <span className="font-medium text-slate-300 truncate flex items-center gap-1.5 min-w-0">
                               <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
-                              {file.name}
+                              <span className="truncate">{file.name}</span>
                             </span>
-                            {file.size > 0 && <span className="text-[10px] text-slate-400 shrink-0">{(file.size / 1024).toFixed(1)} KB</span>}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {file.size > 0 && <span className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</span>}
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditAttachment(file)}
+                                  title="Editar link"
+                                  className="text-slate-500 hover:text-indigo-400 cursor-pointer"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(file)}
+                                disabled={isDeleting}
+                                title="Apagar"
+                                className="text-slate-500 hover:text-rose-400 cursor-pointer disabled:opacity-50"
+                              >
+                                {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                              </button>
+                            </div>
                           </div>
                         );
                       })}

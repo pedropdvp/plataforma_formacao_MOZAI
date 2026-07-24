@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       success: true,
       briefingId,
       sourceName,
+      sourceId: result.sourceId,
       chunksCount: result.chunksCount,
       imagesCount: result.imagesCount,
     });

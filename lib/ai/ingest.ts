@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { getDb } from "@/lib/mongodb";
 import { chunkText } from "@/lib/vector-store";
 import { openai } from "@ai-sdk/openai";
@@ -14,6 +15,7 @@ export interface ExtractedPage {
 export interface IngestResult {
   chunksCount: number;
   imagesCount: number;
+  sourceId: string;
 }
 
 /**
@@ -21,11 +23,16 @@ export interface IngestResult {
  * em lote e grava os chunks em `uploaded_chunks` (RAG usado na geração de cursos).
  * Reutilizada pelo upload de ficheiros (PDF/PPTX/DOCX/TXT) e pelas importações de
  * URL e de transcrição do YouTube — todas produzem o mesmo formato ExtractedPage[].
+ *
+ * Cada chamada gera um `sourceId` próprio (ou reaproveita um existente, quando se
+ * está a substituir um anexo já editado) — permite apagar/substituir precisamente
+ * os chunks de um único anexo sem afetar os restantes materiais do briefing.
  */
 export async function ingestExtractedPages(
   pages: ExtractedPage[],
-  opts: { briefingId: string; tenantId: string; sourceName: string }
+  opts: { briefingId: string; tenantId: string; sourceName: string; sourceId?: string }
 ): Promise<IngestResult> {
+  const sourceId = opts.sourceId || randomUUID();
   const pageChunkGroups = pages
     .filter((p) => p.text && p.text.trim())
     .map((p) => ({
@@ -35,7 +42,7 @@ export async function ingestExtractedPages(
     .filter((g) => g.textChunks.length > 0);
 
   if (pageChunkGroups.length === 0) {
-    return { chunksCount: 0, imagesCount: 0 };
+    return { chunksCount: 0, imagesCount: 0, sourceId };
   }
 
   const allChunks = pageChunkGroups.flatMap((g) => g.textChunks);
@@ -63,6 +70,7 @@ export async function ingestExtractedPages(
         briefingId: opts.briefingId,
         tenant_id: opts.tenantId,
         fileName: opts.sourceName,
+        sourceId,
         content: chunk,
         images: group.images,
         embedding: embeddings[flatIdx] || [],
@@ -74,5 +82,12 @@ export async function ingestExtractedPages(
   }
 
   await col.insertMany(docs);
-  return { chunksCount: docs.length, imagesCount };
+  return { chunksCount: docs.length, imagesCount, sourceId };
+}
+
+/** Remove todos os chunks de um anexo específico (usado ao apagar ou substituir um anexo editado). */
+export async function deleteIngestedSource(briefingId: string, sourceId: string): Promise<number> {
+  const db = await getDb();
+  const result = await db.collection("uploaded_chunks").deleteMany({ briefingId, sourceId });
+  return result.deletedCount || 0;
 }
