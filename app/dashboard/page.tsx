@@ -2,187 +2,276 @@ import React from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, Award, Clock, TrendingUp, ArrowRight } from "lucide-react";
-import CoursesGrid from "@/components/courses-grid";
+import {
+  Star,
+  Zap,
+  Trophy,
+  Medal,
+  Award,
+  GraduationCap,
+  Compass,
+  LayoutGrid,
+  BookOpen,
+  CheckCircle2,
+  Flame,
+} from "lucide-react";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
-import { getWeakAreas, WeakArea } from "@/lib/adaptive-learning";
+import GreetingText from "@/components/greeting-text";
+import DashboardCharts from "@/components/dashboard-charts";
+import { getLevelTierName, getXpRemainingForNextLevel } from "@/lib/gamification-levels";
 
-// Nº de lições por curso: cursos reais do Sanity + fallback dos cursos-demo
-const DEMO_LESSON_COUNTS: Record<string, number> = { "course-1": 3, "course-2": 3, "course-3": 3 };
-const COURSE_COUNTS_QUERY = `*[_type == "course"]{ _id, "lessonsCount": count(modules[]->lessons[]) }`;
+// Nº de lições + título por curso: cursos reais do Sanity + fallback dos cursos-demo
+const DEMO_COURSES: Record<string, { title: string; lessonsCount: number }> = {
+  "course-1": { title: "Engenharia de IA e RAG Avançado", lessonsCount: 3 },
+  "course-2": { title: "Next.js 16 e Arquiteturas Composable SaaS", lessonsCount: 3 },
+  "course-3": { title: "Smart Contracts e Criptografia com Solidity", lessonsCount: 3 },
+};
+const COURSE_COUNTS_QUERY = `*[_type == "course"]{ _id, title, "lessonsCount": count(modules[]->lessons[]) }`;
 
 export default async function DashboardPage() {
   const headersList = await headers();
   const tenantId = headersList.get("x-tenant-id") || "root";
 
-  // 1. Obter utilizador Clerk autenticado
   const { userId } = await auth();
 
   // Valores padrão para o estado vazio/fallback
+  let studentName = "Aluno";
+  let xp = 0;
+  let level = 1;
+  let streak = 0;
+  let badgesCount = 0;
+  let rank = 0;
+  let totalRankedStudents = 0;
   let coursesInProgressCount = 0;
-  let formattedWatchTime = "0m";
   let completedCoursesCount = 0;
-  let weakAreas: WeakArea[] = [];
+  let suggestedCoursesCount = 0;
+  let aulasEfetuadas = 0;
+  let aulasConcluidas = 0;
+  let courseProgressData: { name: string; progresso: number }[] = [];
 
   if (userId) {
     try {
-      weakAreas = await getWeakAreas(tenantId, userId, 3);
-    } catch (error) {
-      console.warn("Falha ao calcular áreas de reforço adaptativo:", error);
-    }
-
-    try {
       const db = await getDb();
 
-      // Buscar todos os progressos do estudante no tenant
+      // 1. Nome do aluno
+      const userRecord = await db.collection("users").findOne({ _id: userId });
+      if (userRecord) {
+        studentName = `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || "Aluno";
+      }
+
+      // 2. Perfil de gamificação (XP, nível, streak, badges) + ranking no tenant
+      const profile = await db.collection("gamification_profiles").findOne({ _id: userId });
+      xp = profile?.xp || 0;
+      level = profile?.level || 1;
+      streak = profile?.streak || 0;
+      badgesCount = profile?.badges?.length || 0;
+
+      const rankedProfiles = await db
+        .collection("gamification_profiles")
+        .find({ tenant_id: tenantId })
+        .sort({ xp: -1 })
+        .toArray();
+      totalRankedStudents = rankedProfiles.length;
+      const rankIndex = rankedProfiles.findIndex((p: any) => p._id === userId);
+      rank = rankIndex >= 0 ? rankIndex + 1 : totalRankedStudents + 1;
+
+      // 3. Progresso de cursos e lições
       const progressList = await db
         .collection("user_progress")
-        .find({
-          tenant_id: tenantId,
-          userId: userId,
-        })
+        .find({ tenant_id: tenantId, userId })
         .toArray();
 
-      // Mapa de total de lições por curso: cursos reais do Sanity + fallback demos
-      const lessonCounts: Record<string, number> = { ...DEMO_LESSON_COUNTS };
+      // Catálogo real (Sanity) + fallback demos, para saber título/total de lições de cada curso
+      const courseCatalog: Record<string, { title: string; lessonsCount: number }> = { ...DEMO_COURSES };
       try {
         const sanityCourses: any[] = await sanityClient.fetch(COURSE_COUNTS_QUERY);
         for (const c of sanityCourses || []) {
-          lessonCounts[c._id] = c.lessonsCount || 0;
+          courseCatalog[c._id] = { title: c.title, lessonsCount: c.lessonsCount || 0 };
         }
       } catch (sanityErr) {
-        console.warn("Falha ao ler contagem de lições do Sanity, usando fallback:", sanityErr);
+        console.warn("Falha ao ler catálogo do Sanity, usando fallback:", sanityErr);
       }
 
-      // Denominador de lições de um curso (fallback 3 se desconhecido)
-      const totalLessons = (courseId: string) => lessonCounts[courseId] || 3;
-
-      // Lições concluídas por curso
+      const totalLessons = (courseId: string) => courseCatalog[courseId]?.lessonsCount || 3;
       const completedByCourse = (courseId: string) =>
         progressList.filter((p: any) => p.courseId === courseId && p.status === "completed").length;
 
       const uniqueCourses = Array.from(new Set(progressList.map((p: any) => p.courseId))) as string[];
 
-      // Curso em progresso: iniciado mas ainda sem todas as lições concluídas
       coursesInProgressCount = uniqueCourses.filter((courseId) => {
         const started = progressList.filter((p: any) => p.courseId === courseId).length > 0;
         return started && completedByCourse(courseId) < totalLessons(courseId);
       }).length;
 
-      // Certificados: cursos com TODAS as lições concluídas (com base no total real)
       completedCoursesCount = uniqueCourses.filter((courseId) => {
         const total = totalLessons(courseId);
         return total > 0 && completedByCourse(courseId) >= total;
       }).length;
 
-      // Tempo assistido (soma do watchTime de todas as lições em segundos)
-      const totalWatchTimeSeconds = progressList.reduce(
-        (acc: number, curr: any) => acc + (curr.watchTime || 0),
-        0
-      );
-      const watchTimeHours = Math.floor(totalWatchTimeSeconds / 3600);
-      const watchTimeMinutes = Math.floor((totalWatchTimeSeconds % 3600) / 60);
-      formattedWatchTime = watchTimeHours > 0
-        ? `${watchTimeHours}h ${watchTimeMinutes}m`
-        : `${watchTimeMinutes}m`;
+      const totalCoursesCount = Object.keys(courseCatalog).length;
+      suggestedCoursesCount = Math.max(totalCoursesCount - coursesInProgressCount - completedCoursesCount, 0);
+
+      aulasEfetuadas = progressList.length;
+      aulasConcluidas = progressList.filter((p: any) => p.status === "completed").length;
+
+      // Gráfico de progresso: só cursos que o aluno já começou
+      courseProgressData = uniqueCourses.map((courseId) => {
+        const total = totalLessons(courseId);
+        const pct = total > 0 ? Math.round((completedByCourse(courseId) / total) * 100) : 0;
+        const title = courseCatalog[courseId]?.title || courseId;
+        return {
+          name: title.length > 22 ? `${title.slice(0, 22)}…` : title,
+          progresso: Math.min(pct, 100),
+        };
+      });
     } catch (error) {
       console.warn("Falha ao ler estatísticas reais do MongoDB, usando fallback:", error);
     }
   }
 
+  const tierName = getLevelTierName(level);
+  const xpRemaining = getXpRemainingForNextLevel(xp);
+  const levelProgressPct = Math.round(((100 - xpRemaining) / 100) * 100);
+
+  const statusChartData = [
+    { name: "Concluídos", valor: completedCoursesCount },
+    { name: "Em Progresso", valor: coursesInProgressCount },
+    { name: "Certificados", valor: completedCoursesCount },
+    { name: "Diplomas", valor: completedCoursesCount },
+  ];
+
+  const activityButtons = [
+    {
+      href: "/dashboard/my-courses#cursos-em-progresso",
+      label: "Cursos Ativos",
+      count: coursesInProgressCount,
+      icon: Compass,
+      color: "text-indigo-400 border-indigo-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/my-courses#cursos-concluidos",
+      label: "Cursos Concluídos",
+      count: completedCoursesCount,
+      icon: Award,
+      color: "text-emerald-400 border-emerald-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/my-courses#cursos-a-efetuar",
+      label: "Cursos Sugeridos",
+      count: suggestedCoursesCount,
+      icon: LayoutGrid,
+      color: "text-cyan-400 border-cyan-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/personal/progress",
+      label: "Aulas Efetuadas",
+      count: aulasEfetuadas,
+      icon: BookOpen,
+      color: "text-violet-400 border-violet-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/personal/progress",
+      label: "Aulas Concluídas",
+      count: aulasConcluidas,
+      icon: CheckCircle2,
+      color: "text-emerald-400 border-emerald-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/gamification",
+      label: "Ranking",
+      count: `#${rank}`,
+      icon: Trophy,
+      color: "text-amber-400 border-amber-500/10 bg-[#0d1527]",
+    },
+    {
+      href: "/dashboard/gamification",
+      label: "Streak",
+      count: streak,
+      icon: Flame,
+      color: "text-orange-400 border-orange-500/10 bg-[#0d1527]",
+    },
+  ];
+
   return (
-    <div className="space-y-10">
-      {/* Welcome Banner */}
-      <section className="relative rounded-3xl overflow-hidden border border-slate-900 bg-slate-900/20 p-8 md:p-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-transparent to-transparent" />
-        <div className="relative z-10 space-y-4 max-w-2xl">
-          <h1 className="text-3xl font-extrabold text-white">
-            Bem-vindo ao seu dashboard de aprendizagem! (V2)
+    <div className="space-y-8">
+      {/* Card do Aluno */}
+      <section className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 md:p-8 space-y-6">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-white">
+            <GreetingText />, {studentName}
           </h1>
-          <p className="text-slate-400 text-sm md:text-base leading-relaxed">
-            Aqui pode continuar os seus cursos técnicos, consultar o seu Grafo de Competências e conversar com o seu Tutor de IA contextual.
-          </p>
-        </div>
-      </section>
-
-      {/* Stats Quick Grid */}
-      <section className="flex flex-row gap-4">
-        <div className="border border-slate-900 bg-[#070b13] rounded-2xl pl-4 pr-5 py-4 flex items-center gap-3 w-fit flex-shrink-0">
-          <div className="h-12 w-12 rounded-xl bg-[#0d1527] border border-indigo-500/10 flex items-center justify-center text-indigo-400 flex-shrink-0">
-            <BookOpen className="h-5.5 w-5.5" />
-          </div>
-          <div className="space-y-0.5">
-            <span className="block text-2xl font-extrabold text-white leading-none">
-              {coursesInProgressCount}
-            </span>
-            <span className="block text-xs text-slate-500 font-medium">Cursos em Progresso</span>
-          </div>
+          <p className="text-xs text-slate-500 mt-1">Aqui está o resumo da sua evolução na MOZAI.</p>
         </div>
 
-        <div className="border border-slate-900 bg-[#070b13] rounded-2xl pl-4 pr-5 py-4 flex items-center gap-3 w-fit flex-shrink-0">
-          <div className="h-12 w-12 rounded-xl bg-[#0d1527] border border-cyan-500/10 flex items-center justify-center text-cyan-400 flex-shrink-0">
-            <Clock className="h-5.5 w-5.5" />
-          </div>
-          <div className="space-y-0.5">
-            <span className="block text-2xl font-extrabold text-white leading-none">
-              {formattedWatchTime}
-            </span>
-            <span className="block text-xs text-slate-500 font-medium">Tempo de Estudo Assistido</span>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <StatTile icon={Star} label="Nível" value={tierName} color="text-indigo-400 border-indigo-500/10" />
+          <StatTile icon={Zap} label="XP Total" value={xp} color="text-amber-400 border-amber-500/10" />
+          <StatTile icon={Trophy} label="Ranking" value={`#${rank}`} color="text-amber-400 border-amber-500/10" />
+          <StatTile icon={Medal} label="Badges" value={badgesCount} color="text-violet-400 border-violet-500/10" />
+          <StatTile icon={Award} label="Certificados" value={completedCoursesCount} color="text-emerald-400 border-emerald-500/10" />
+          <StatTile icon={GraduationCap} label="Diplomas" value={completedCoursesCount} color="text-cyan-400 border-cyan-500/10" />
         </div>
 
-        <div className="border border-slate-900 bg-[#070b13] rounded-2xl pl-4 pr-5 py-4 flex items-center gap-3 w-fit flex-shrink-0">
-          <div className="h-12 w-12 rounded-xl bg-[#0d1527] border border-emerald-500/10 flex items-center justify-center text-emerald-450 flex-shrink-0">
-            <Award className="h-5.5 w-5.5" />
+        <div className="space-y-2 pt-2 border-t border-slate-900">
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="text-slate-300">{tierName}</span>
+            <span className="text-slate-500">{xpRemaining} XP restantes para o próximo nível</span>
           </div>
-          <div className="space-y-0.5">
-            <span className="block text-2xl font-extrabold text-white leading-none">
-              {completedCoursesCount}
-            </span>
-            <span className="block text-xs text-slate-500 font-medium">Certificado Emitido</span>
+          <div className="h-2 w-full bg-slate-900 rounded-full border border-slate-800 overflow-hidden">
+            <div
+              className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+              style={{ width: `${levelProgressPct}%` }}
+            />
           </div>
         </div>
       </section>
 
-      {/* Recomendado para Reforçar — sugestões de dificuldade adaptativa, só quando há dados reais */}
-      {weakAreas.length > 0 && (
-        <section className="border border-amber-500/15 bg-amber-500/5 rounded-3xl p-6 space-y-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4.5 w-4.5 text-amber-400" />
-            <h2 className="text-sm font-bold text-white">Recomendado para Reforçar</h2>
-          </div>
-          <p className="text-xs text-slate-400 -mt-2">
-            Com base no seu desempenho nos quizzes, sugerimos rever estas lições antes de avançar.
-          </p>
-          <div className="grid sm:grid-cols-3 gap-3">
-            {weakAreas.map((w) => (
-              <Link
-                key={`${w.courseId}-${w.lessonId}`}
-                href={`/dashboard/courses/${w.courseId}/lessons/${w.lessonSlug}`}
-                className="group border border-slate-900 bg-slate-950/60 hover:border-amber-500/30 rounded-2xl p-4 space-y-2 transition-colors"
-              >
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide block truncate">{w.courseTitle}</span>
-                <span className="text-sm font-semibold text-white block leading-snug">{w.lessonTitle}</span>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-slate-500">{Math.round(w.avgScore * 100)}% de acerto médio</span>
-                  <ArrowRight className="h-3.5 w-3.5 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Courses Grid section */}
-      <section className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Os Meus Cursos</h2>
-          <span className="text-xs text-slate-500">Filtrado por tenant: {tenantId}</span>
+      {/* Card de Atividade — botões com contadores */}
+      <section className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 md:p-8 space-y-4">
+        <h2 className="text-sm font-bold text-white">A Minha Atividade</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {activityButtons.map((btn) => (
+            <Link
+              key={btn.label}
+              href={btn.href}
+              className={`flex items-center gap-3 border rounded-2xl px-4 py-3.5 hover:border-slate-700 transition-colors ${btn.color}`}
+            >
+              <btn.icon className="h-5 w-5 flex-shrink-0" />
+              <div className="min-w-0">
+                <span className="block text-lg font-extrabold text-white leading-none">{btn.count}</span>
+                <span className="block text-[11px] text-slate-400 font-medium mt-1 truncate">{btn.label}</span>
+              </div>
+            </Link>
+          ))}
         </div>
-
-        <CoursesGrid tenantId={tenantId} />
       </section>
+
+      {/* Card de Gráficos */}
+      <section className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 md:p-8 space-y-6">
+        <h2 className="text-sm font-bold text-white">Progresso e Estado Geral</h2>
+        <DashboardCharts courseProgressData={courseProgressData} statusChartData={statusChartData} />
+      </section>
+    </div>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  color: string;
+}) {
+  return (
+    <div className={`border rounded-2xl p-3.5 bg-[#070b13] ${color}`}>
+      <Icon className="h-4 w-4 mb-2" />
+      <span className="block text-lg font-extrabold text-white leading-none truncate">{value}</span>
+      <span className="block text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wide">{label}</span>
     </div>
   );
 }

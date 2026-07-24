@@ -170,7 +170,7 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
       </div>
 
       {/* 1. Cursos em Progresso */}
-      <section className="space-y-6">
+      <section id="cursos-em-progresso" className="space-y-6 scroll-mt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Compass className="h-5 w-5 text-indigo-400" />
@@ -197,7 +197,7 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
       </section>
 
       {/* 2. Cursos Concluídos */}
-      <section className="space-y-6">
+      <section id="cursos-concluidos" className="space-y-6 scroll-mt-8">
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
           <Award className="h-5 w-5 text-emerald-400" />
           Cursos Concluídos ({completedCourses.length})
@@ -216,8 +216,8 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
         )}
       </section>
 
-      {/* 3. Cursos a Efetuar */}
-      <section className="space-y-6">
+      {/* 3. Cursos a Efetuar (Sugeridos) */}
+      <section id="cursos-a-efetuar" className="space-y-6 scroll-mt-8">
         <div>
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-cyan-400" />

@@ -43,13 +43,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    // Apenas ADMIN, GESTOR_EMPRESA ou GESTOR_ACADEMICO podem curar e aprovar cursos
-    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
-    const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
-    if (!allowedRoles.includes(activeRole)) {
-      return NextResponse.json({ error: "Acesso negado para curadoria de cursos." }, { status: 403 });
-    }
-
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const body = await req.json();
     const { courseId, action } = body; // action: "approve" | "reject"
@@ -68,14 +61,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Curso não encontrado." }, { status: 404 });
     }
 
+    // Curadoria para todo o catálogo do inquilino: ADMIN, GESTOR_EMPRESA, GESTOR_ACADEMICO.
+    // Um Aluno Individual pode aprovar/rejeitar apenas o seu PRÓPRIO rascunho privado.
+    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const curatorRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
+    const isCurator = curatorRoles.includes(activeRole);
+    const isOwnPrivateDraft = course.isPrivate && course.generatedByUserId === userId;
+    if (!isCurator && !isOwnPrivateDraft) {
+      return NextResponse.json({ error: "Acesso negado para curadoria de cursos." }, { status: 403 });
+    }
+
     if (action === "approve") {
-      // 1. Atualizar status para PUBLISHED e remover flag privada se aprovado para o tenant geral
+      // 1. Atualizar status para PUBLISHED. Só um curador promove o curso a público do
+      // catálogo do inquilino — o dono de um rascunho privado mantém-no privado ao aprová-lo.
       await db.collection("courses").updateOne(
         { _id: course._id },
         {
           $set: {
             status: "PUBLISHED",
-            isPrivate: false, // Promovido a público do catálogo do inquilino
+            isPrivate: isCurator ? false : course.isPrivate,
             updatedAt: new Date(),
           },
         }
@@ -143,6 +147,16 @@ export async function DELETE(req: NextRequest) {
 
     if (!course) {
       return NextResponse.json({ error: "Curso não encontrado." }, { status: 404 });
+    }
+
+    // Mesma regra de curadoria do POST: curadores apagam qualquer curso do tenant;
+    // um Aluno Individual só pode apagar o seu próprio rascunho privado.
+    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const curatorRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
+    const isCurator = curatorRoles.includes(activeRole);
+    const isOwnPrivateDraft = course.isPrivate && course.generatedByUserId === userId;
+    if (!isCurator && !isOwnPrivateDraft) {
+      return NextResponse.json({ error: "Acesso negado para eliminar este curso." }, { status: 403 });
     }
 
     await db.collection("courses").deleteOne({ _id: new ObjectId(courseId) });

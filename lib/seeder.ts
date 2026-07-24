@@ -317,7 +317,8 @@ const ROLES_DATA = [
     permissions: [
       "AUTH_BASIC", "COURSES_STUDY", "PAYMENTS_EXECUTE", "PAYMENTS_VIEW_OWN",
       "CERTIFICATES_VIEW", "HISTORY_VIEW_OWN", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
-      "MESSAGES_TUTOR", "REQUESTS_REGISTER", "PERSONAL_DATA_UPDATE"
+      "MESSAGES_TUTOR", "REQUESTS_REGISTER", "PERSONAL_DATA_UPDATE",
+      "COURSES_CREATE" // Aluno Individual pode gerar os seus próprios cursos privados na Fábrica de Cursos (IA)
     ]
   },
   {

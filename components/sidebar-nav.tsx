@@ -67,7 +67,8 @@ export default function SidebarNav() {
     "/dashboard/gamification",
     "/dashboard/mozai-academy",
     "/dashboard/personal/progress",
-    "/dashboard/avatar-training"
+    "/dashboard/avatar-training",
+    "/dashboard/my-courses"
   ].some(path => pathname === path || pathname.startsWith(path + "/")) || pathname === "/dashboard";
 
   const isComunicacaoActive = [
@@ -177,7 +178,7 @@ export default function SidebarNav() {
               <Trophy className="h-4 w-4 text-amber-500" />
               {t("nav_gamification", "Gamificação")}
             </Link>
-            <Link href="/dashboard" className={linkClass("/dashboard")}>
+            <Link href="/dashboard/my-courses" className={linkClass("/dashboard/my-courses")}>
               <BookOpen className="h-4 w-4 text-indigo-400" />
               {t("nav_my_courses", "Meus Cursos")}
             </Link>

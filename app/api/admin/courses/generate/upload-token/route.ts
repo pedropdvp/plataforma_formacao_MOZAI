@@ -4,15 +4,6 @@ import { auth } from "@clerk/nextjs/server";
 
 export const runtime = "nodejs";
 
-const ALLOWED_CONTENT_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "text/plain",
-  "text/markdown",
-  "application/octet-stream", // fallback — alguns browsers não identificam .md/.pptx corretamente
-];
-
 // POST — Autoriza o upload direto do browser para o Vercel Blob (o ficheiro nunca passa
 // pelo nosso servidor nesta fase), usado pelos materiais auxiliares da Fábrica de Cursos
 // para evitar limites de tamanho/parsing do corpo do pedido em ficheiros grandes.
@@ -29,7 +20,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       body,
       request: req,
       onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ALLOWED_CONTENT_TYPES,
+        // SEM allowedContentTypes: o MIME-type reportado pelo browser para .pptx/.pdf é
+        // pouco fiável (especialmente no Windows sem o Office/leitor associado — chega a
+        // vir vazio ou incorreto), e a Vercel Blob rejeita o PUT silenciosamente quando não
+        // bate certo com a lista — sem qualquer erro visível nos nossos logs de servidor
+        // (foi exatamente isto que impedia o upload de PPTX/PDF em produção). A validação
+        // de tipo de ficheiro já é feita de forma fiável pela extensão, tanto no atributo
+        // "accept" do <input> como em extractFileContent() no servidor — não pela MIME type.
         addRandomSuffix: true,
         maximumSizeInBytes: 50 * 1024 * 1024, // 50MB
       }),

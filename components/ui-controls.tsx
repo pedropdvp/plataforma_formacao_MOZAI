@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Sun, Moon, Globe, ChevronDown, LogOut } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
 import { useTheme } from "@/components/theme-provider";
@@ -101,8 +102,12 @@ export default function UIControls() {
         {t("nav_logout", "Sair")}
       </button>
 
-      {/* ── Modal de Confirmação de Logout ── */}
-      {showLogoutModal && (
+      {/* ── Modal de Confirmação de Logout ──
+          Renderizado via portal para document.body: o cabeçalho onde este botão vive tem
+          backdrop-blur-md, e um ancestral com filter/backdrop-filter cria um novo containing
+          block para position:fixed — sem o portal, "fixed inset-0" ficava confinado à caixa
+          de 64px do header em vez de cobrir o ecrã inteiro, tornando o modal inutilizável. */}
+      {showLogoutModal && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           style={{ animation: "fadeIn 200ms ease-out" }}
@@ -156,7 +161,8 @@ export default function UIControls() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Animações do modal */}

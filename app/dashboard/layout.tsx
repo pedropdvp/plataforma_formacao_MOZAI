@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { headers, cookies } from "next/headers";
 import { GraduationCap } from "lucide-react";
 import UserProfileButton from "@/components/user-profile-button";
@@ -210,12 +211,12 @@ export default async function DashboardLayout({
                 {language === "EN" ? "Profile" : language === "FR" ? "Profil" : "Perfil"}: {getProfileLabel(activeRole, language)}
               </span>
               {hasMultipleRoles && (
-                <a
+                <Link
                   href="/choose-role"
-                  className="text-[10px] font-semibold text-slate-400 hover:text-white transition-colors underline decoration-dotted"
+                  className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-white hover:bg-slate-200 text-black border border-slate-300 uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   {getChangeProfileLabel(language)}
-                </a>
+                </Link>
               )}
             </div>
           </div>

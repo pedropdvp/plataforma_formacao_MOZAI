@@ -68,9 +68,9 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_EMPRESA");
         }
         
-        // Content Factory (Gestor Académico e Formadores podem aceder)
+        // Content Factory (Gestor Académico e Formadores podem aceder; Aluno Individual gera cursos privados seus)
         if (path.startsWith("/dashboard/admin/content-factory")) {
-          allowedRoles.push("GESTOR_ACADEMICO", "FORMADOR");
+          allowedRoles.push("GESTOR_ACADEMICO", "FORMADOR", "ALUNO");
         }
 
         if (!allowedRoles.includes(activeRole)) {
