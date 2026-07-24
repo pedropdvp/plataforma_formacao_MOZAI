@@ -884,15 +884,15 @@ export default function ContentFactoryPage() {
 
                         if (isEditing) {
                           return (
-                            <div key={file.sourceId} className="p-2 rounded-lg bg-slate-950/60 border border-indigo-500/30 text-xs space-y-1.5">
+                            <div key={file.sourceId} className="p-2 rounded-lg bg-[#0b1120] border border-indigo-500/40 text-xs space-y-1.5">
                               <div className="flex items-center gap-1.5">
-                                <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
+                                <SourceIcon className="h-3 w-3 text-[#94a3b8] shrink-0" />
                                 <input
                                   type="url"
                                   value={editAttachmentValue}
                                   onChange={(e) => setEditAttachmentValue(e.target.value)}
                                   autoFocus
-                                  className="flex-1 h-7 px-2 rounded-md border border-slate-800 bg-slate-950 text-white text-[11px] focus:border-indigo-500 focus:outline-none"
+                                  className="flex-1 h-7 px-2 rounded-md border border-[#334155] bg-[#020617] text-[#ffffff] text-[11px] focus:border-indigo-500 focus:outline-none"
                                 />
                               </div>
                               <div className="flex items-center justify-end gap-1.5">
@@ -900,7 +900,7 @@ export default function ContentFactoryPage() {
                                   type="button"
                                   onClick={handleCancelEditAttachment}
                                   disabled={savingAttachmentEdit}
-                                  className="h-6 px-2 rounded-md text-[10px] font-semibold text-slate-400 hover:text-white cursor-pointer disabled:opacity-50"
+                                  className="h-6 px-2 rounded-md text-[10px] font-semibold text-[#94a3b8] hover:text-[#ffffff] cursor-pointer disabled:opacity-50"
                                 >
                                   Cancelar
                                 </button>
@@ -908,7 +908,7 @@ export default function ContentFactoryPage() {
                                   type="button"
                                   onClick={() => handleSaveEditAttachment(file)}
                                   disabled={savingAttachmentEdit || !editAttachmentValue.trim()}
-                                  className="h-6 px-2.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-[10px] font-semibold text-white cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                                  className="h-6 px-2.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-[10px] font-semibold text-[#ffffff] cursor-pointer disabled:opacity-50 flex items-center gap-1"
                                 >
                                   {savingAttachmentEdit && <Loader2 className="h-3 w-3 animate-spin" />}
                                   Guardar
@@ -919,19 +919,19 @@ export default function ContentFactoryPage() {
                         }
 
                         return (
-                          <div key={file.sourceId} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-900 text-xs">
-                            <span className="font-medium text-slate-300 truncate flex items-center gap-1.5 min-w-0">
-                              <SourceIcon className="h-3 w-3 text-slate-500 shrink-0" />
+                          <div key={file.sourceId} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#0b1120] border border-[#1e293b] text-xs">
+                            <span className="font-medium text-[#e2e8f0] truncate flex items-center gap-1.5 min-w-0">
+                              <SourceIcon className="h-3 w-3 text-[#94a3b8] shrink-0" />
                               <span className="truncate">{file.name}</span>
                             </span>
                             <div className="flex items-center gap-2 shrink-0">
-                              {file.size > 0 && <span className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</span>}
+                              {file.size > 0 && <span className="text-[10px] text-[#94a3b8]">{(file.size / 1024).toFixed(1)} KB</span>}
                               {canEdit && (
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditAttachment(file)}
                                   title="Editar link"
-                                  className="text-slate-500 hover:text-indigo-400 cursor-pointer"
+                                  className="text-[#94a3b8] hover:text-indigo-400 cursor-pointer"
                                 >
                                   <Edit2 className="h-3 w-3" />
                                 </button>
@@ -941,7 +941,7 @@ export default function ContentFactoryPage() {
                                 onClick={() => handleDeleteAttachment(file)}
                                 disabled={isDeleting}
                                 title="Apagar"
-                                className="text-slate-500 hover:text-rose-400 cursor-pointer disabled:opacity-50"
+                                className="text-[#94a3b8] hover:text-rose-400 cursor-pointer disabled:opacity-50"
                               >
                                 {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                               </button>
