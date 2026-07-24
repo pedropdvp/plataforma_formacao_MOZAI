@@ -37,6 +37,9 @@ import { CourseAnalyticsPanel } from "@/components/lesson-blocks/CourseAnalytics
 
 type Step = "BRIEF" | "OUTLINE" | "GENERATION" | "REVIEW";
 
+// Sobrevive a refresh/hard reload (Ctrl+F5) — só o Briefing por preencher, não o assistente inteiro.
+const BRIEF_STORAGE_KEY = "mozai:content-factory:brief-draft";
+
 interface Attachment {
   sourceId: string;
   name: string;
@@ -69,6 +72,42 @@ export default function ContentFactoryPage() {
   const [editingAttachmentId, setEditingAttachmentId] = useState<string | null>(null);
   const [editAttachmentValue, setEditAttachmentValue] = useState("");
   const [savingAttachmentEdit, setSavingAttachmentEdit] = useState(false);
+  const [briefHydrated, setBriefHydrated] = useState(false);
+
+  // Restaurar os campos do Briefing guardados localmente (sobrevive a refresh/hard reload)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(BRIEF_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.topic) setTopic(parsed.topic);
+        if (parsed.level) setLevel(parsed.level);
+        if (parsed.duration) setDuration(parsed.duration);
+        if (parsed.objectives) setObjectives(parsed.objectives);
+        if (parsed.targetAudience) setTargetAudience(parsed.targetAudience);
+        if (parsed.briefingId) setBriefingId(parsed.briefingId);
+        if (Array.isArray(parsed.attachments)) setAttachments(parsed.attachments);
+      }
+    } catch {
+      // localStorage indisponível ou dados corrompidos — começa com o formulário vazio, sem bloquear a página
+    } finally {
+      setBriefHydrated(true);
+    }
+  }, []);
+
+  // Guardar os campos do Briefing sempre que mudam — só depois de restaurar, para não
+  // sobrescrever os dados guardados com os valores iniciais vazios antes da leitura acima.
+  useEffect(() => {
+    if (!briefHydrated) return;
+    try {
+      localStorage.setItem(
+        BRIEF_STORAGE_KEY,
+        JSON.stringify({ topic, level, duration, objectives, targetAudience, briefingId, attachments })
+      );
+    } catch {
+      // localStorage indisponível (ex: modo privado) — não bloqueia a utilização normal
+    }
+  }, [briefHydrated, topic, level, duration, objectives, targetAudience, briefingId, attachments]);
 
   // --- STEP 2: OUTLINE STATE ---
   const [outline, setOutline] = useState<any>(null);
@@ -245,18 +284,42 @@ export default function ContentFactoryPage() {
     if (!files || files.length === 0) return;
 
     setUploading(true);
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
-    }
-
     const currentBriefingId = briefingId || Math.random().toString(36).substring(7);
-    formData.append("briefingId", currentBriefingId);
 
     try {
+      // 1. Carregar cada ficheiro diretamente para o Vercel Blob a partir do browser —
+      // o ficheiro nunca passa pelo corpo do nosso pedido, evitando limites de tamanho
+      // e falhas de parsing de multipart/form-data em ficheiros grandes/binários.
+      const { upload } = await import("@vercel/blob/client");
+      const blobs: { url: string; filename: string; size: number }[] = [];
+      const uploadFailures: { name: string; error: string }[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          const blob = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/admin/courses/generate/upload-token",
+          });
+          blobs.push({ url: blob.url, filename: file.name, size: file.size });
+        } catch (uploadErr: any) {
+          uploadFailures.push({ name: file.name, error: uploadErr?.message || "Falha ao carregar o ficheiro." });
+        }
+      }
+
+      for (const failure of uploadFailures) {
+        showToast(`Falha ao carregar "${failure.name}": ${failure.error}`, "error", 8000);
+      }
+
+      if (blobs.length === 0) {
+        return;
+      }
+
+      // 2. Pedir ao servidor para descarregar cada Blob e extrair o conteúdo (texto/imagens)
       const res = await fetch("/api/admin/courses/generate/upload", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ blobs, briefingId: currentBriefingId }),
       });
 
       if (res.ok) {

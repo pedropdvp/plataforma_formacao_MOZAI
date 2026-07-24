@@ -1,15 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createRequire } from "module";
+import { pathToFileURL } from "url";
 import { auth } from "@clerk/nextjs/server";
 import { ingestExtractedPages, ExtractedPage } from "@/lib/ai/ingest";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+let pdfWorkerConfigured = false;
+
+/**
+ * Aponta explicitamente o pdf-parse/pdfjs-dist para o ficheiro real do worker em
+ * node_modules, em vez de deixar a resolução automática (que depende de import()
+ * relativo ao próprio pacote e falha quando o Turbopack transforma esse caminho —
+ * erro "Setting up fake worker failed: Cannot find module ...pdf.worker.mjs").
+ */
+function ensurePdfWorkerConfigured(PDFParse: any) {
+  if (pdfWorkerConfigured) return;
+  try {
+    const require = createRequire(import.meta.url);
+    const workerPath = require.resolve("pdf-parse/dist/worker/pdf.worker.mjs");
+    PDFParse.setWorker(pathToFileURL(workerPath).href);
+  } catch (err) {
+    console.warn("Não foi possível configurar explicitamente o worker do pdf-parse:", err);
+  }
+  pdfWorkerConfigured = true;
+}
+
 /**
  * Extrai texto e imagens embutidas de um PDF usando pdf-parse (getText + getImage).
  */
 async function extractPdfContent(buffer: Buffer): Promise<ExtractedPage[]> {
   const { PDFParse } = await import("pdf-parse");
+  ensurePdfWorkerConfigured(PDFParse);
   const parser = new PDFParse({ data: buffer });
   try {
     const textResult = await parser.getText();
@@ -98,29 +121,37 @@ async function extractDocxContent(buffer: Buffer): Promise<ExtractedPage[]> {
   return text ? [{ text, images: [] }] : [];
 }
 
-async function extractFileContent(file: File): Promise<ExtractedPage[]> {
-  const name = file.name.toLowerCase();
+async function extractFileContent(buffer: Buffer, filename: string): Promise<ExtractedPage[]> {
+  const name = filename.toLowerCase();
 
   if (name.endsWith(".pdf")) {
-    const buffer = Buffer.from(await file.arrayBuffer());
     return extractPdfContent(buffer);
   }
 
   if (name.endsWith(".pptx")) {
-    const buffer = Buffer.from(await file.arrayBuffer());
     return extractPptxContent(buffer);
   }
 
   if (name.endsWith(".docx")) {
-    const buffer = Buffer.from(await file.arrayBuffer());
     return extractDocxContent(buffer);
   }
 
   // .txt, .md e outros ficheiros de texto simples
-  const text = await file.text();
+  const text = buffer.toString("utf8");
   return text.trim() ? [{ text, images: [] }] : [];
 }
 
+interface BlobRef {
+  url: string;
+  filename: string;
+  size: number;
+}
+
+// POST — Processa ficheiros já carregados diretamente para o Vercel Blob pelo browser
+// (ver /api/admin/courses/generate/upload-token). O ficheiro NUNCA passa pelo corpo
+// deste pedido — só o URL do Blob — o que evita por completo os limites de tamanho de
+// corpo e falhas de parsing de multipart/form-data em ficheiros grandes ou binários
+// (ex: "Failed to parse body as FormData" observado com PPTX maiores).
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -129,34 +160,44 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
-    const formData = await req.formData();
-    const files = formData.getAll("files") as File[];
-    const briefingId = formData.get("briefingId")?.toString() || Math.random().toString(36).substring(7);
+    const body = await req.json();
+    const blobs: BlobRef[] = body.blobs || [];
+    const briefingId = body.briefingId || Math.random().toString(36).substring(7);
 
     let totalChunks = 0;
     let totalImages = 0;
     const processedFiles: { name: string; size: number; sourceId: string; chunksCount: number }[] = [];
     const failures: { name: string; error: string }[] = [];
 
-    for (const file of files) {
+    for (const blobRef of blobs) {
+      let buffer: Buffer;
+      try {
+        const blobRes = await fetch(blobRef.url);
+        if (!blobRes.ok) throw new Error(`Não foi possível descarregar o ficheiro (HTTP ${blobRes.status}).`);
+        buffer = Buffer.from(await blobRes.arrayBuffer());
+      } catch (err: any) {
+        failures.push({ name: blobRef.filename, error: err?.message || "Falha ao descarregar o ficheiro carregado." });
+        continue;
+      }
+
       let pages: ExtractedPage[] = [];
       try {
-        pages = await extractFileContent(file);
+        pages = await extractFileContent(buffer, blobRef.filename);
       } catch (err: any) {
-        console.warn(`Falha ao extrair conteúdo de "${file.name}":`, err);
-        failures.push({ name: file.name, error: err?.message || "Formato de ficheiro inválido ou corrompido." });
+        console.warn(`Falha ao extrair conteúdo de "${blobRef.filename}":`, err);
+        failures.push({ name: blobRef.filename, error: err?.message || "Formato de ficheiro inválido ou corrompido." });
         continue;
       }
 
       if (pages.length === 0 || pages.every((p) => !p.text.trim())) {
-        failures.push({ name: file.name, error: "Não foi possível extrair texto deste ficheiro (pode estar vazio, protegido ou ser apenas imagens sem texto)." });
+        failures.push({ name: blobRef.filename, error: "Não foi possível extrair texto deste ficheiro (pode estar vazio, protegido ou ser apenas imagens sem texto)." });
         continue;
       }
 
-      const result = await ingestExtractedPages(pages, { briefingId, tenantId, sourceName: file.name });
+      const result = await ingestExtractedPages(pages, { briefingId, tenantId, sourceName: blobRef.filename });
       totalChunks += result.chunksCount;
       totalImages += result.imagesCount;
-      processedFiles.push({ name: file.name, size: file.size, sourceId: result.sourceId, chunksCount: result.chunksCount });
+      processedFiles.push({ name: blobRef.filename, size: blobRef.size, sourceId: result.sourceId, chunksCount: result.chunksCount });
     }
 
     return NextResponse.json({
