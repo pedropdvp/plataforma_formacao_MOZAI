@@ -1136,7 +1136,7 @@ export default function ContentFactoryPage() {
               <div className="flex items-center justify-between gap-2">
                 <h3 className="font-bold text-sm text-white flex items-center gap-2">
                   <BookOpen className="h-4.5 w-4.5 text-indigo-400" />
-                  Cursos Gerados por IA
+                  Cursos Gerados por IA ({sortedSavedCourses.length})
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
