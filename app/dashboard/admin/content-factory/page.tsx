@@ -1455,7 +1455,7 @@ export default function ContentFactoryPage() {
                     <button
                       onClick={handleSaveContentEdit}
                       disabled={savingContent}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1.5 disabled:opacity-50"
+                      className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-950/30 text-slate-300 hover:text-indigo-400 text-xs font-semibold border border-slate-800 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                     >
                       {savingContent && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                       Guardar Alterações

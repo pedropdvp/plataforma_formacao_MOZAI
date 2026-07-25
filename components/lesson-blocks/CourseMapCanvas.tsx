@@ -81,7 +81,7 @@ export function CourseMapButton({ courseTitle, modules }: { courseTitle: string;
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+        className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-950/30 text-slate-300 hover:text-indigo-400 text-xs font-semibold border border-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
       >
         <MapIcon className="h-3.5 w-3.5" />
         Ver Mapa do Curso
