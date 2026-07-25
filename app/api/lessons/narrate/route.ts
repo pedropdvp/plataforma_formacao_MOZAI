@@ -68,7 +68,14 @@ export async function POST(req: NextRequest) {
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const pathname = `narration/${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`;
-    const blob = await put(pathname, audioBuffer, { access: "public", contentType: "audio/mpeg", addRandomSuffix: false });
+    // Store dedicado a conteúdo público (ver app/api/admin/media/route.ts) — o token normal
+    // é do store privado partilhado com os backups da BD e rejeita pedidos "public".
+    const blob = await put(pathname, audioBuffer, {
+      access: "public",
+      contentType: "audio/mpeg",
+      addRandomSuffix: false,
+      token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC,
+    });
 
     if (courseId && lessonKey && blockId) {
       await persistAudioUrl(tenantId, courseId, lessonKey, blockId, blob.url);

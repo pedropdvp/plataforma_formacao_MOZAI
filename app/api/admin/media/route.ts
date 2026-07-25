@@ -79,6 +79,10 @@ export async function POST(req: NextRequest) {
       access: "public",
       contentType: file.type,
       addRandomSuffix: false,
+      // Store dedicado a conteúdo público (imagens/áudio exibidos diretamente aos alunos via
+      // <img>/<audio>, que não conseguem autenticar). O BLOB_READ_WRITE_TOKEN "normal" é do
+      // store privado partilhado com os backups da BD e rejeita pedidos "public".
+      token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC,
     });
 
     const db = await getDb();

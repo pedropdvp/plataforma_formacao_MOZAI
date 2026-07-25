@@ -18,7 +18,14 @@ async function persistGeneratedImage(dataUrl: string, tenantId: string, userId: 
     const [, ext, base64] = match;
     const buffer = Buffer.from(base64, "base64");
     const pathname = `media/${tenantId}/ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const blob = await put(pathname, buffer, { access: "public", contentType: `image/${ext}`, addRandomSuffix: false });
+    // Store dedicado a conteúdo público (ver app/api/admin/media/route.ts) — o token normal
+    // é do store privado partilhado com os backups da BD e rejeita pedidos "public".
+    const blob = await put(pathname, buffer, {
+      access: "public",
+      contentType: `image/${ext}`,
+      addRandomSuffix: false,
+      token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC,
+    });
 
     const db = await getDb();
     await db.collection("media_library").insertOne({

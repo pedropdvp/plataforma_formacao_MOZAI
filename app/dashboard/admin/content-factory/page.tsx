@@ -1,7 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CourseEditModal } from "@/components/ui/course-edit-modal";
@@ -32,8 +42,14 @@ import {
   SquarePlay,
   FileIcon,
   BarChart3,
+  ArrowDownAZ,
+  Clock,
+  GripVertical,
 } from "lucide-react";
 import { CourseAnalyticsPanel } from "@/components/lesson-blocks/CourseAnalyticsPanel";
+
+type CourseSortMode = "recent" | "alpha" | "manual";
+const COURSE_ORDER_STORAGE_KEY = "mozai:content-factory:course-order";
 
 type Step = "BRIEF" | "OUTLINE" | "GENERATION" | "REVIEW";
 
@@ -141,6 +157,49 @@ export default function ContentFactoryPage() {
   // --- HISTORY STATE ---
   const [savedCourses, setSavedCourses] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [courseSortMode, setCourseSortMode] = useState<CourseSortMode>("recent");
+  const [manualCourseOrder, setManualCourseOrder] = useState<string[]>([]);
+  const courseDragSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Ordem manual sobrevive a recarregar a página (por browser, não é partilhada entre dispositivos)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COURSE_ORDER_STORAGE_KEY);
+      if (saved) setManualCourseOrder(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const sortedSavedCourses = useMemo(() => {
+    if (courseSortMode === "alpha") {
+      return [...savedCourses].sort((a, b) => (a.title || "").localeCompare(b.title || "", "pt"));
+    }
+    if (courseSortMode === "manual") {
+      const orderIndex = new Map(manualCourseOrder.map((id, i) => [id, i]));
+      return [...savedCourses].sort((a, b) => {
+        const ia = orderIndex.has(a._id) ? orderIndex.get(a._id)! : Number.MAX_SAFE_INTEGER;
+        const ib = orderIndex.has(b._id) ? orderIndex.get(b._id)! : Number.MAX_SAFE_INTEGER;
+        return ia - ib;
+      });
+    }
+    // "recent" (padrão): mais recente primeiro
+    return [...savedCourses].sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }, [savedCourses, courseSortMode, manualCourseOrder]);
+
+  const handleCourseDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sortedSavedCourses.map((c) => c._id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(ids, oldIndex, newIndex);
+    setManualCourseOrder(newOrder);
+    try {
+      localStorage.setItem(COURSE_ORDER_STORAGE_KEY, JSON.stringify(newOrder));
+    } catch {}
+  };
 
   // Carregar histórico de cursos no MongoDB
   const fetchHistory = async () => {
@@ -1074,22 +1133,77 @@ export default function ContentFactoryPage() {
           {/* Histórico lateral */}
           <div className="lg:col-span-1 space-y-6">
             <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4">
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <BookOpen className="h-4.5 w-4.5 text-indigo-400" />
-                Cursos Gerados por IA ({savedCourses.length})
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <BookOpen className="h-4.5 w-4.5 text-indigo-400" />
+                  Cursos Gerados por IA
+                </h3>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortMode("recent")}
+                    title="Ordenar por mais recente"
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      courseSortMode === "recent"
+                        ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-400"
+                        : "border-slate-800 bg-slate-950 text-slate-500 hover:text-white"
+                    }`}
+                  >
+                    <Clock className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortMode("alpha")}
+                    title="Ordenar alfabeticamente"
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      courseSortMode === "alpha"
+                        ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-400"
+                        : "border-slate-800 bg-slate-950 text-slate-500 hover:text-white"
+                    }`}
+                  >
+                    <ArrowDownAZ className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCourseSortMode("manual")}
+                    title="Ordem manual (arrastar)"
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                      courseSortMode === "manual"
+                        ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-400"
+                        : "border-slate-800 bg-slate-950 text-slate-500 hover:text-white"
+                    }`}
+                  >
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
 
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                 {loadingHistory ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="h-5 w-5 text-indigo-500 animate-spin" />
                   </div>
-                ) : savedCourses.length === 0 ? (
+                ) : sortedSavedCourses.length === 0 ? (
                   <span className="text-[11px] text-slate-600 italic block py-2">
                     Nenhum curso gerado no catálogo deste tenant.
                   </span>
+                ) : courseSortMode === "manual" ? (
+                  <DndContext sensors={courseDragSensors} collisionDetection={closestCenter} onDragEnd={handleCourseDragEnd}>
+                    <SortableContext items={sortedSavedCourses.map((c) => c._id)} strategy={verticalListSortingStrategy}>
+                      {sortedSavedCourses.map((c) => (
+                        <SortableCourseCard
+                          key={c._id}
+                          course={c}
+                          onView={() => router.push(`/dashboard/courses/${c._id}/lessons/${c.firstLesson}`)}
+                          onEdit={() => setEditingCourseId(c._id)}
+                          onAnalytics={() => setAnalyticsCourseId(c._id)}
+                          onDelete={() => handleDeleteCourse(c)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 ) : (
-                  savedCourses.map((c) => (
+                  sortedSavedCourses.map((c) => (
                     <div
                       key={c._id}
                       className="p-3 rounded-xl border border-slate-900 bg-slate-950/40 hover:border-slate-800 text-slate-400 flex items-center justify-between gap-2 no-3d-effect"
@@ -1564,5 +1678,84 @@ export default function ContentFactoryPage() {
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
       `}</style>
     </>
+  );
+}
+
+/** Card de curso arrastável — só usado quando courseSortMode === "manual". */
+function SortableCourseCard({
+  course,
+  onView,
+  onEdit,
+  onAnalytics,
+  onDelete,
+}: {
+  course: any;
+  onView: () => void;
+  onEdit: () => void;
+  onAnalytics: () => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: course._id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-3 rounded-xl border border-slate-900 bg-slate-950/40 hover:border-slate-800 text-slate-400 flex items-center justify-between gap-2 no-3d-effect"
+    >
+      <div className="flex items-center gap-2 min-w-0 pr-2">
+        <button
+          {...attributes}
+          {...listeners}
+          title="Arrastar para reordenar"
+          className="p-1 -ml-1 text-slate-600 hover:text-slate-300 cursor-grab active:cursor-grabbing touch-none shrink-0"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="flex flex-col min-w-0">
+          <span className="font-bold text-xs truncate text-slate-200">{course.title}</span>
+          <span className="text-[9px] text-slate-500 flex items-center gap-1 mt-1">
+            <Layers className="h-3 w-3" />
+            {course.lessonsCount} lições • {course.minutes}m
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={onView}
+          disabled={!course.firstLesson}
+          title="Visualizar"
+          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={onEdit}
+          title="Editar"
+          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-indigo-400 transition-colors cursor-pointer"
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={onAnalytics}
+          title="Analytics"
+          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-amber-400 transition-colors cursor-pointer"
+        >
+          <BarChart3 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={onDelete}
+          title="Apagar"
+          className="p-1.5 rounded-lg border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
   );
 }
