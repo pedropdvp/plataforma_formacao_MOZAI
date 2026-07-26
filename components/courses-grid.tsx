@@ -119,7 +119,8 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
     }
   };
 
-  // Carregar cursos reais do Sanity + progresso e fundir com os demos
+  // Carrega só os cursos criados na Fábrica de Cursos (IA) + progresso — os cursos-demo
+  // fixos ficam só como reserva, exibidos apenas quando ainda não existir nenhum curso real.
   useEffect(() => {
     async function loadCourses() {
       try {
@@ -128,15 +129,12 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
           fetch("/api/progress"),
         ]);
 
-        // Cursos reais do Sanity (primeiro) + demos que não existam no Sanity
         let merged: Course[] = ALL_COURSES;
         if (catalogRes.ok) {
           const data = await catalogRes.json();
-          const real: Course[] = (data.courses || []).map(mapSanityCourse);
-          if (real.length > 0) {
-            const realIds = new Set(real.map((c) => c._id));
-            merged = [...real, ...ALL_COURSES.filter((c) => !realIds.has(c._id))];
-          }
+          const aiCourses = (data.courses || []).filter((c: any) => c.category === "IA Custom");
+          const real: Course[] = aiCourses.map(mapSanityCourse);
+          if (real.length > 0) merged = real;
         }
 
         // Aplicar progresso real (lições concluídas / total de lições do curso)

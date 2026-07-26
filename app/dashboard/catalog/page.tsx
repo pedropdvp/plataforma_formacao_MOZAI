@@ -179,19 +179,17 @@ function CatalogContent() {
     }
   };
 
-  // Carregar cursos reais publicados no Sanity e fundir com os demos
+  // Carrega só os cursos criados na Fábrica de Cursos (IA) — os cursos-demo fixos
+  // ficam só como reserva, exibidos apenas quando ainda não existir nenhum curso real.
   useEffect(() => {
     async function loadCatalog() {
       try {
         const res = await fetch("/api/catalog");
         if (!res.ok) return;
         const data = await res.json();
-        const real: CatalogCourse[] = (data.courses || []).map(mapSanityCourse);
-        if (real.length === 0) return;
-        const realIds = new Set(real.map((c) => c._id));
-        // Cursos reais primeiro; demos apenas se não existirem no Sanity
-        const demos = CATALOG_COURSES.filter((c) => !realIds.has(c._id));
-        setCourses([...real, ...demos]);
+        const aiCourses = (data.courses || []).filter((c: any) => c.category === "IA Custom");
+        const real: CatalogCourse[] = aiCourses.map(mapSanityCourse);
+        if (real.length > 0) setCourses(real);
       } catch (err) {
         console.error("Erro ao carregar catálogo dinâmico:", err);
       }
