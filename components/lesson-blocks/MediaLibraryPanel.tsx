@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { ImageIcon, Video, Upload, Loader2, GripVertical, CheckCircle2, XCircle, Clock, Eye, Trash2 } from "lucide-react";
+import { ImageIcon, Video, Upload, Loader2, GripVertical, CheckCircle2, XCircle, Clock, Eye, Trash2, Edit2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -32,6 +32,9 @@ export function MediaLibraryPanel() {
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const replaceTargetRef = useRef<MediaItem | null>(null);
+  const [replacingIds, setReplacingIds] = useState<Set<string>>(new Set());
   const pollTimers = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   const fetchItems = useCallback(async () => {
@@ -114,6 +117,77 @@ export function MediaLibraryPanel() {
     }
   };
 
+  const triggerReplace = (item: MediaItem) => {
+    replaceTargetRef.current = item;
+    if (replaceInputRef.current) {
+      replaceInputRef.current.accept =
+        item.type === "image"
+          ? "image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+          : "video/mp4,video/quicktime,video/x-matroska,.mov,.mp4,.mxf";
+      replaceInputRef.current.click();
+    }
+  };
+
+  const handleReplaceImage = async (item: MediaItem, file: File) => {
+    setReplacingIds((prev) => new Set(prev).add(item._id));
+    try {
+      const formData = new FormData();
+      formData.append("id", item._id);
+      formData.append("file", file);
+      const res = await fetch("/api/admin/media", { method: "PUT", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        setItems((prev) => prev.map((i) => (i._id === item._id ? data.item : i)));
+        showToast("Imagem substituída.", "success");
+      } else {
+        showToast(data.error || "Erro ao substituir imagem.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao substituir imagem.", "error");
+    } finally {
+      setReplacingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
+    }
+  };
+
+  const handleReplaceVideo = async (item: MediaItem, file: File) => {
+    setReplacingIds((prev) => new Set(prev).add(item._id));
+    try {
+      const startRes = await fetch("/api/admin/media/mux-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, id: item._id }),
+      });
+      const startData = await startRes.json();
+      if (!startRes.ok) {
+        showToast(startData.error || "Erro ao iniciar substituição de vídeo.", "error");
+        return;
+      }
+
+      setItems((prev) => prev.map((i) => (i._id === item._id ? startData.item : i)));
+
+      const putRes = await fetch(startData.uploadUrl, { method: "PUT", body: file });
+      if (!putRes.ok) {
+        showToast("Falha ao enviar o novo ficheiro de vídeo para o Mux.", "error");
+        return;
+      }
+
+      showToast("Vídeo substituído — a processar no Mux (pode demorar alguns minutos).", "success");
+      pollUploadStatus(startData.item.muxUploadId);
+    } catch {
+      showToast("Erro de comunicação ao substituir vídeo.", "error");
+    } finally {
+      setReplacingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item._id);
+        return next;
+      });
+    }
+  };
+
   const handleVideoUpload = async (file: File) => {
     setUploadingVideo(true);
     try {
@@ -190,6 +264,21 @@ export function MediaLibraryPanel() {
             e.target.value = "";
           }}
         />
+        {/* Input escondido e partilhado por todos os itens — substitui a imagem/vídeo do item em replaceTargetRef */}
+        <input
+          ref={replaceInputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            const target = replaceTargetRef.current;
+            if (file && target) {
+              if (target.type === "image") handleReplaceImage(target, file);
+              else handleReplaceVideo(target, file);
+            }
+            e.target.value = "";
+          }}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
@@ -201,7 +290,13 @@ export function MediaLibraryPanel() {
           <p className="text-[10px] text-[#94a3b8] text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
         ) : (
           items.map((item) => (
-            <DraggableMediaItem key={item._id} item={item} onDelete={() => handleDeleteItem(item)} />
+            <DraggableMediaItem
+              key={item._id}
+              item={item}
+              replacing={replacingIds.has(item._id)}
+              onReplace={() => triggerReplace(item)}
+              onDelete={() => handleDeleteItem(item)}
+            />
           ))
         )}
       </div>
@@ -209,7 +304,17 @@ export function MediaLibraryPanel() {
   );
 }
 
-function DraggableMediaItem({ item, onDelete }: { item: MediaItem; onDelete: () => void }) {
+function DraggableMediaItem({
+  item,
+  replacing,
+  onReplace,
+  onDelete,
+}: {
+  item: MediaItem;
+  replacing: boolean;
+  onReplace: () => void;
+  onDelete: () => void;
+}) {
   const isReady = item.type === "image" || item.status === "ready";
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `media-${item._id}`,
@@ -271,10 +376,24 @@ function DraggableMediaItem({ item, onDelete }: { item: MediaItem; onDelete: () 
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
+            onReplace();
+          }}
+          disabled={replacing}
+          title="Substituir ficheiro"
+          className="p-1 rounded-md border border-[#1e293b] bg-[#0b1120] hover:bg-[#1e293b] text-[#94a3b8] hover:text-[#6366f1] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          {replacing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Edit2 className="h-3 w-3" />}
+        </button>
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
             onDelete();
           }}
+          disabled={replacing}
           title="Apagar"
-          className="p-1 rounded-md border border-[#1e293b] bg-[#0b1120] hover:bg-[#451a1a] text-[#94a3b8] hover:text-[#ef4444] transition-colors cursor-pointer"
+          className="p-1 rounded-md border border-[#1e293b] bg-[#0b1120] hover:bg-[#451a1a] text-[#94a3b8] hover:text-[#ef4444] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <Trash2 className="h-3 w-3" />
         </button>

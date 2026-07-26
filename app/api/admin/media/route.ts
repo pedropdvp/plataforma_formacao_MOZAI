@@ -116,6 +116,81 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// PUT — Substitui a imagem de um item existente da Biblioteca de Media (mesmo _id, para
+// que os blocos de lição que já a referenciam passem a mostrar o novo ficheiro sem precisar
+// de arrastar um novo bloco). Vídeo segue um fluxo próprio em mux-upload/route.ts (upload
+// assíncrono para o Mux) — este handler é só para imagens.
+export async function PUT(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+    }
+
+    const activeRole = req.cookies.get("active-role")?.value;
+    const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO", "SUPORTE"];
+    if (!allowedRoles.includes(activeRole || "")) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const formData = await req.formData();
+    const id = formData.get("id")?.toString();
+    const file = formData.get("file") as File | null;
+
+    if (!id) {
+      return NextResponse.json({ error: "Parâmetro 'id' é obrigatório." }, { status: 400 });
+    }
+    if (!file) {
+      return NextResponse.json({ error: "Nenhum ficheiro enviado (campo 'file')." }, { status: 400 });
+    }
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      return NextResponse.json({ error: `Tipo de ficheiro não suportado: ${file.type}` }, { status: 400 });
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json({ error: "Ficheiro demasiado grande (máx. 8MB)." }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const existing = await db.collection("media_library").findOne({ _id: new ObjectId(id), tenantId });
+    if (!existing) {
+      return NextResponse.json({ error: "Item não encontrado." }, { status: 404 });
+    }
+    if (existing.type !== "image") {
+      return NextResponse.json({ error: "Este item não é uma imagem — não pode ser substituído por este endpoint." }, { status: 400 });
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const pathname = `${BLOB_PREFIX}${tenantId}/${Date.now()}-${safeName}`;
+
+    const blob = await put(pathname, buffer, {
+      access: "public",
+      contentType: file.type,
+      addRandomSuffix: false,
+      token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC,
+    });
+
+    if (existing.url) {
+      try {
+        await del(existing.url, { token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC });
+      } catch (err) {
+        console.warn("Falha ao apagar o blob antigo ao substituir imagem (a continuar):", err);
+      }
+    }
+
+    const update = { url: blob.url, filename: file.name, size: file.size, updatedAt: new Date() };
+    await db.collection("media_library").updateOne({ _id: existing._id }, { $set: update });
+
+    await logAuditEvent(userId, "MEDIA_LIBRARY_IMAGE_REPLACED", { id, filename: file.name, tenantId });
+
+    return NextResponse.json({ success: true, item: { ...existing, ...update } });
+  } catch (error: any) {
+    console.error("Erro ao substituir imagem da biblioteca de media:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 // DELETE — Remove um item da Biblioteca de Media: apaga o blob da imagem (ou o asset no
 // Mux, para vídeo) e o registo em media_library. Ação individual, por item.
 export async function DELETE(req: NextRequest) {

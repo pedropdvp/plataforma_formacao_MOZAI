@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 
@@ -24,6 +25,11 @@ function muxAuthHeader() {
  * produção profissional — o Mux transcodifica automaticamente para streaming adaptativo.
  * O item fica registado em `media_library` com status "processing"; o webhook
  * mux-webhook atualiza para "ready" quando o Mux terminar o processamento.
+ *
+ * Se o corpo incluir `id`, substitui o vídeo desse item existente em vez de criar um novo
+ * (mesmo _id — os blocos de lição que já o referenciam pelo muxPlaybackId acabam por
+ * mostrar o novo vídeo assim que o processamento terminar). O asset antigo no Mux é
+ * apagado (melhor esforço, não bloqueia a substituição se falhar).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -41,6 +47,29 @@ export async function POST(req: NextRequest) {
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const body = await req.json().catch(() => ({}));
     const filename = body?.filename || "video";
+    const replaceId: string | undefined = body?.id;
+
+    const db = await getDb();
+    let existing: any = null;
+    if (replaceId) {
+      existing = await db.collection("media_library").findOne({ _id: new ObjectId(replaceId), tenantId });
+      if (!existing) {
+        return NextResponse.json({ error: "Item não encontrado." }, { status: 404 });
+      }
+      if (existing.type !== "video") {
+        return NextResponse.json({ error: "Este item não é um vídeo — não pode ser substituído por este endpoint." }, { status: 400 });
+      }
+      if (existing.muxAssetId) {
+        try {
+          await fetch(`${MUX_API_BASE}/video/v1/assets/${existing.muxAssetId}`, {
+            method: "DELETE",
+            headers: { Authorization: muxAuthHeader() },
+          });
+        } catch (err) {
+          console.warn("Falha ao apagar o asset antigo no Mux ao substituir vídeo (a continuar):", err);
+        }
+      }
+    }
 
     const muxRes = await fetch(`${MUX_API_BASE}/video/v1/uploads`, {
       method: "POST",
@@ -67,7 +96,25 @@ export async function POST(req: NextRequest) {
     const uploadId: string = muxData.data.id;
     const uploadUrl: string = muxData.data.url;
 
-    const db = await getDb();
+    if (existing) {
+      const update = {
+        muxUploadId: uploadId,
+        muxPlaybackId: null as string | null,
+        filename,
+        status: "processing" as const,
+        updatedAt: new Date(),
+      };
+      await db.collection("media_library").updateOne({ _id: existing._id }, { $set: update });
+
+      await logAuditEvent(userId, "MEDIA_LIBRARY_VIDEO_REPLACED", { id: replaceId, filename, tenantId, uploadId });
+
+      return NextResponse.json({
+        success: true,
+        uploadUrl,
+        item: { ...existing, ...update },
+      });
+    }
+
     const doc = {
       tenantId,
       type: "video" as const,
