@@ -146,7 +146,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-aprendizagem space-y-1.5 ${isAprendizagemActive ? "active" : ""}`}>
         <button
           onClick={() => setAprendizagemOpen(!aprendizagemOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <GraduationCap className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -202,7 +202,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-comunicacao space-y-1.5 ${isComunicacaoActive ? "active" : ""}`}>
         <button
           onClick={() => setComunicacaoOpen(!comunicacaoOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <MessageSquare className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -250,7 +250,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-financeiro space-y-1.5 ${isFinanceiroActive ? "active" : ""}`}>
         <button
           onClick={() => setFinanceiroOpen(!financeiroOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <CreditCard className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -282,7 +282,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-pessoal space-y-1.5 ${isPessoalActive ? "active" : ""}`}>
         <button
           onClick={() => setPessoalOpen(!pessoalOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <User className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -338,7 +338,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-workspace space-y-1.5 ${isWorkspaceActive ? "active" : ""}`}>
         <button
           onClick={() => setWorkspaceOpen(!workspaceOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <Terminal className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -402,7 +402,7 @@ export default function SidebarNav() {
       <div className={`menu-group-container group-suporte space-y-1.5 ${isSuporteActive ? "active" : ""}`}>
         <button
           onClick={() => setGuiasOpen(!guiasOpen)}
-          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+          className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <Compass className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -439,7 +439,7 @@ export default function SidebarNav() {
         <div className={`menu-group-container group-relatorios space-y-1.5 ${isRelatoriosActive ? "active" : ""}`}>
           <button
             onClick={() => setRelatoriosOpen(!relatoriosOpen)}
-            className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+            className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
           >
             <div className="flex items-center gap-2.5">
               <FileText className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
@@ -491,7 +491,7 @@ export default function SidebarNav() {
         <div className={`menu-group-container group-administracao space-y-1.5 ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
-            className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900/10 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
+            className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
           >
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="h-4 w-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
