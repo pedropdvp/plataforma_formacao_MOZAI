@@ -850,26 +850,27 @@ html.light div[class*="rounded-3xl"][class*="border"]:not(.fixed):not(.no-3d-eff
   border-color: #1e40af !important;
 }
 
-/* Cabeçalhos dos menus aglutinadores da sidebar (ex: WORKSPACE, APRENDIZAGEM) — mesmo
-   efeito 3D dos cards acima, para o foco do rato ficar tão visível ali quanto num link
-   normal como "Fábrica de Cursos (IA)". Regra própria (não o seletor genérico acima,
-   que só apanha <div>) porque estes cabeçalhos são <button>. */
-.group-header-btn {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease !important;
+/* Cards dos menus aglutinadores da sidebar (ex: WORKSPACE, APRENDIZAGEM) — mesmo efeito 3D
+   dos cards do conteúdo principal (ex: "Definir Briefing do Curso"): o card inteiro eleva-se
+   ao entrar o rato em qualquer parte de dentro dele (cabeçalho ou links), não só no
+   cabeçalho. Regra própria (não o seletor genérico acima, que só apanha <div> "soltos" —
+   aqui o hover tem de propagar do cabeçalho/links para o container .menu-group-container). */
+.menu-group-container {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
-.group-header-btn:hover {
+.menu-group-container:hover {
   transform: translateY(-3px) scale(1.01);
   box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.35), 0 4px 8px -2px rgba(0, 0, 0, 0.2);
   z-index: 1;
   position: relative;
 }
 
-html:not(.light) .group-header-btn:hover {
+html:not(.light) .menu-group-container:hover {
   border-color: rgba(96, 165, 250, 0.6) !important;
 }
 
-html.light .group-header-btn:hover {
+html.light .menu-group-container:hover {
   border-color: #1e40af !important;
 }
 

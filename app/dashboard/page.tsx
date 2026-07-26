@@ -82,7 +82,9 @@ export default async function DashboardPage() {
         .find({ tenant_id: tenantId, userId })
         .toArray();
 
-      // Catálogo real (Sanity) + fallback demos, para saber título/total de lições de cada curso
+      // Catálogo real (Sanity) + cursos gerados por IA (Mongo) + fallback demos, para saber
+      // título/total de lições de cada curso — sem isto, o gráfico de progresso mostrava o
+      // ObjectId em bruto como nome de um curso gerado por IA (não estava no Sanity nem nos demos).
       const courseCatalog: Record<string, { title: string; lessonsCount: number }> = { ...DEMO_COURSES };
       try {
         const sanityCourses: any[] = await sanityClient.fetch(COURSE_COUNTS_QUERY);
@@ -91,6 +93,15 @@ export default async function DashboardPage() {
         }
       } catch (sanityErr) {
         console.warn("Falha ao ler catálogo do Sanity, usando fallback:", sanityErr);
+      }
+      try {
+        const aiCourses = await db.collection("courses").find({ tenant_id: tenantId }).toArray();
+        for (const c of aiCourses) {
+          const lessonsCount = (c.modules || []).reduce((acc: number, m: any) => acc + (m.lessons || []).length, 0);
+          courseCatalog[c._id.toString()] = { title: c.title, lessonsCount };
+        }
+      } catch (aiErr) {
+        console.warn("Falha ao ler cursos gerados por IA para o catálogo do dashboard:", aiErr);
       }
 
       const totalLessons = (courseId: string) => courseCatalog[courseId]?.lessonsCount || 3;

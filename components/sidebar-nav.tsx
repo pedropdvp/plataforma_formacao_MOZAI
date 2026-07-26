@@ -143,7 +143,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: APRENDIZAGEM */}
-      <div className={`menu-group-container group-aprendizagem space-y-1.5 ${isAprendizagemActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-aprendizagem space-y-1.5 rounded-2xl border border-transparent transition-all ${isAprendizagemActive ? "active" : ""}`}>
         <button
           onClick={() => setAprendizagemOpen(!aprendizagemOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -199,7 +199,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: COMUNICAÇÃO */}
-      <div className={`menu-group-container group-comunicacao space-y-1.5 ${isComunicacaoActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-comunicacao space-y-1.5 rounded-2xl border border-transparent transition-all ${isComunicacaoActive ? "active" : ""}`}>
         <button
           onClick={() => setComunicacaoOpen(!comunicacaoOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -247,7 +247,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: FINANCEIRO */}
-      <div className={`menu-group-container group-financeiro space-y-1.5 ${isFinanceiroActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-financeiro space-y-1.5 rounded-2xl border border-transparent transition-all ${isFinanceiroActive ? "active" : ""}`}>
         <button
           onClick={() => setFinanceiroOpen(!financeiroOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -279,7 +279,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: PESSOAL */}
-      <div className={`menu-group-container group-pessoal space-y-1.5 ${isPessoalActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-pessoal space-y-1.5 rounded-2xl border border-transparent transition-all ${isPessoalActive ? "active" : ""}`}>
         <button
           onClick={() => setPessoalOpen(!pessoalOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -335,7 +335,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: WORKSPACE */}
-      <div className={`menu-group-container group-workspace space-y-1.5 ${isWorkspaceActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-workspace space-y-1.5 rounded-2xl border border-transparent transition-all ${isWorkspaceActive ? "active" : ""}`}>
         <button
           onClick={() => setWorkspaceOpen(!workspaceOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -399,7 +399,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: SUPORTE */}
-      <div className={`menu-group-container group-suporte space-y-1.5 ${isSuporteActive ? "active" : ""}`}>
+      <div className={`menu-group-container group-suporte space-y-1.5 rounded-2xl border border-transparent transition-all ${isSuporteActive ? "active" : ""}`}>
         <button
           onClick={() => setGuiasOpen(!guiasOpen)}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -436,7 +436,7 @@ export default function SidebarNav() {
 
       {/* Agrupador: RELATÓRIOS */}
       {(activeRole === "ADMIN" || activeRole === "SUPORTE" || activeRole === "GESTOR_EMPRESA") && (
-        <div className={`menu-group-container group-relatorios space-y-1.5 ${isRelatoriosActive ? "active" : ""}`}>
+        <div className={`menu-group-container group-relatorios space-y-1.5 rounded-2xl border border-transparent transition-all ${isRelatoriosActive ? "active" : ""}`}>
           <button
             onClick={() => setRelatoriosOpen(!relatoriosOpen)}
             className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
@@ -488,7 +488,7 @@ export default function SidebarNav() {
 
       {/* Agrupador: ADMINISTRAÇÃO — só visível para ADMIN ou SUPORTE (ações sensíveis/destrutivas) */}
       {(activeRole === "ADMIN" || activeRole === "SUPORTE") && (
-        <div className={`menu-group-container group-administracao space-y-1.5 ${isAdministracaoActive ? "active" : ""}`}>
+        <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
             className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
