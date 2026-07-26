@@ -224,6 +224,7 @@ const PERMISSIONS_DATA = [
   { _id: "INTEGRATIONS_CONFIG", name: "Configurar Integrações", module: "ADMIN", description: "Gerir ligações com sistemas externos" },
   { _id: "NOTIFICATIONS_CONFIG", name: "Configurar Notificações", module: "ADMIN", description: "Definir canais e templates de alertas globais" },
   { _id: "BACKUP_MANAGE", name: "Gerir Backups", module: "ADMIN", description: "Criar e restaurar backups — Admin: de toda a plataforma; Gestor Empresa: só da sua empresa" },
+  { _id: "MENUS_MANAGE", name: "Gerir Visibilidade de Menus", module: "ADMIN", description: "Definir quais os menus visíveis/ocultos na plataforma e em cada empresa" },
 
   // Módulo COMPANY (Gestor Empresa / Funcionário)
   { _id: "STUDENTS_MANAGE", name: "Gerir Alunos", module: "COMPANY", description: "Criar, editar e eliminar alunos da empresa" },
@@ -294,7 +295,7 @@ const ROLES_DATA = [
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
       "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE"
     ]
   },
   {

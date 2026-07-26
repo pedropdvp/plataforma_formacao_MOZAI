@@ -73,6 +73,13 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_ACADEMICO", "FORMADOR", "ALUNO");
         }
 
+        // Backup & Restore e API's (Configuração): Gestor Empresa acede em âmbito só da sua empresa
+        if (path.startsWith("/dashboard/admin/backups") || path.startsWith("/dashboard/admin/api-keys")) {
+          allowedRoles.push("GESTOR_EMPRESA");
+        }
+
+        // Menus (Configuração > Menus): gestão de visibilidade é exclusiva de ADMIN/SUPORTE
+
         if (!allowedRoles.includes(activeRole)) {
           // Utilizador não autorizado, redireciona para a raiz do dashboard
           url.pathname = "/dashboard";

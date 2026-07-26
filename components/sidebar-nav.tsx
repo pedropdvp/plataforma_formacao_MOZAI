@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SecureRender from "@/components/secure-render";
 import { useLanguage } from "@/hooks/use-language";
 import { useAccess } from "@/hooks/use-access";
+import { MENU_ITEMS } from "@/lib/menu-registry";
 import {
   Home,
   Library,
@@ -38,7 +39,8 @@ import {
   Briefcase,
   ShieldCheck,
   Database,
-  Store
+  Store,
+  SlidersHorizontal
 } from "lucide-react";
 
 export default function SidebarNav() {
@@ -55,6 +57,22 @@ export default function SidebarNav() {
   const [guiasOpen, setGuiasOpen] = useState(true);
   const [relatoriosOpen, setRelatoriosOpen] = useState(true);
   const [administracaoOpen, setAdministracaoOpen] = useState(true);
+
+  // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configuração > Menus)
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/menu-visibility")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.hiddenIds) setHiddenIds(new Set<string>(data.hiddenIds));
+      })
+      .catch(() => {});
+  }, []);
+
+  const isItemVisible = (id: string) => !hiddenIds.has(id);
+  const isGroupVisible = (groupId: string) =>
+    MENU_ITEMS.filter((item) => item.groupId === groupId).some((item) => !hiddenIds.has(item.id));
 
   // Helper para verificar se a rota está ativa
   const isActive = (path: string) => pathname === path;
@@ -123,7 +141,8 @@ export default function SidebarNav() {
 
   const isAdministracaoActive = [
     "/dashboard/admin/backups",
-    "/dashboard/admin/api-keys"
+    "/dashboard/admin/api-keys",
+    "/dashboard/admin/menus"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const linkClass = (path: string) =>
@@ -144,6 +163,7 @@ export default function SidebarNav() {
       </div>
 
       {/* Agrupador: APRENDIZAGEM */}
+      {isGroupVisible("aprendizagem") && (
       <div className={`menu-group-container group-aprendizagem space-y-1.5 rounded-2xl border border-transparent transition-all ${isAprendizagemActive ? "active" : ""}`}>
         <button
           onClick={() => setAprendizagemOpen(!aprendizagemOpen)}
@@ -163,43 +183,61 @@ export default function SidebarNav() {
         {sidebarSection(
           aprendizagemOpen,
           <>
+            {isItemVisible("catalog") && (
             <Link href="/dashboard/catalog" className={linkClass("/dashboard/catalog")}>
               <Library className="h-4 w-4 text-violet-400" />
               {t("nav_catalog", "Catálogo")}
             </Link>
+            )}
+            {isItemVisible("marketplace") && (
             <Link href="/dashboard/marketplace" className={linkClass("/dashboard/marketplace")}>
               <Store className="h-4 w-4 text-violet-400" />
               {t("nav_marketplace", "Marketplace")}
             </Link>
+            )}
+            {isItemVisible("challenges") && (
             <Link href="/dashboard/challenges" className={linkClass("/dashboard/challenges")}>
               <Terminal className="h-4 w-4 text-cyan-400" />
               {t("nav_coding_lab", "Desafios")}
             </Link>
+            )}
+            {isItemVisible("gamification") && (
             <Link href="/dashboard/gamification" className={linkClass("/dashboard/gamification")}>
               <Trophy className="h-4 w-4 text-amber-500" />
               {t("nav_gamification", "Gamificação")}
             </Link>
+            )}
+            {isItemVisible("my-courses") && (
             <Link href="/dashboard/my-courses" className={linkClass("/dashboard/my-courses")}>
               <BookOpen className="h-4 w-4 text-indigo-400" />
               {t("nav_my_courses", "Meus Cursos")}
             </Link>
+            )}
+            {isItemVisible("mozai-academy") && (
             <Link href="/dashboard/mozai-academy" className={linkClass("/dashboard/mozai-academy")}>
               <Compass className="h-4 w-4 text-indigo-400" />
               {t("nav_academy", "MOZAI Academy")}
             </Link>
+            )}
+            {isItemVisible("progress") && (
             <Link href="/dashboard/personal/progress" className={linkClass("/dashboard/personal/progress")}>
               <GraduationCap className="h-4 w-4 text-emerald-400" />
               {t("nav_progress", "Progresso")}
             </Link>
+            )}
+            {isItemVisible("avatar-training") && (
             <Link href="/dashboard/avatar-training" className={linkClass("/dashboard/avatar-training")}>
               <Bot className="h-4 w-4 text-indigo-400" />
               {t("nav_avatar", "Treino com Avatares")}
             </Link>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: COMUNICAÇÃO */}
+      {isGroupVisible("comunicacao") && (
       <div className={`menu-group-container group-comunicacao space-y-1.5 rounded-2xl border border-transparent transition-all ${isComunicacaoActive ? "active" : ""}`}>
         <button
           onClick={() => setComunicacaoOpen(!comunicacaoOpen)}
@@ -219,35 +257,49 @@ export default function SidebarNav() {
         {sidebarSection(
           comunicacaoOpen,
           <>
+            {isItemVisible("live-classes") && (
             <Link href="/dashboard/live-classes" className={linkClass("/dashboard/live-classes")}>
               <Video className="h-4 w-4 text-cyan-400" />
               {t("nav_live_classes", "Aulas ao Vivo")}
             </Link>
+            )}
+            {isItemVisible("community") && (
             <Link href="/dashboard/community" className={linkClass("/dashboard/community")}>
               <Users className="h-4 w-4 text-emerald-400" />
               {t("nav_community", "Comunidade")}
             </Link>
+            )}
+            {isItemVisible("forum") && (
             <Link href="/dashboard/forum" className={linkClass("/dashboard/forum")}>
               <MessageSquare className="h-4 w-4 text-indigo-400" />
               {t("nav_forum", "Fórum")}
             </Link>
+            )}
+            {isItemVisible("notifications") && (
             <Link href="/dashboard/notifications" className={linkClass("/dashboard/notifications")}>
               <Bell className="h-4 w-4 text-amber-400" />
               {t("nav_notifications", "Notificações")}
             </Link>
+            )}
+            {isItemVisible("training-rooms") && (
             <Link href="/dashboard/training-rooms" className={linkClass("/dashboard/training-rooms")}>
               <Users className="h-4 w-4 text-indigo-400" />
               {t("nav_rooms", "Salas de Treino")}
             </Link>
+            )}
+            {isItemVisible("telegram-ia") && (
             <Link href="/dashboard/personal/telegram-ia" className={linkClass("/dashboard/personal/telegram-ia")}>
               <MessageSquare className="h-4 w-4 text-sky-400" />
               {t("nav_telegram", "Telegram IA")}
             </Link>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: FINANCEIRO */}
+      {isGroupVisible("financeiro") && (
       <div className={`menu-group-container group-financeiro space-y-1.5 rounded-2xl border border-transparent transition-all ${isFinanceiroActive ? "active" : ""}`}>
         <button
           onClick={() => setFinanceiroOpen(!financeiroOpen)}
@@ -267,19 +319,25 @@ export default function SidebarNav() {
         {sidebarSection(
           financeiroOpen,
           <>
+            {isItemVisible("subscriptions") && (
             <Link href="/dashboard/financial/subscriptions" className={linkClass("/dashboard/financial/subscriptions")}>
               <CreditCard className="h-4 w-4 text-cyan-400" />
               {t("nav_subscription", "Mensalidades")}
             </Link>
+            )}
+            {isItemVisible("payments") && (
             <Link href="/dashboard/financial/payments" className={linkClass("/dashboard/financial/payments")}>
               <Receipt className="h-4 w-4 text-indigo-400" />
               {t("nav_payments", "Pagamentos")}
             </Link>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: PESSOAL */}
+      {isGroupVisible("pessoal") && (
       <div className={`menu-group-container group-pessoal space-y-1.5 rounded-2xl border border-transparent transition-all ${isPessoalActive ? "active" : ""}`}>
         <button
           onClick={() => setPessoalOpen(!pessoalOpen)}
@@ -299,43 +357,59 @@ export default function SidebarNav() {
         {sidebarSection(
           pessoalOpen,
           <>
+            {isItemVisible("account") && (
             <Link href="/dashboard/personal/profile" className={linkClass("/dashboard/personal/profile")}>
               <User className="h-4 w-4 text-indigo-400" />
               {t("nav_account", "A minha Conta")}
             </Link>
+            )}
+            {isItemVisible("change-password") && (
             <Link href="/dashboard/personal/change-password" className={linkClass("/dashboard/personal/change-password")}>
               <Key className="h-4 w-4 text-cyan-400" />
               {t("nav_password", "Alterar Password")}
             </Link>
+            )}
+            {isItemVisible("professional-card") && (
             <Link href="/dashboard/professional-card" className={linkClass("/dashboard/professional-card")}>
               <CreditCard className="h-4 w-4 text-indigo-400" />
               {t("nav_prof_card", "Cartão Profissional")}
             </Link>
+            )}
+            {isItemVisible("certificates") && (
             <SecureRender requiredPermission="CERTIFICATES_VIEW">
               <Link href="/dashboard/certificates" className={linkClass("/dashboard/certificates")}>
                 <Award className="h-4 w-4 text-amber-400" />
                 {t("nav_certificates", "Certificados")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("ai-credits") && (
             <Link href="/dashboard/personal/ai-credits" className={linkClass("/dashboard/personal/ai-credits")}>
               <CpuIcon className="h-4 w-4 text-amber-400" />
               {t("nav_credits", "Créditos IA")}
             </Link>
+            )}
+            {isItemVisible("recycling") && (
             <Link href="/dashboard/recycling" className={linkClass("/dashboard/recycling")}>
               <RefreshCw className="h-4 w-4 text-emerald-400" />
               {t("nav_completed_courses", "Cursos efetuados")}
             </Link>
+            )}
+            {isItemVisible("diplomas") && (
             <SecureRender requiredPermission="CERTIFICATES_VIEW">
               <Link href="/dashboard/diplomas" className={linkClass("/dashboard/diplomas")}>
                 <Award className="h-4 w-4 text-indigo-400" />
                 {t("nav_diplomas", "Diplomas")}
               </Link>
             </SecureRender>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: WORKSPACE */}
+      {isGroupVisible("workspace") && (
       <div className={`menu-group-container group-workspace space-y-1.5 rounded-2xl border border-transparent transition-all ${isWorkspaceActive ? "active" : ""}`}>
         <button
           onClick={() => setWorkspaceOpen(!workspaceOpen)}
@@ -355,51 +429,69 @@ export default function SidebarNav() {
         {sidebarSection(
           workspaceOpen,
           <>
+            {isItemVisible("marketing-agency") && (
             <Link href="/dashboard/marketing-agency" className={linkClass("/dashboard/marketing-agency")}>
               <Megaphone className="h-4 w-4 text-indigo-400" />
               {t("nav_marketing", "Agência de Marketing")}
             </Link>
+            )}
+            {isItemVisible("auto-update") && (
             <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">
               <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
                 <Settings className="h-4 w-4 text-rose-400" />
                 {t("nav_auto_update", "Auto-Update (Engine)")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("coding-lab") && (
             <Link href="/dashboard/skills/coding-lab" className={linkClass("/dashboard/skills/coding-lab")}>
               <Terminal className="h-4 w-4 text-emerald-400" />
               {t("nav_coding_lab", "Coding Lab (Prática)")}
             </Link>
+            )}
+            {isItemVisible("config-company") && (
             <SecureRender requiredPermission="TENANTS_MANAGE">
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
                 <Settings className="h-4 w-4 text-slate-400" />
                 {t("nav_config_company", "Configurar Empresa")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("content-factory") && (
             <SecureRender requiredPermission="COURSES_CREATE">
               <Link href="/dashboard/admin/content-factory" className={linkClass("/dashboard/admin/content-factory")}>
                 <Settings className="h-4 w-4 text-violet-400" />
                 {t("nav_content_factory", "Fábrica de Cursos (IA)")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("hr-console") && (
             <SecureRender requiredPermission="PAYMENTS_MANAGE">
               <Link href="/dashboard/admin/hr" className={linkClass("/dashboard/admin/hr")}>
                 <Settings className="h-4 w-4 text-indigo-400" />
                 {t("nav_hr_console", "Gestão de RH")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("career") && (
             <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>
               <Brain className="h-4 w-4 text-violet-400" />
               {t("nav_career", "Carreira & Mentoria")}
             </Link>
+            )}
+            {isItemVisible("skills-os") && (
             <Link href="/dashboard/skills" className={linkClass("/dashboard/skills")}>
               <Terminal className="h-4 w-4 text-cyan-400" />
               {t("nav_skills_os", "Skills OS (Grafo de Competências)")}
             </Link>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: SUPORTE */}
+      {isGroupVisible("suporte") && (
       <div className={`menu-group-container group-suporte space-y-1.5 rounded-2xl border border-transparent transition-all ${isSuporteActive ? "active" : ""}`}>
         <button
           onClick={() => setGuiasOpen(!guiasOpen)}
@@ -419,24 +511,31 @@ export default function SidebarNav() {
         {sidebarSection(
           guiasOpen,
           <>
+            {isItemVisible("user-guide") && (
             <Link href="/dashboard/user-guide" className={linkClass("/dashboard/user-guide")}>
               <Compass className="h-4 w-4 text-slate-400 animate-spin-slow" />
               {t("nav_user_guide", "Guia de Utilização")}
             </Link>
+            )}
+            {isItemVisible("student-guide") && (
             <Link href="/dashboard/personal/student-guide" className={linkClass("/dashboard/personal/student-guide")}>
               <BookOpen className="h-4 w-4 text-indigo-400" />
               {t("nav_student_guide", "Guia do Formando")}
             </Link>
+            )}
+            {isItemVisible("support") && (
             <Link href="/dashboard/personal/support" className={linkClass("/dashboard/personal/support")}>
               <LifeBuoy className="h-4 w-4 text-rose-400" />
               {t("nav_support", "Suporte")}
             </Link>
+            )}
           </>
         )}
       </div>
+      )}
 
       {/* Agrupador: RELATÓRIOS */}
-      {(activeRole === "ADMIN" || activeRole === "SUPORTE" || activeRole === "GESTOR_EMPRESA") && (
+      {(activeRole === "ADMIN" || activeRole === "SUPORTE" || activeRole === "GESTOR_EMPRESA") && isGroupVisible("relatorios") && (
         <div className={`menu-group-container group-relatorios space-y-1.5 rounded-2xl border border-transparent transition-all ${isRelatoriosActive ? "active" : ""}`}>
           <button
             onClick={() => setRelatoriosOpen(!relatoriosOpen)}
@@ -456,41 +555,52 @@ export default function SidebarNav() {
           {sidebarSection(
             relatoriosOpen,
             <>
+              {isItemVisible("rep-students") && (
               <Link href="/dashboard/reports/students" className={linkClass("/dashboard/reports/students")}>
                 <GraduationCap className="h-4 w-4 text-violet-400" />
                 {t("nav_rep_students", "Alunos")}
               </Link>
-              {(activeRole === "ADMIN" || activeRole === "SUPORTE") && (
+              )}
+              {isItemVisible("rep-audit") && (activeRole === "ADMIN" || activeRole === "SUPORTE") && (
                 <Link href="/dashboard/reports/audit" className={linkClass("/dashboard/reports/audit")}>
                   <Activity className="h-4 w-4 text-rose-400" />
                   {t("nav_rep_audit", "Auditoria")}
                 </Link>
               )}
+              {isItemVisible("rep-companies") && (
               <Link href="/dashboard/reports/companies" className={linkClass("/dashboard/reports/companies")}>
                 <Building className="h-4 w-4 text-indigo-400" />
                 {t("nav_rep_companies", "Empresas")}
               </Link>
+              )}
+              {isItemVisible("rep-employees") && (
               <Link href="/dashboard/reports/employees" className={linkClass("/dashboard/reports/employees")}>
                 <Briefcase className="h-4 w-4 text-emerald-400" />
                 {t("nav_rep_employees", "Funcionários")}
               </Link>
+              )}
+              {isItemVisible("history") && (
               <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
                 <Clock className="h-4 w-4 text-cyan-400" />
                 {t("nav_history", "Histórico")}
               </Link>
+              )}
+              {isItemVisible("rep-teachers") && (
               <Link href="/dashboard/reports/teachers" className={linkClass("/dashboard/reports/teachers")}>
                 <GraduationCap className="h-4 w-4 text-cyan-400" />
                 {t("nav_rep_teachers", "Professores")}
               </Link>
+              )}
             </>
           )}
         </div>
       )}
 
-      {/* Agrupador: CONFIGURAÇÃO — Backup & Restore e API's, visível para ADMIN (âmbito toda a
-          plataforma) ou GESTOR_EMPRESA (âmbito só a sua empresa); cada link tem ainda o seu
-          próprio SecureRender para o caso de os dois níveis vierem a divergir no futuro. */}
-      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE")) && (
+      {/* Agrupador: CONFIGURAÇÃO — Backup & Restore, API's e Menus (submenus ordenados
+          alfabeticamente), visível para ADMIN (âmbito toda a plataforma) ou GESTOR_EMPRESA
+          (âmbito só a sua empresa, exceto Menus — gestão de visibilidade é exclusiva do Admin);
+          cada link tem ainda o seu próprio SecureRender para o caso de os níveis divergirem. */}
+      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("MENUS_MANAGE")) && isGroupVisible("configuracao") && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
@@ -510,16 +620,26 @@ export default function SidebarNav() {
           {sidebarSection(
             administracaoOpen,
             <>
+              {isItemVisible("api-keys") && (
+              <SecureRender requiredPermission="API_KEYS_MANAGE">
+                <Link href="/dashboard/admin/api-keys" className={linkClass("/dashboard/admin/api-keys")}>
+                  <Key className="h-4 w-4 text-orange-400" />
+                  {t("nav_api_keys", "API's")}
+                </Link>
+              </SecureRender>
+              )}
+              {isItemVisible("backup-restore") && (
               <SecureRender requiredPermission="BACKUP_MANAGE">
                 <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
                   <Database className="h-4 w-4 text-orange-400" />
                   {t("nav_backup_restore", "Backup & Restore")}
                 </Link>
               </SecureRender>
-              <SecureRender requiredPermission="API_KEYS_MANAGE">
-                <Link href="/dashboard/admin/api-keys" className={linkClass("/dashboard/admin/api-keys")}>
-                  <Key className="h-4 w-4 text-orange-400" />
-                  {t("nav_api_keys", "API's")}
+              )}
+              <SecureRender requiredPermission="MENUS_MANAGE">
+                <Link href="/dashboard/admin/menus" className={linkClass("/dashboard/admin/menus")}>
+                  <SlidersHorizontal className="h-4 w-4 text-orange-400" />
+                  {t("nav_menus", "Menus")}
                 </Link>
               </SecureRender>
             </>
