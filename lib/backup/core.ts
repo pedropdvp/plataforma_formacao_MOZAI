@@ -1,4 +1,4 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { EJSON } from "bson";
 import { put, list, del, get } from "@vercel/blob";
 import { mkdir, writeFile, readFile, readdir } from "node:fs/promises";
@@ -35,6 +35,46 @@ export interface BackupManifest {
   collections: Record<string, number>;
   sizeBytes: number;
   trigger: "manual" | "cron" | "pre-restore-safety";
+  /** Ausente/undefined = backup completo da plataforma (ADMIN). Presente = só os dados
+   * desta empresa (Gestor Empresa) — ver TENANT_SCOPE_FIELD/buildTenantFilter abaixo. */
+  tenantId?: string;
+}
+
+/**
+ * Mapa coleção → campo usado para filtrar por tenant num backup/restore de uma única
+ * empresa. Coleções fora deste mapa (e fora dos casos especiais "users"/"tenants" abaixo)
+ * são globais/partilhadas por toda a plataforma (ex: permissions, roles) e ficam de fora
+ * de um backup de empresa — mais vale um backup mais pequeno e correto do que arriscar
+ * incluir configuração global ou dados de outra empresa por engano.
+ */
+const TENANT_SCOPE_FIELD: Record<string, string> = {
+  courses: "tenant_id",
+  user_progress: "tenant_id",
+  study_history: "tenant_id",
+  course_generation_jobs: "tenant_id",
+  gamification_profiles: "tenant_id",
+  tenant_settings: "tenant_id",
+  media_library: "tenantId",
+  assigned_courses: "tenantId",
+  uploaded_chunks: "tenantId",
+  audit_logs: "tenantId",
+};
+
+/** Devolve o filtro Mongo para restringir uma coleção a uma empresa, ou null se a coleção
+ * for global/desconhecida (nesse caso fica fora do backup de empresa). */
+function buildTenantFilter(collectionName: string, tenantId: string): Record<string, any> | null {
+  if (collectionName === "users") {
+    return { "tenants.tenantId": tenantId };
+  }
+  if (collectionName === "tenants") {
+    try {
+      return { _id: new ObjectId(tenantId) };
+    } catch {
+      return { _id: "__invalid_tenant_id__" };
+    }
+  }
+  const field = TENANT_SCOPE_FIELD[collectionName];
+  return field ? { [field]: tenantId } : null;
 }
 
 async function connectDirect(): Promise<{ client: MongoClient; dbName: string }> {
@@ -62,6 +102,8 @@ export async function createBackup(opts: {
   trigger: BackupManifest["trigger"];
   saveLocal?: boolean;
   saveBlob?: boolean;
+  /** Presente = backup só desta empresa (Gestor Empresa); ausente = plataforma inteira (ADMIN). */
+  tenantId?: string;
 }): Promise<BackupManifest> {
   const { client, dbName } = await connectDirect();
   try {
@@ -72,9 +114,19 @@ export async function createBackup(opts: {
     const counts: Record<string, number> = {};
     for (const { name } of collectionInfos) {
       if (name.startsWith("system.")) continue;
-      const docs = await db.collection(name).find({}).toArray();
-      data[name] = docs;
-      counts[name] = docs.length;
+
+      if (opts.tenantId) {
+        const filter = buildTenantFilter(name, opts.tenantId);
+        if (!filter) continue; // coleção global — não faz parte do backup de uma empresa
+        const docs = await db.collection(name).find(filter).toArray();
+        if (docs.length === 0) continue; // não polui o manifesto com coleções vazias
+        data[name] = docs;
+        counts[name] = docs.length;
+      } else {
+        const docs = await db.collection(name).find({}).toArray();
+        data[name] = docs;
+        counts[name] = docs.length;
+      }
     }
 
     const id = new Date().toISOString().replace(/[:.]/g, "-");
@@ -86,6 +138,7 @@ export async function createBackup(opts: {
       collections: counts,
       sizeBytes: Buffer.byteLength(dataPayload, "utf8"),
       trigger: opts.trigger,
+      ...(opts.tenantId ? { tenantId: opts.tenantId } : {}),
     };
 
     const finalPayload = EJSON.stringify({ manifest, data }, undefined, 0, { relaxed: false });
@@ -123,10 +176,18 @@ export async function createBackup(opts: {
   }
 }
 
+/** Filtra manifestos por âmbito: com tenantId → só os dessa empresa; sem tenantId →
+ * só os da plataforma inteira (backups de ADMIN). Nunca mistura os dois. */
+function filterManifestsByScope(manifests: BackupManifest[], tenantId?: string): BackupManifest[] {
+  return tenantId ? manifests.filter((m) => m.tenantId === tenantId) : manifests.filter((m) => !m.tenantId);
+}
+
 /**
  * Lista os backups disponíveis no Vercel Blob (fonte de verdade partilhada/duradoura).
+ * @param tenantId Se indicado, devolve só os backups desta empresa (Gestor Empresa);
+ * se omitido, devolve só os backups de plataforma inteira (ADMIN).
  */
-export async function listBlobBackups(): Promise<BackupManifest[]> {
+export async function listBlobBackups(tenantId?: string): Promise<BackupManifest[]> {
   if (!blobEnabled()) return [];
   const { blobs } = await list({ prefix: BLOB_PREFIX });
   const manifestBlobs = blobs
@@ -144,13 +205,14 @@ export async function listBlobBackups(): Promise<BackupManifest[]> {
       console.warn("Manifesto de backup ilegível ignorado:", blob.pathname, e);
     }
   }
-  return manifests;
+  return filterManifestsByScope(manifests, tenantId);
 }
 
 /**
  * Lista os backups guardados localmente (pasta backups/).
+ * @param tenantId Ver {@link listBlobBackups}.
  */
-export async function listLocalBackups(): Promise<BackupManifest[]> {
+export async function listLocalBackups(tenantId?: string): Promise<BackupManifest[]> {
   try {
     const files = await readdir(LOCAL_BACKUP_DIR);
     const manifests: BackupManifest[] = [];
@@ -163,7 +225,7 @@ export async function listLocalBackups(): Promise<BackupManifest[]> {
         console.warn("Backup local ilegível ignorado:", file, e);
       }
     }
-    return manifests;
+    return filterManifestsByScope(manifests, tenantId);
   } catch {
     return [];
   }
@@ -202,15 +264,27 @@ async function loadBackupPayload(id: string): Promise<{ manifest: BackupManifest
  * Restaura um backup: substitui o conteúdo atual de cada coleção presente no backup
  * pelo conteúdo guardado nesse momento. Cria SEMPRE um backup de segurança do estado
  * atual antes de mexer em qualquer coisa, para que a restauração seja reversível.
+ *
+ * @param opts.tenantId Se indicado (Gestor Empresa), o restauro só é permitido para um
+ * backup dessa MESMA empresa (nunca um backup de outra empresa nem o da plataforma
+ * inteira), e só apaga/insere os documentos dessa empresa em cada coleção — nunca a
+ * coleção inteira. Se omitido (ADMIN), restaura o backup de plataforma tal como veio.
  */
-export async function restoreBackup(id: string): Promise<{
+export async function restoreBackup(
+  id: string,
+  opts?: { tenantId?: string }
+): Promise<{
   safetyBackupId: string;
   restoredCollections: Record<string, number>;
 }> {
-  const { data } = await loadBackupPayload(id);
+  const { manifest, data } = await loadBackupPayload(id);
 
-  // Salvaguarda: nunca restaurar sem primeiro guardar o estado atual.
-  const safety = await createBackup({ trigger: "pre-restore-safety" });
+  if (opts?.tenantId && manifest.tenantId !== opts.tenantId) {
+    throw new Error("Este backup não pertence à sua empresa — restauro recusado.");
+  }
+
+  // Salvaguarda: nunca restaurar sem primeiro guardar o estado atual (com o mesmo âmbito).
+  const safety = await createBackup({ trigger: "pre-restore-safety", tenantId: opts?.tenantId });
 
   const { client, dbName } = await connectDirect();
   try {
@@ -219,7 +293,13 @@ export async function restoreBackup(id: string): Promise<{
 
     for (const [collectionName, docs] of Object.entries(data)) {
       const col = db.collection(collectionName);
-      await col.deleteMany({});
+      if (opts?.tenantId) {
+        const filter = buildTenantFilter(collectionName, opts.tenantId);
+        if (!filter) continue; // coleção global — nunca tocada num restauro de empresa
+        await col.deleteMany(filter);
+      } else {
+        await col.deleteMany({});
+      }
       if (docs.length > 0) {
         await col.insertMany(docs, { ordered: false });
       }

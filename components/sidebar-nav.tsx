@@ -44,7 +44,7 @@ import {
 export default function SidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { activeRole } = useAccess();
+  const { activeRole, hasPermission } = useAccess();
 
   // Estados dos agrupadores (iniciam expandidos true por padrão)
   const [aprendizagemOpen, setAprendizagemOpen] = useState(true);
@@ -122,7 +122,8 @@ export default function SidebarNav() {
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const isAdministracaoActive = [
-    "/dashboard/admin/backups"
+    "/dashboard/admin/backups",
+    "/dashboard/admin/api-keys"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const linkClass = (path: string) =>
@@ -486,8 +487,10 @@ export default function SidebarNav() {
         </div>
       )}
 
-      {/* Agrupador: ADMINISTRAÇÃO — só visível para ADMIN ou SUPORTE (ações sensíveis/destrutivas) */}
-      {(activeRole === "ADMIN" || activeRole === "SUPORTE") && (
+      {/* Agrupador: CONFIGURAÇÃO — Backup & Restore e API's, visível para ADMIN (âmbito toda a
+          plataforma) ou GESTOR_EMPRESA (âmbito só a sua empresa); cada link tem ainda o seu
+          próprio SecureRender para o caso de os dois níveis vierem a divergir no futuro. */}
+      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE")) && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
@@ -495,7 +498,7 @@ export default function SidebarNav() {
           >
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="h-4 w-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
-              <span>{t("nav_administracao_group", "Administração")}</span>
+              <span>{t("nav_administracao_group", "Configuração")}</span>
             </div>
             {administracaoOpen ? (
               <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -507,10 +510,18 @@ export default function SidebarNav() {
           {sidebarSection(
             administracaoOpen,
             <>
-              <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
-                <Database className="h-4 w-4 text-orange-400" />
-                {t("nav_backup_restore", "Backup & Restore")}
-              </Link>
+              <SecureRender requiredPermission="BACKUP_MANAGE">
+                <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
+                  <Database className="h-4 w-4 text-orange-400" />
+                  {t("nav_backup_restore", "Backup & Restore")}
+                </Link>
+              </SecureRender>
+              <SecureRender requiredPermission="API_KEYS_MANAGE">
+                <Link href="/dashboard/admin/api-keys" className={linkClass("/dashboard/admin/api-keys")}>
+                  <Key className="h-4 w-4 text-orange-400" />
+                  {t("nav_api_keys", "API's")}
+                </Link>
+              </SecureRender>
             </>
           )}
         </div>

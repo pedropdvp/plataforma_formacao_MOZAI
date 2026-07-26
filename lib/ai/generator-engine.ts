@@ -1,6 +1,12 @@
 import { getDb } from "../mongodb";
-import { openai } from "@ai-sdk/openai";
+import { openai, createOpenAI } from "@ai-sdk/openai";
 import { generateObject, embed, jsonSchema } from "ai";
+
+/** Usa a chave da empresa (Fábrica de Cursos por tenant) quando fornecida; senão, a chave
+ * global da plataforma via singleton `openai` do SDK (comportamento anterior, inalterado). */
+function resolveOpenAiProvider(apiKey?: string) {
+  return apiKey ? createOpenAI({ apiKey }) : openai;
+}
 import { z } from "zod";
 import { LessonBlock, blocksToPlainText, newBlockId, stripMarkdownMarkers } from "../lesson-blocks";
 
@@ -163,7 +169,7 @@ export async function generateOutline(briefing: {
   duration: string;
   objectives: string;
   targetAudience: string;
-}, contextTexts: string[] = []): Promise<z.infer<typeof outlineSchema>> {
+}, contextTexts: string[] = [], apiKey?: string): Promise<z.infer<typeof outlineSchema>> {
   const contextBlock = contextTexts.length > 0
     ? `\nCONTEXTO EXTRAÍDO DOS MATERIAIS ANEXADOS:\n${contextTexts.join("\n---\n")}\n`
     : "";
@@ -181,7 +187,7 @@ export async function generateOutline(briefing: {
   `;
 
   const { object } = await generateObject({
-    model: openai("gpt-4o-mini"),
+    model: resolveOpenAiProvider(apiKey)("gpt-4o-mini"),
     schema: outlineSchema,
     prompt,
   });
@@ -201,7 +207,8 @@ export async function generateLesson(
   briefing: { topic: string; level: string; objectives: string },
   lessonTitle: string,
   lessonObjectives: string[],
-  contextChunks: ContextChunk[] = []
+  contextChunks: ContextChunk[] = [],
+  apiKey?: string
 ): Promise<GeneratedLesson> {
   const contextBlock = contextChunks.length > 0
     ? `\nCONTEXTO OFICIAL PARA USO OBRIGATÓRIO (RAG):\n${contextChunks.map((c) => c.content).join("\n---\n")}\n`
@@ -223,7 +230,7 @@ export async function generateLesson(
   `;
 
   const { object } = await generateObject({
-    model: openai("gpt-4o-mini"),
+    model: resolveOpenAiProvider(apiKey)("gpt-4o-mini"),
     schema: lessonContentJsonSchema,
     prompt,
   });
@@ -277,10 +284,10 @@ export async function generateLesson(
  * Vercel Blob e registado na Biblioteca de Media pelo chamador — esta função é
  * propositadamente "pura" (não escreve na base de dados nem no Blob).
  */
-export async function generateLessonImage(prompt: string): Promise<string | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.warn("generateLessonImage: OPENAI_API_KEY não configurada.");
+export async function generateLessonImage(prompt: string, apiKey?: string): Promise<string | null> {
+  const resolvedKey = apiKey || process.env.OPENAI_API_KEY;
+  if (!resolvedKey) {
+    console.warn("generateLessonImage: nenhuma chave OpenAI disponível (nem da empresa, nem da plataforma).");
     return null;
   }
 
@@ -288,7 +295,7 @@ export async function generateLessonImage(prompt: string): Promise<string | null
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${resolvedKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -321,7 +328,8 @@ export async function generateLessonImage(prompt: string): Promise<string | null
 export async function searchUploadedMaterials(
   briefingId: string,
   query: string,
-  limit = 4
+  limit = 4,
+  apiKey?: string
 ): Promise<ContextChunk[]> {
   try {
     const db = await getDb();
@@ -331,7 +339,7 @@ export async function searchUploadedMaterials(
     let queryEmbedding: number[] | null = null;
     try {
       const r = await embed({
-        model: openai.embedding(EMBEDDING_MODEL),
+        model: resolveOpenAiProvider(apiKey).embedding(EMBEDDING_MODEL),
         value: query,
       });
       queryEmbedding = r.embedding;

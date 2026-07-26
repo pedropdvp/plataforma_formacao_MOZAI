@@ -613,7 +613,8 @@ export default function ContentFactoryPage() {
         setTempDesc(data.outline.description);
         setStep("OUTLINE");
       } else {
-        showToast("Erro ao gerar outline de curso.", "error");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao gerar outline de curso.", "error", 8000);
       }
     } catch (err) {
       console.error(err);
@@ -644,7 +645,8 @@ export default function ContentFactoryPage() {
       if (res.ok) {
         setStep("GENERATION");
       } else {
-        showToast("Erro ao iniciar a geração do conteúdo.", "error");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao iniciar a geração do conteúdo.", "error", 8000);
       }
     } catch (err) {
       console.error(err);

@@ -41,19 +41,19 @@ export default function ProgressPage() {
         const userProgressArray = data.progress || [];
         setTopTopics(data.topTopics || []);
 
-        // Definições de curso: cursos reais do Sanity + demos que não existam no Sanity
+        // Definições de curso: só cursos criados na Fábrica de Cursos (IA) — igual ao
+        // Catálogo e a Meus Cursos. Os demos ficam só como reserva, quando ainda não existir
+        // nenhum curso real (evita mostrar aqui cursos que já não aparecem nesses menus).
         let definitions: CourseDefinition[] = DEMO_DEFINITIONS;
         if (catalogRes.ok) {
           const catalog = await catalogRes.json();
-          const real: CourseDefinition[] = (catalog.courses || []).map((c: any) => ({
+          const aiCourses = (catalog.courses || []).filter((c: any) => c.category === "IA Custom");
+          const real: CourseDefinition[] = aiCourses.map((c: any) => ({
             id: c._id,
             courseTitle: c.title,
             totalLessons: c.lessonsCount || 0,
           }));
-          if (real.length > 0) {
-            const realIds = new Set(real.map((c) => c.id));
-            definitions = [...real, ...DEMO_DEFINITIONS.filter((d) => !realIds.has(d.id))];
-          }
+          if (real.length > 0) definitions = real;
         }
 
         // Calcular progresso por curso com base no total REAL de lições

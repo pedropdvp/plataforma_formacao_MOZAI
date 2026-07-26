@@ -11,6 +11,8 @@ export default function BackupRestorePage() {
   const confirmDialog = useConfirm();
   const { activeRole, isLoading: loadingRole } = useAccess();
   const isGlobalAdmin = activeRole === "ADMIN" || activeRole === "SUPORTE";
+  const isCompanyManager = activeRole === "GESTOR_EMPRESA";
+  const canAccess = isGlobalAdmin || isCompanyManager;
 
   const [backups, setBackups] = useState<any[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(true);
@@ -33,8 +35,8 @@ export default function BackupRestorePage() {
   };
 
   useEffect(() => {
-    if (isGlobalAdmin) fetchBackups();
-  }, [isGlobalAdmin]);
+    if (canAccess) fetchBackups();
+  }, [canAccess]);
 
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
@@ -93,7 +95,7 @@ export default function BackupRestorePage() {
     );
   }
 
-  if (!isGlobalAdmin) {
+  if (!canAccess) {
     return (
       <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center text-center space-y-4 px-6">
         <div className="p-4 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
@@ -101,7 +103,7 @@ export default function BackupRestorePage() {
         </div>
         <h1 className="text-xl font-bold text-white">Acesso Restrito</h1>
         <p className="text-sm text-slate-400 max-w-[420px]">
-          Só administradores globais (ADMIN ou SUPORTE) podem aceder a Backup &amp; Restore.
+          Só administradores globais (ADMIN ou SUPORTE) ou Gestores de Empresa podem aceder a Backup &amp; Restore.
         </p>
       </div>
     );
@@ -115,8 +117,9 @@ export default function BackupRestorePage() {
           Backup &amp; Restore
         </h1>
         <p className="text-sm text-slate-400">
-          Um backup diário é criado automaticamente às 03:00 e guardado de forma duradoura. Local e produção
-          partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes.
+          {isCompanyManager
+            ? "Um backup cobre apenas os dados da sua empresa (cursos, progresso, utilizadores, etc.). Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."
+            : "Um backup diário é criado automaticamente às 03:00 e guardado de forma duradoura, cobrindo toda a plataforma multi-tenant. Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."}
         </p>
       </div>
 

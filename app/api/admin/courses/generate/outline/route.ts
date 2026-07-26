@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { generateOutline, searchUploadedMaterials } from "@/lib/ai/generator-engine";
+import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
 import { ObjectId } from "mongodb";
 
 export const maxDuration = 60; // Permitir até 60 segundos para gerar outline robusto
@@ -21,10 +22,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tópico é obrigatório." }, { status: 400 });
     }
 
+    // 0. Resolver a chave OpenAI do tenant — sem chave, uma empresa (não-root) não pode gerar
+    // cursos: o custo da geração é sempre da própria empresa, nunca da plataforma.
+    const apiKey = await resolveOpenAIKeyForTenant(tenantId);
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "A sua empresa ainda não configurou uma chave da API OpenAI. Configure-a em Configuração > API's antes de gerar cursos." },
+        { status: 402 }
+      );
+    }
+
     // 1. Extrair RAG dos materiais caso fornecido briefingId
     let contextTexts: string[] = [];
     if (briefingId) {
-      const contextChunks = await searchUploadedMaterials(briefingId, topic, 4);
+      const contextChunks = await searchUploadedMaterials(briefingId, topic, 4, apiKey);
       contextTexts = contextChunks.map((c) => c.content);
     }
 
@@ -35,7 +46,7 @@ export async function POST(req: NextRequest) {
       duration: duration || "4 semanas",
       objectives: objectives || "Aprender os conceitos principais.",
       targetAudience: targetAudience || "Público geral",
-    }, contextTexts);
+    }, contextTexts, apiKey);
 
     // 3. Criar o Job na base de dados
     const db = await getDb();

@@ -6,7 +6,10 @@ import { logAuditEvent } from "@/lib/audit";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// GET — Lista os backups disponíveis (Vercel Blob, fonte partilhada e duradoura)
+const ALLOWED_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
+
+// GET — Lista os backups disponíveis (Vercel Blob, fonte partilhada e duradoura).
+// ADMIN/SUPORTE veem os backups de plataforma inteira; GESTOR_EMPRESA vê só os da sua empresa.
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -15,11 +18,14 @@ export async function GET(req: NextRequest) {
     }
 
     const activeRole = req.cookies.get("active-role")?.value;
-    if (!["ADMIN", "SUPORTE"].includes(activeRole || "")) {
+    if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const backups = await listBlobBackups();
+    const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
+    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+
+    const backups = await listBlobBackups(tenantId);
     return NextResponse.json({ success: true, backups });
   } catch (error: any) {
     console.error("Erro ao listar backups:", error);
@@ -27,7 +33,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — Cria um novo backup imediatamente (manual, a pedido do administrador)
+// POST — Cria um novo backup imediatamente (manual, a pedido do administrador/gestor).
+// ADMIN/SUPORTE: backup de toda a plataforma. GESTOR_EMPRESA: só dos dados da sua empresa
+// (tenantId derivado sempre do servidor — nunca aceite do cliente).
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -36,16 +44,23 @@ export async function POST(req: NextRequest) {
     }
 
     const activeRole = req.cookies.get("active-role")?.value;
-    if (!["ADMIN", "SUPORTE"].includes(activeRole || "")) {
+    if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const manifest = await createBackup({ trigger: "manual" });
+    const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
+    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+    if (isCompanyScoped && !tenantId) {
+      return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
+    }
+
+    const manifest = await createBackup({ trigger: "manual", tenantId });
     await pruneOldBackups(30);
 
     await logAuditEvent(userId, "DB_BACKUP_CREATED", {
       backupId: manifest.id,
       collections: manifest.collections,
+      tenantId: tenantId || null,
     });
 
     return NextResponse.json({ success: true, backup: manifest });

@@ -223,6 +223,7 @@ const PERMISSIONS_DATA = [
   { _id: "AUTH_CONFIG", name: "Configurar Autenticação", module: "ADMIN", description: "Configurar métodos de autenticação e SSO" },
   { _id: "INTEGRATIONS_CONFIG", name: "Configurar Integrações", module: "ADMIN", description: "Gerir ligações com sistemas externos" },
   { _id: "NOTIFICATIONS_CONFIG", name: "Configurar Notificações", module: "ADMIN", description: "Definir canais e templates de alertas globais" },
+  { _id: "BACKUP_MANAGE", name: "Gerir Backups", module: "ADMIN", description: "Criar e restaurar backups — Admin: de toda a plataforma; Gestor Empresa: só da sua empresa" },
 
   // Módulo COMPANY (Gestor Empresa / Funcionário)
   { _id: "STUDENTS_MANAGE", name: "Gerir Alunos", module: "COMPANY", description: "Criar, editar e eliminar alunos da empresa" },
@@ -235,6 +236,7 @@ const PERMISSIONS_DATA = [
   { _id: "REPORTS_VIEW", name: "Consultar Relatórios da Empresa", module: "COMPANY", description: "Visualizar estatísticas de progresso e atividade do tenant" },
   { _id: "COMPANY_INFO_UPDATE", name: "Atualizar Dados da Empresa", module: "COMPANY", description: "Editar designação, logo e definições do tenant" },
   { _id: "MESSAGES_SEND_COMPANY", name: "Enviar Mensagens na Empresa", module: "COMPANY", description: "Comunicar com colaboradores e formandos do mesmo tenant" },
+  { _id: "API_KEYS_MANAGE", name: "Gerir Chaves de API", module: "COMPANY", description: "Configurar a chave de API (OpenAI) usada na Fábrica de Cursos — Admin: da plataforma; Gestor Empresa: só da sua empresa" },
 
   // Módulo STUDENT (Aluno)
   { _id: "AUTH_BASIC", name: "Autenticar-se", module: "STUDENT", description: "Realizar login básico e validação de conta" },
@@ -291,7 +293,8 @@ const ROLES_DATA = [
       "COMPANIES_CREATE", "COMPANIES_EDIT", "COMPANIES_DELETE", "COMPANIES_STATUS",
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
-      "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL"
+      "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
+      "BACKUP_MANAGE", "API_KEYS_MANAGE"
     ]
   },
   {
@@ -300,7 +303,8 @@ const ROLES_DATA = [
     permissions: [
       "STUDENTS_MANAGE", "EMPLOYEES_MANAGE", "COURSES_SCHEDULE", "PAYMENTS_VIEW_ALL",
       "PAYMENTS_VALIDATE", "PAYMENTS_NOTIFY", "DOCS_MANAGE", "REPORTS_VIEW",
-      "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY"
+      "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY",
+      "BACKUP_MANAGE", "API_KEYS_MANAGE"
     ]
   },
   {

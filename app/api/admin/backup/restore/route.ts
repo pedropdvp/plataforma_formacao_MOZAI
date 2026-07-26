@@ -7,7 +7,10 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // POST — Restaura a base de dados a partir de um backup. Ação extremamente destrutiva:
-// substitui o conteúdo atual de cada coleção presente no backup. Restrito a ADMIN.
+// substitui o conteúdo atual de cada coleção presente no backup.
+// ADMIN restaura backups de plataforma inteira; GESTOR_EMPRESA só pode restaurar um backup
+// da SUA PRÓPRIA empresa (verificado em restoreBackup contra o tenantId derivado do servidor),
+// e mesmo assim só os documentos da sua empresa são substituídos, nunca a coleção inteira.
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -15,10 +18,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    // Só ADMIN (não SUPORTE) pode restaurar — é uma operação destrutiva sobre toda a base de dados.
     const activeRole = req.cookies.get("active-role")?.value;
-    if (activeRole !== "ADMIN") {
-      return NextResponse.json({ error: "Só um Administrador Global pode restaurar backups." }, { status: 403 });
+    const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
+    if (activeRole !== "ADMIN" && !isCompanyScoped) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+    if (isCompanyScoped && !tenantId) {
+      return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
     }
 
     const body = await req.json();
@@ -27,12 +35,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "backupId é obrigatório." }, { status: 400 });
     }
 
-    const result = await restoreBackup(backupId);
+    const result = await restoreBackup(backupId, { tenantId });
 
     await logAuditEvent(userId, "DB_BACKUP_RESTORED", {
       restoredBackupId: backupId,
       safetyBackupId: result.safetyBackupId,
       restoredCollections: result.restoredCollections,
+      tenantId: tenantId || null,
     });
 
     return NextResponse.json({ success: true, ...result });

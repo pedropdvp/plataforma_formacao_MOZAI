@@ -1,8 +1,9 @@
 import { randomUUID } from "crypto";
 import { getDb } from "@/lib/mongodb";
 import { chunkText } from "@/lib/vector-store";
-import { openai } from "@ai-sdk/openai";
+import { openai, createOpenAI } from "@ai-sdk/openai";
 import { embedMany } from "ai";
+import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
@@ -49,8 +50,13 @@ export async function ingestExtractedPages(
 
   let embeddings: number[][] = [];
   try {
+    // Usa a chave OpenAI da própria empresa quando configurada (o custo de indexar os
+    // materiais é da empresa, tal como o resto da geração de cursos) — melhor esforço: sem
+    // chave disponível, os chunks continuam a ser gravados, só sem vetor de pesquisa semântica.
+    const tenantKey = await resolveOpenAIKeyForTenant(opts.tenantId);
+    const provider = tenantKey ? createOpenAI({ apiKey: tenantKey }) : openai;
     const r = await embedMany({
-      model: openai.embedding(EMBEDDING_MODEL),
+      model: provider.embedding(EMBEDDING_MODEL),
       values: allChunks,
     });
     embeddings = r.embeddings;

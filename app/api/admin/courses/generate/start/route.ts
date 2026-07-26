@@ -4,6 +4,7 @@ import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { put } from "@vercel/blob";
 import { generateLesson, generateLessonImage, searchUploadedMaterials, ContextChunk } from "@/lib/ai/generator-engine";
+import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
 import { logAuditEvent } from "@/lib/audit";
 import { LessonBlock, blocksToPlainText, newBlockId } from "@/lib/lesson-blocks";
 
@@ -92,7 +93,8 @@ async function runBackgroundGeneration(
   tenantId: string,
   userId: string,
   brief: any,
-  outlineModules: any[]
+  outlineModules: any[],
+  apiKey: string
 ) {
   try {
     const db = await getDb();
@@ -128,7 +130,7 @@ async function runBackgroundGeneration(
         // 1. Pesquisa contextual RAG específica para os objetivos desta aula
         let contextChunks: ContextChunk[] = [];
         if (brief.briefingId) {
-          contextChunks = await searchUploadedMaterials(brief.briefingId, `${les.title} ${les.objectives?.join(" ")}`, 4);
+          contextChunks = await searchUploadedMaterials(brief.briefingId, `${les.title} ${les.objectives?.join(" ")}`, 4, apiKey);
         }
 
         // 2. Chamar LLM para gerar conteúdo explicativo, código, quiz, etc. (em blocks[])
@@ -136,7 +138,8 @@ async function runBackgroundGeneration(
           { topic: brief.topic, level: brief.level, objectives: brief.objectives },
           les.title,
           les.objectives || [],
-          contextChunks
+          contextChunks,
+          apiKey
         );
 
         // Substituir imagens base64 do RAG (PDF/PPTX) por URLs reais no Blob — nunca
@@ -149,7 +152,8 @@ async function runBackgroundGeneration(
         const hasRagImages = contextChunks.some((c) => (c.images || []).length > 0);
         if (!hasRagImages) {
           const imageDataUrl = await generateLessonImage(
-            `Ilustração educativa, estilo diagrama minimalista, sobre: ${les.title} (${brief.topic})`
+            `Ilustração educativa, estilo diagrama minimalista, sobre: ${les.title} (${brief.topic})`,
+            apiKey
           );
           if (imageDataUrl) {
             const blobUrl = await persistGeneratedImage(imageDataUrl, tenantId, userId, les.title);
@@ -246,6 +250,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Parâmetros jobId e outline são obrigatórios." }, { status: 400 });
     }
 
+    const apiKey = await resolveOpenAIKeyForTenant(tenantId);
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "A sua empresa ainda não configurou uma chave da API OpenAI. Configure-a em Configuração > API's antes de gerar cursos." },
+        { status: 402 }
+      );
+    }
+
     const db = await getDb();
     const job = await db.collection("course_generation_jobs").findOne({ _id: new ObjectId(jobId), tenant_id: tenantId });
     if (!job) {
@@ -293,7 +305,8 @@ export async function POST(req: NextRequest) {
       tenantId,
       userId,
       job.brief,
-      outline.modules
+      outline.modules,
+      apiKey
     );
 
     // Retorna imediatamente com os metadados do curso criado
