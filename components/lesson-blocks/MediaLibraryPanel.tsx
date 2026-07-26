@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { ImageIcon, Video, Upload, Loader2, GripVertical, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { ImageIcon, Video, Upload, Loader2, GripVertical, CheckCircle2, XCircle, Clock, Eye, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface MediaItem {
   _id: string;
@@ -24,6 +25,7 @@ export interface MediaItem {
  */
 export function MediaLibraryPanel() {
   const { showToast } = useToast();
+  const confirmDialog = useConfirm();
   const [items, setItems] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -86,6 +88,29 @@ export function MediaLibraryPanel() {
       showToast("Erro de comunicação ao carregar imagem.", "error");
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleDeleteItem = async (item: MediaItem) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar Media",
+      message: `Tem a certeza que deseja apagar "${item.filename || item.alt || (item.type === "image" ? "esta imagem" : "este vídeo")}"? Esta ação é irreversível.`,
+      confirmLabel: "Apagar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/media?id=${item._id}`, { method: "DELETE" });
+      if (res.ok) {
+        setItems((prev) => prev.filter((i) => i._id !== item._id));
+        showToast("Item apagado da Biblioteca de Media.", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao apagar item.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao apagar item.", "error");
     }
   };
 
@@ -175,20 +200,25 @@ export function MediaLibraryPanel() {
         ) : items.length === 0 ? (
           <p className="text-[10px] text-[#94a3b8] text-center py-6 px-2">Ainda sem media. Carregue uma imagem ou vídeo acima.</p>
         ) : (
-          items.map((item) => <DraggableMediaItem key={item._id} item={item} />)
+          items.map((item) => (
+            <DraggableMediaItem key={item._id} item={item} onDelete={() => handleDeleteItem(item)} />
+          ))
         )}
       </div>
     </div>
   );
 }
 
-function DraggableMediaItem({ item }: { item: MediaItem }) {
+function DraggableMediaItem({ item, onDelete }: { item: MediaItem; onDelete: () => void }) {
   const isReady = item.type === "image" || item.status === "ready";
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `media-${item._id}`,
     data: { source: "media-library", item },
     disabled: !isReady,
   });
+
+  const viewUrl =
+    item.type === "image" ? item.url : item.muxPlaybackId ? `https://stream.mux.com/${item.muxPlaybackId}/high.mp4` : null;
 
   return (
     <div
@@ -222,7 +252,34 @@ function DraggableMediaItem({ item }: { item: MediaItem }) {
           {item.type === "image" && <ImageIcon className="h-2.5 w-2.5 text-[#64748b]" />}
         </div>
       </div>
-      {isReady && <GripVertical className="h-3.5 w-3.5 text-[#64748b] shrink-0 opacity-0 group-hover:opacity-100" />}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (viewUrl) window.open(viewUrl, "_blank", "noopener,noreferrer");
+          }}
+          disabled={!viewUrl}
+          title="Visualizar"
+          className="p-1 rounded-md border border-[#1e293b] bg-[#0b1120] hover:bg-[#1e293b] text-[#94a3b8] hover:text-[#e2e8f0] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Eye className="h-3 w-3" />
+        </button>
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Apagar"
+          className="p-1 rounded-md border border-[#1e293b] bg-[#0b1120] hover:bg-[#451a1a] text-[#94a3b8] hover:text-[#ef4444] transition-colors cursor-pointer"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+        {isReady && <GripVertical className="h-3.5 w-3.5 text-[#64748b] opacity-0 group-hover:opacity-100" />}
+      </div>
     </div>
   );
 }

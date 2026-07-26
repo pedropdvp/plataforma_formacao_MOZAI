@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
+import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 
@@ -10,6 +11,14 @@ export const maxDuration = 60;
 const BLOB_PREFIX = "media/";
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB — suficiente para imagens/diagramas de curso
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"]);
+const MUX_API_BASE = "https://api.mux.com";
+
+function muxAuthHeader(): string | null {
+  const id = process.env.MUX_TOKEN_ID;
+  const secret = process.env.MUX_TOKEN_SECRET;
+  if (!id || !secret) return null;
+  return `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`;
+}
 
 // GET — Lista a Biblioteca de Media do tenant (imagens já carregadas + vídeos Mux já processados/em processamento)
 export async function GET(req: NextRequest) {
@@ -103,6 +112,64 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, item: { ...doc, _id: result.insertedId } });
   } catch (error: any) {
     console.error("Erro ao carregar imagem para a biblioteca de media:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE — Remove um item da Biblioteca de Media: apaga o blob da imagem (ou o asset no
+// Mux, para vídeo) e o registo em media_library. Ação individual, por item.
+export async function DELETE(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+    }
+
+    const activeRole = req.cookies.get("active-role")?.value;
+    const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO", "SUPORTE"];
+    if (!allowedRoles.includes(activeRole || "")) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "Parâmetro 'id' é obrigatório." }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const item = await db.collection("media_library").findOne({ _id: new ObjectId(id), tenantId });
+    if (!item) {
+      return NextResponse.json({ error: "Item não encontrado." }, { status: 404 });
+    }
+
+    if (item.type === "image" && item.url) {
+      try {
+        await del(item.url, { token: process.env.BLOB_READ_WRITE_TOKEN_PUBLIC });
+      } catch (err) {
+        console.warn("Falha ao apagar blob da imagem (o registo é apagado na mesma):", err);
+      }
+    } else if (item.type === "video" && item.muxAssetId) {
+      try {
+        const authHeader = muxAuthHeader();
+        if (authHeader) {
+          await fetch(`${MUX_API_BASE}/video/v1/assets/${item.muxAssetId}`, {
+            method: "DELETE",
+            headers: { Authorization: authHeader },
+          });
+        }
+      } catch (err) {
+        console.warn("Falha ao apagar asset no Mux (o registo é apagado na mesma):", err);
+      }
+    }
+
+    await db.collection("media_library").deleteOne({ _id: new ObjectId(id) });
+    await logAuditEvent(userId, "MEDIA_LIBRARY_ITEM_DELETED", { id, type: item.type, tenantId });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Erro ao apagar item da biblioteca de media:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
