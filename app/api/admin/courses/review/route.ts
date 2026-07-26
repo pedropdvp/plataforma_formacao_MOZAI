@@ -140,8 +140,16 @@ export async function DELETE(req: NextRequest) {
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const db = await getDb();
 
+    let objectId: ObjectId;
+    try {
+      objectId = new ObjectId(courseId);
+    } catch {
+      // ID que não é do Mongo (ex: curso do Sanity) — este endpoint só apaga cursos gerados por IA.
+      return NextResponse.json({ error: "Este curso não pode ser apagado por aqui." }, { status: 400 });
+    }
+
     const course = await db.collection("courses").findOne({
-      _id: new ObjectId(courseId),
+      _id: objectId,
       tenant_id: tenantId,
     });
 
@@ -149,17 +157,17 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Curso não encontrado." }, { status: 404 });
     }
 
-    // Mesma regra de curadoria do POST: curadores apagam qualquer curso do tenant;
-    // um Aluno Individual só pode apagar o seu próprio rascunho privado.
+    // ADMIN/GESTOR_EMPRESA/GESTOR_ACADEMICO apagam qualquer curso do tenant; o criador do
+    // curso (generatedByUserId) pode apagar o seu próprio, publicado ou ainda em rascunho.
     const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
     const curatorRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
     const isCurator = curatorRoles.includes(activeRole);
-    const isOwnPrivateDraft = course.isPrivate && course.generatedByUserId === userId;
-    if (!isCurator && !isOwnPrivateDraft) {
+    const isOwner = course.generatedByUserId === userId;
+    if (!isCurator && !isOwner) {
       return NextResponse.json({ error: "Acesso negado para eliminar este curso." }, { status: 403 });
     }
 
-    await db.collection("courses").deleteOne({ _id: new ObjectId(courseId) });
+    await db.collection("courses").deleteOne({ _id: objectId });
 
     await logAuditEvent(userId, "COURSE_AI_DELETED", {
       courseId,

@@ -7,6 +7,7 @@ interface AccessContextProps {
   assignedRoles: string[];
   permissions: string[];
   isLoading: boolean;
+  userId: string | null;
   userName: string | null;
   userEmail: string | null;
   hasPermission: (permission: string) => boolean;
@@ -21,6 +22,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [assignedRoles, setAssignedRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
@@ -33,6 +35,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         setActiveRole(data.activeRole || null);
         setAssignedRoles(data.assignedRoles || []);
         setPermissions(data.permissions || []);
+        setUserId(data.userId || null);
         setUserName(data.userName || null);
         setUserEmail(data.userEmail || null);
       }
@@ -86,6 +89,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         assignedRoles,
         permissions,
         isLoading,
+        userId,
         userName,
         userEmail,
         hasPermission,

@@ -2,7 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Play, Clock, ArrowRight, Award, Compass, LayoutGrid, Loader2 } from "lucide-react";
+import { Play, Clock, ArrowRight, Award, Compass, LayoutGrid, Loader2, Trash2 } from "lucide-react";
+import { useAccess } from "@/hooks/use-access";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface Course {
   _id: string;
@@ -14,6 +17,7 @@ interface Course {
   progress: number;
   gradient: string;
   firstLesson?: string;
+  generatedByUserId?: string | null;
 }
 
 // Gradientes atribuídos ciclicamente aos cursos vindos do Sanity
@@ -73,6 +77,7 @@ function mapSanityCourse(c: any, i: number): Course {
     progress: 0,
     gradient: GRADIENTS[i % GRADIENTS.length],
     firstLesson: c.firstLesson || undefined,
+    generatedByUserId: c.generatedByUserId || null,
   };
 }
 
@@ -80,6 +85,39 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [courses, setCourses] = useState<Course[]>(ALL_COURSES);
   const [isLoading, setIsLoading] = useState(true);
+  const { activeRole, userId } = useAccess();
+  const confirmDialog = useConfirm();
+  const { showToast } = useToast();
+
+  // Só cursos gerados por IA (guardados no Mongo) podem ser apagados por aqui — cursos
+  // "demo"/Sanity não têm este mecanismo. Pode apagar: ADMIN, GESTOR_EMPRESA, ou o
+  // próprio criador do curso (generatedByUserId).
+  const canDeleteCourse = (course: Course) =>
+    course.category === "IA Custom" &&
+    (activeRole === "ADMIN" || activeRole === "GESTOR_EMPRESA" || (!!userId && course.generatedByUserId === userId));
+
+  const handleDeleteCourse = async (course: Course) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar Curso",
+      message: `Tem a certeza que deseja apagar "${course.title}"? Esta ação é irreversível.`,
+      confirmLabel: "Apagar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/courses/review?courseId=${course._id}`, { method: "DELETE" });
+      if (res.ok) {
+        setCourses((prev) => prev.filter((c) => c._id !== course._id));
+        showToast("Curso apagado.", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao apagar curso.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao apagar curso.", "error");
+    }
+  };
 
   // Carregar cursos reais do Sanity + progresso e fundir com os demos
   useEffect(() => {
@@ -190,7 +228,7 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
         ) : (
           <div className="grid md:grid-cols-3 gap-8">
             {inProgressCourses.map((course) => (
-              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} />
+              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} canDelete={canDeleteCourse(course)} onDelete={() => handleDeleteCourse(course)} />
             ))}
           </div>
         )}
@@ -210,7 +248,7 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
         ) : (
           <div className="grid md:grid-cols-3 gap-8">
             {completedCourses.map((course) => (
-              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} />
+              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} canDelete={canDeleteCourse(course)} onDelete={() => handleDeleteCourse(course)} />
             ))}
           </div>
         )}
@@ -235,7 +273,7 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
         ) : (
           <div className="grid md:grid-cols-3 gap-8">
             {toStartCourses.map((course) => (
-              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} />
+              <CourseCard key={course._id} course={course} onCategoryClick={setSelectedCategory} canDelete={canDeleteCourse(course)} onDelete={() => handleDeleteCourse(course)} />
             ))}
           </div>
         )}
@@ -244,9 +282,19 @@ export default function CoursesGrid({ tenantId }: { tenantId: string }) {
   );
 }
 
-function CourseCard({ course, onCategoryClick }: { course: Course; onCategoryClick: (cat: string) => void }) {
+function CourseCard({
+  course,
+  onCategoryClick,
+  canDelete,
+  onDelete,
+}: {
+  course: Course;
+  onCategoryClick: (cat: string) => void;
+  canDelete?: boolean;
+  onDelete?: () => void;
+}) {
   const courseUrl = `/dashboard/courses/${course._id}/lessons/${course.firstLesson || "lesson-1-1"}`;
-  
+
   return (
     <div className="border border-slate-900 bg-slate-950/40 rounded-3xl overflow-hidden hover:border-slate-800 transition-all flex flex-col justify-between group shadow-xl">
       {/* Clicar em qualquer parte superior do card redireciona para o curso */}
@@ -254,6 +302,19 @@ function CourseCard({ course, onCategoryClick }: { course: Course; onCategoryCli
         {/* Cover Graphic */}
         <div className={`h-40 bg-gradient-to-br ${course.gradient} p-6 flex flex-col justify-between relative`}>
           <div className="absolute inset-0 bg-black/10" />
+          {canDelete && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete?.();
+              }}
+              title="Apagar Curso"
+              className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/30 hover:bg-rose-600 text-white/80 hover:text-white backdrop-blur-md transition-colors cursor-pointer"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -264,7 +325,7 @@ function CourseCard({ course, onCategoryClick }: { course: Course; onCategoryCli
           >
             {course.category}
           </button>
-          
+
           {/* Triângulo de play sempre visível em hover, ou fixo se em progresso */}
           <div className={`relative z-10 self-end p-2.5 rounded-full bg-white/20 backdrop-blur-md text-white transition-all group-hover:scale-110 group-hover:bg-indigo-600 shadow-lg shadow-indigo-500/20`}>
             <Play className="h-4.5 w-4.5 fill-white text-white" />

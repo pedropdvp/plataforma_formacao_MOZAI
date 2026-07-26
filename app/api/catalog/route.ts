@@ -75,7 +75,8 @@ export async function GET(req: NextRequest) {
           }, 0);
         }, 0),
         firstLesson: c.modules?.[0]?.lessons?.[0]?.slug || c.modules?.[0]?.lessons?.[0]?.id || "",
-        createdAt: c.createdAt || null
+        createdAt: c.createdAt || null,
+        generatedByUserId: c.generatedByUserId || null
       }));
 
       courses = [...courses, ...formattedAiCourses];

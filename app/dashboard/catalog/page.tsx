@@ -3,8 +3,10 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Library, Check, Play, ShoppingCart, ShieldAlert, Award, ArrowRight, CreditCard, Loader2 } from "lucide-react";
+import { Library, Check, Play, ShoppingCart, ShieldAlert, Award, ArrowRight, CreditCard, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { useAccess } from "@/hooks/use-access";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface CatalogCourse {
   _id: string;
@@ -18,6 +20,7 @@ interface CatalogCourse {
   gradient: string;
   isAvailable: boolean;
   firstLesson?: string;
+  generatedByUserId?: string | null;
 }
 
 const CATALOG_COURSES: CatalogCourse[] = [
@@ -109,6 +112,7 @@ function mapSanityCourse(c: any, i: number): CatalogCourse {
     gradient: GRADIENTS[i % GRADIENTS.length],
     isAvailable: true,
     firstLesson: c.firstLesson || undefined,
+    generatedByUserId: c.generatedByUserId || null,
   };
 }
 
@@ -139,9 +143,41 @@ function CatalogContent() {
   const [isPaying, setIsPaying] = useState(false);
   const [purchasedCourses, setPurchasedCourses] = useState<string[]>([]);
   const { showToast } = useToast();
+  const { activeRole, userId } = useAccess();
+  const confirmDialog = useConfirm();
 
   // Lista de cursos: começa nos demos e é enriquecida com os cursos reais do Sanity
   const [courses, setCourses] = useState<CatalogCourse[]>(CATALOG_COURSES);
+
+  // Só cursos gerados por IA (guardados no Mongo) podem ser apagados por aqui — cursos
+  // "demo"/Sanity não têm este mecanismo. Pode apagar: ADMIN, GESTOR_EMPRESA, ou o
+  // próprio criador do curso (generatedByUserId).
+  const canDeleteCourse = (course: CatalogCourse) =>
+    course.category === "IA Custom" &&
+    (activeRole === "ADMIN" || activeRole === "GESTOR_EMPRESA" || (!!userId && course.generatedByUserId === userId));
+
+  const handleDeleteCourse = async (course: CatalogCourse) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar Curso",
+      message: `Tem a certeza que deseja apagar "${course.title}"? Esta ação é irreversível.`,
+      confirmLabel: "Apagar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/courses/review?courseId=${course._id}`, { method: "DELETE" });
+      if (res.ok) {
+        setCourses((prev) => prev.filter((c) => c._id !== course._id));
+        showToast("Curso apagado.", "success");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao apagar curso.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao apagar curso.", "error");
+    }
+  };
 
   // Carregar cursos reais publicados no Sanity e fundir com os demos
   useEffect(() => {
@@ -352,6 +388,8 @@ function CatalogContent() {
                   course={course}
                   isUnlocked={true}
                   onAcquire={handleAcquire}
+                  canDelete={canDeleteCourse(course)}
+                  onDelete={() => handleDeleteCourse(course)}
                 />
               ))}
           </div>
@@ -376,6 +414,8 @@ function CatalogContent() {
                     course={course}
                     isUnlocked={isUnlocked}
                     onAcquire={handleAcquire}
+                    canDelete={canDeleteCourse(course)}
+                    onDelete={() => handleDeleteCourse(course)}
                   />
                 );
               })}
@@ -399,6 +439,8 @@ function CatalogContent() {
                   course={course}
                   isUnlocked={false}
                   onAcquire={handleAcquire}
+                  canDelete={canDeleteCourse(course)}
+                  onDelete={() => handleDeleteCourse(course)}
                 />
               ))}
           </div>
@@ -507,10 +549,14 @@ function CatalogCard({
   course,
   isUnlocked,
   onAcquire,
+  canDelete,
+  onDelete,
 }: {
   course: CatalogCourse;
   isUnlocked: boolean;
   onAcquire: (course: CatalogCourse) => void;
+  canDelete?: boolean;
+  onDelete?: () => void;
 }) {
   const { showToast } = useToast();
   return (
@@ -518,7 +564,17 @@ function CatalogCard({
       {/* Cover Gradient Graphic */}
       <div className={`h-40 bg-gradient-to-br ${course.gradient} p-6 flex flex-col justify-between relative`}>
         <div className="absolute inset-0 bg-black/10" />
-        
+
+        {canDelete && (
+          <button
+            onClick={onDelete}
+            title="Apagar Curso"
+            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/30 hover:bg-rose-600 text-white/80 hover:text-white backdrop-blur-md transition-colors cursor-pointer"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
+
         {/* Category Badge */}
         <span className="relative z-10 self-start text-[10px] font-semibold px-2.5 py-1 rounded-full bg-indigo-600 text-white border border-white/10 transition-colors hover:bg-slate-200 hover:text-indigo-700">
           {course.category}
