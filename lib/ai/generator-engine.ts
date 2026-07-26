@@ -2,7 +2,7 @@ import { getDb } from "../mongodb";
 import { openai } from "@ai-sdk/openai";
 import { generateObject, embed, jsonSchema } from "ai";
 import { z } from "zod";
-import { LessonBlock, blocksToPlainText, newBlockId } from "../lesson-blocks";
+import { LessonBlock, blocksToPlainText, newBlockId, stripMarkdownMarkers } from "../lesson-blocks";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const IMAGE_MODEL = "gpt-image-1";
@@ -32,9 +32,9 @@ export const outlineSchema = z.object({
 // para evitar URLs inventadas e manter o schema simples (1 nível de array-de-objeto,
 // evitando o bug conhecido de nested arrays-of-objects a 3+ níveis no ai-sdk).
 const aiBlockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("heading"), text: z.string().describe("Texto do título"), level: z.union([z.literal(2), z.literal(3)]).describe("Nível do título (2 = secção principal, 3 = subsecção)") }),
-  z.object({ type: z.literal("text"), markdown: z.string().describe("Parágrafo de texto didático, pode conter Markdown simples (negrito, listas, código inline)") }),
-  z.object({ type: z.literal("callout"), style: z.enum(["info", "warning", "tip"]).describe("Estilo do destaque"), text: z.string().describe("Texto do destaque (ex: nota importante, aviso, dica prática)") }),
+  z.object({ type: z.literal("heading"), text: z.string().describe("Texto do título, em texto simples (sem marcadores Markdown como **, # ou _)"), level: z.union([z.literal(2), z.literal(3)]).describe("Nível do título (2 = secção principal, 3 = subsecção)") }),
+  z.object({ type: z.literal("text"), markdown: z.string().describe("Parágrafo de texto didático, em texto simples — NÃO usar marcadores de Markdown (nada de **negrito**, ### cabeçalhos ou _itálico_); a formatação visual já é feita pelos blocos (heading, callout), o texto deste campo é sempre exibido tal como está escrito") }),
+  z.object({ type: z.literal("callout"), style: z.enum(["info", "warning", "tip"]).describe("Estilo do destaque"), text: z.string().describe("Texto do destaque (ex: nota importante, aviso, dica prática), em texto simples — sem marcadores Markdown") }),
   z.object({ type: z.literal("code"), language: z.string().describe("Linguagem do código (ex: javascript, python)"), code: z.string().describe("Bloco de código de exemplo") }),
 ]);
 
@@ -78,7 +78,7 @@ const lessonContentJsonSchema = jsonSchema<z.infer<typeof lessonContentSchema>>(
               type: "object",
               properties: {
                 type: { type: "string", enum: ["heading"] },
-                text: { type: "string", description: "Texto do título" },
+                text: { type: "string", description: "Texto do título, em texto simples (sem marcadores Markdown como **, # ou _)" },
                 level: { type: "number", enum: [2, 3], description: "Nível do título (2 = secção principal, 3 = subsecção)" },
               },
               required: ["type", "text", "level"],
@@ -88,7 +88,7 @@ const lessonContentJsonSchema = jsonSchema<z.infer<typeof lessonContentSchema>>(
               type: "object",
               properties: {
                 type: { type: "string", enum: ["text"] },
-                markdown: { type: "string", description: "Parágrafo de texto didático, pode conter Markdown simples (negrito, listas, código inline)" },
+                markdown: { type: "string", description: "Parágrafo de texto didático, em texto simples — NÃO usar marcadores de Markdown (nada de **negrito**, ### cabeçalhos ou _itálico_); a formatação visual já é feita pelos blocos (heading, callout), o texto deste campo é sempre exibido tal como está escrito" },
               },
               required: ["type", "markdown"],
               additionalProperties: false,
@@ -98,7 +98,7 @@ const lessonContentJsonSchema = jsonSchema<z.infer<typeof lessonContentSchema>>(
               properties: {
                 type: { type: "string", enum: ["callout"] },
                 style: { type: "string", enum: ["info", "warning", "tip"], description: "Estilo do destaque" },
-                text: { type: "string", description: "Texto do destaque (ex: nota importante, aviso, dica prática)" },
+                text: { type: "string", description: "Texto do destaque (ex: nota importante, aviso, dica prática), em texto simples — sem marcadores Markdown" },
               },
               required: ["type", "style", "text"],
               additionalProperties: false,
@@ -228,8 +228,18 @@ export async function generateLesson(
     prompt,
   });
 
-  // Atribuir ids (o LLM não os gera) aos blocos de conteúdo narrativo.
-  const blocks: LessonBlock[] = object.blocks.map((b) => ({ ...b, id: newBlockId() }) as LessonBlock);
+  // Atribuir ids (o LLM não os gera) aos blocos de conteúdo narrativo. Apesar de o prompt/schema
+  // pedirem texto simples, o modelo ainda ocasionalmente escreve "**negrito**"/"### título" — o
+  // BlockRenderer não interpreta Markdown, por isso limpamos esses marcadores aqui como rede de
+  // segurança (a mesma lição também alimenta o campo `content` via blocksToPlainText, por isso
+  // limpar aqui evita a poluição chegar a esse texto indexado para RAG também).
+  const blocks: LessonBlock[] = object.blocks.map((b) => {
+    const withId = { ...b, id: newBlockId() } as LessonBlock;
+    if (withId.type === "text") withId.markdown = stripMarkdownMarkers(withId.markdown);
+    else if (withId.type === "callout") withId.text = stripMarkdownMarkers(withId.text);
+    else if (withId.type === "heading") withId.text = stripMarkdownMarkers(withId.text);
+    return withId;
+  });
 
   // Anexar (programaticamente, não via LLM) as imagens do material original associadas
   // ao contexto usado nesta lição — evita enviar base64 ao modelo (custo/token) e o risco

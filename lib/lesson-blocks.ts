@@ -154,6 +154,23 @@ export function getOrMigrateBlocks(lesson: { blocks?: LessonBlock[]; content?: s
  * consumidores que ainda esperam uma string) sincronizado com `blocks`, que passa
  * a ser a fonte de verdade do conteúdo gerado por IA.
  */
+/**
+ * Remove marcadores de sintaxe Markdown (negrito, itálico, cabeçalhos) que a IA por vezes
+ * insere em campos pensados para texto simples — o BlockRenderer não interpreta Markdown,
+ * por isso "**texto**" ou "### texto" apareceriam literalmente ao aluno em vez de formatados.
+ * Não mexe em hífenes de lista (mantidos, são legíveis tal como estão) nem em blocos "code".
+ */
+export function stripMarkdownMarkers(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "$1")
+    .replace(/(?<!_)_([^_\n]+?)_(?!_)/g, "$1")
+    .replace(/\*{2,}/g, "");
+}
+
 export function blocksToPlainText(blocks: LessonBlock[]): string {
   return blocks
     .map((block) => {
