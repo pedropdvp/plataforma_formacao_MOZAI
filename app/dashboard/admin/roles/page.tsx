@@ -84,7 +84,7 @@ function ActionButton({
         onBlur={() => setShow(false)}
         className={`h-9 w-9 rounded-lg border flex items-center justify-center transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
           variant === "danger"
-            ? "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-450"
+            ? "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400"
             : "border-slate-800 bg-slate-900/40 hover:bg-slate-900 text-slate-300"
         }`}
       >
@@ -217,7 +217,7 @@ export default function AccessProfilesPage() {
 
   const handleDelete = async (role: RoleDoc) => {
     const confirmed = await confirmDialog({
-      title: "Apagar Perfil de Acesso",
+      title: `Apagar Perfil de Acesso "${role.name}"`,
       message: `Isto vai eliminar definitivamente o perfil "${role.name}". Utilizadores com este perfil atribuído deixam de ter permissões associadas até o perfil ser recriado. Tem a certeza?`,
       confirmLabel: "Apagar",
       destructive: true

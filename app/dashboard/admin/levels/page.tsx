@@ -89,7 +89,7 @@ export default function LevelsPage() {
 
   const handleDelete = async (l: LevelDoc) => {
     const confirmed = await confirmDialog({
-      title: "Apagar Nível",
+      title: `Apagar Nível "${l.name}"`,
       message: `Isto vai eliminar o nível "${l.name}". Os alunos que estejam neste nível passam automaticamente para o nível anterior mais próximo. Tem a certeza?`,
       confirmLabel: "Apagar",
       destructive: true,
@@ -234,7 +234,7 @@ export default function LevelsPage() {
                       onClick={() => handleDelete(l)}
                       disabled={deletingId === l.id || levels.length <= 1}
                       title={levels.length <= 1 ? "Tem de existir pelo menos um nível." : "Apagar"}
-                      className="h-9 w-9 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-450 flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="h-9 w-9 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </button>

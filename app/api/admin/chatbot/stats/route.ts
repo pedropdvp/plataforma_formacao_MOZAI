@@ -4,9 +4,10 @@ import { getDb } from "@/lib/mongodb";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
-// Preço estimado por 1 milhão de tokens (blended input+output, gpt-4o-mini), em USD.
-// Só uma estimativa informativa — ajustável por variável de ambiente.
-const PRICE_USD_PER_MTOK = Number(process.env.OPENAI_PRICE_USD_PER_MTOK || 0.3);
+// Preço estimado por 1 milhão de tokens (blended input+output, gpt-4o-mini), em EUR
+// (a OpenAI fatura em USD — este valor já é a conversão aproximada). Só uma estimativa
+// informativa — ajustável por variável de ambiente.
+const PRICE_EUR_PER_MTOK = Number(process.env.OPENAI_PRICE_EUR_PER_MTOK || 0.28);
 
 interface TenantStats {
   conversations: number;
@@ -15,7 +16,7 @@ interface TenantStats {
   assistantMessages: number;
   totalTokens: number;
   conversations7d: number;
-  estimatedCostUsd: number;
+  estimatedCostEur: number;
   perDay: { day: string; messages: number }[];
 }
 
@@ -35,7 +36,7 @@ async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
       assistantMessages: 0,
       totalTokens: 0,
       conversations7d,
-      estimatedCostUsd: 0,
+      estimatedCostEur: 0,
       perDay: [],
     };
   }
@@ -71,7 +72,7 @@ async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
     assistantMessages,
     totalTokens,
     conversations7d,
-    estimatedCostUsd: Number(((totalTokens / 1_000_000) * PRICE_USD_PER_MTOK).toFixed(4)),
+    estimatedCostEur: Number(((totalTokens / 1_000_000) * PRICE_EUR_PER_MTOK).toFixed(4)),
     perDay,
   };
 }
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, own, companies, pricePerMTokUsd: PRICE_USD_PER_MTOK });
+    return NextResponse.json({ success: true, own, companies, pricePerMTokEur: PRICE_EUR_PER_MTOK });
   } catch (error: any) {
     console.error("Erro ao consultar estatísticas do ChatBot:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

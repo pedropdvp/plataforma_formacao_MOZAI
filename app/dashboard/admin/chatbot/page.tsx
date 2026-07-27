@@ -26,7 +26,7 @@ interface TenantStats {
   assistantMessages: number;
   totalTokens: number;
   conversations7d: number;
-  estimatedCostUsd: number;
+  estimatedCostEur: number;
   perDay: { day: string; messages: number }[];
 }
 
@@ -313,7 +313,7 @@ export default function ChatbotPage() {
                   <StatCard label="Conversas" value={ownStats.conversations} />
                   <StatCard label="Mensagens" value={ownStats.messages} />
                   <StatCard label="Tokens Usados" value={ownStats.totalTokens.toLocaleString("pt-PT")} />
-                  <StatCard label="Custo Estimado" value={`$${ownStats.estimatedCostUsd.toFixed(2)}`} />
+                  <StatCard label="Custo Estimado" value={`${ownStats.estimatedCostEur.toFixed(2)} €`} />
                 </div>
 
                 {ownStats.perDay.length > 0 && (
@@ -355,8 +355,8 @@ export default function ChatbotPage() {
                   >
                     <span className="text-xs font-bold text-slate-200">{c.name}</span>
                     <span className="text-[10px] text-slate-500">
-                      {c.conversations} conversas · {c.messages} mensagens · {c.totalTokens.toLocaleString("pt-PT")} tokens · $
-                      {c.estimatedCostUsd.toFixed(2)}
+                      {c.conversations} conversas · {c.messages} mensagens · {c.totalTokens.toLocaleString("pt-PT")} tokens ·{" "}
+                      {c.estimatedCostEur.toFixed(2)} €
                     </span>
                   </div>
                 ))}
