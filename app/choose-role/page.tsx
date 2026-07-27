@@ -86,11 +86,32 @@ export default function ChooseRolePage() {
         const res = await fetch("/api/auth/session");
         if (res.ok) {
           const data = await res.json();
-          setRoles(data.assignedRoles || []);
-          
+          const assignedRoles: string[] = data.assignedRoles || [];
+
+          // Um Administrador pode mudar para QUALQUER perfil existente na plataforma, para
+          // testar o acesso de cada tipo de conta na sua própria empresa — não fica limitado
+          // aos perfis literalmente atribuídos (que para o Admin são só ADMIN, tipicamente).
+          if (assignedRoles.includes("ADMIN")) {
+            const rolesRes = await fetch("/api/admin/roles");
+            if (rolesRes.ok) {
+              const rolesData = await rolesRes.json();
+              const allRoleIds: string[] = (rolesData.roles || []).map((r: any) => r._id);
+              const sorted = allRoleIds.sort((a, b) => {
+                const nameA = ROLE_METADATA[a]?.name || a;
+                const nameB = ROLE_METADATA[b]?.name || b;
+                return nameA.localeCompare(nameB, "pt-PT");
+              });
+              setRoles(sorted);
+              setLoading(false);
+              return;
+            }
+          }
+
+          setRoles(assignedRoles);
+
           // Se tiver apenas 1 perfil atribuído, escolhe-o automaticamente e avança
-          if (data.assignedRoles?.length === 1) {
-            await selectRole(data.assignedRoles[0]);
+          if (assignedRoles.length === 1) {
+            await selectRole(assignedRoles[0]);
             return;
           }
         }

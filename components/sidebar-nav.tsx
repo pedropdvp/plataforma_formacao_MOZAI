@@ -40,7 +40,8 @@ import {
   ShieldCheck,
   Database,
   Store,
-  SlidersHorizontal
+  SlidersHorizontal,
+  UserCog
 } from "lucide-react";
 
 export default function SidebarNav() {
@@ -142,7 +143,8 @@ export default function SidebarNav() {
   const isAdministracaoActive = [
     "/dashboard/admin/backups",
     "/dashboard/admin/api-keys",
-    "/dashboard/admin/menus"
+    "/dashboard/admin/menus",
+    "/dashboard/admin/roles"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const linkClass = (path: string) =>
@@ -600,7 +602,7 @@ export default function SidebarNav() {
           alfabeticamente), visível para ADMIN (âmbito toda a plataforma) ou GESTOR_EMPRESA
           (âmbito só a sua empresa, exceto Menus — gestão de visibilidade é exclusiva do Admin);
           cada link tem ainda o seu próprio SecureRender para o caso de os níveis divergirem. */}
-      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("MENUS_MANAGE")) && isGroupVisible("configuracao") && (
+      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("ROLES_MANAGE")) && isGroupVisible("configuracao") && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
@@ -642,6 +644,14 @@ export default function SidebarNav() {
                   {t("nav_menus", "Menus")}
                 </Link>
               </SecureRender>
+              {isItemVisible("access-profiles") && (
+              <SecureRender requiredPermission="ROLES_MANAGE">
+                <Link href="/dashboard/admin/roles" className={linkClass("/dashboard/admin/roles")}>
+                  <UserCog className="h-4 w-4 text-orange-400" />
+                  {t("nav_access_profiles", "Perfil de Acesso")}
+                </Link>
+              </SecureRender>
+              )}
             </>
           )}
         </div>

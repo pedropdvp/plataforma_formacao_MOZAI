@@ -208,7 +208,7 @@ export async function seedLessonChunks(tenantId = "root", adminEmail?: string) {
   return documents.length;
 }
 
-const PERMISSIONS_DATA = [
+export const PERMISSIONS_DATA = [
   // Módulo ADMIN (Administrador Global)
   { _id: "COMPANIES_CREATE", name: "Criar Empresas", module: "ADMIN", description: "Registar novas empresas na plataforma" },
   { _id: "COMPANIES_EDIT", name: "Editar Empresas", module: "ADMIN", description: "Alterar dados cadastrais das empresas" },
@@ -225,6 +225,7 @@ const PERMISSIONS_DATA = [
   { _id: "NOTIFICATIONS_CONFIG", name: "Configurar Notificações", module: "ADMIN", description: "Definir canais e templates de alertas globais" },
   { _id: "BACKUP_MANAGE", name: "Gerir Backups", module: "ADMIN", description: "Criar e restaurar backups — Admin: de toda a plataforma; Gestor Empresa: só da sua empresa" },
   { _id: "MENUS_MANAGE", name: "Gerir Visibilidade de Menus", module: "ADMIN", description: "Definir quais os menus visíveis/ocultos na plataforma e em cada empresa" },
+  { _id: "ROLES_MANAGE", name: "Gerir Perfis de Acesso", module: "ADMIN", description: "Ver, editar e eliminar perfis de acesso (roles) e respetivas permissões, e mudar de perfil ativo para testes" },
 
   // Módulo COMPANY (Gestor Empresa / Funcionário)
   { _id: "STUDENTS_MANAGE", name: "Gerir Alunos", module: "COMPANY", description: "Criar, editar e eliminar alunos da empresa" },
@@ -295,8 +296,9 @@ const ROLES_DATA = [
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
       "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE"
-    ]
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE"
+    ],
+    description: "Configuração global, auditoria e gestão corporativa de empresas."
   },
   {
     _id: "GESTOR_EMPRESA",
@@ -306,7 +308,8 @@ const ROLES_DATA = [
       "PAYMENTS_VALIDATE", "PAYMENTS_NOTIFY", "DOCS_MANAGE", "REPORTS_VIEW",
       "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY",
       "BACKUP_MANAGE", "API_KEYS_MANAGE"
-    ]
+    ],
+    description: "Gerir colaboradores, faturas e acompanhar relatórios corporativos B2B."
   },
   {
     _id: "FUNCIONARIO",
@@ -314,7 +317,8 @@ const ROLES_DATA = [
     permissions: [
       "STUDENTS_MANAGE", "EMPLOYEES_MANAGE", "REPORTS_VIEW", "PAYMENTS_VALIDATE",
       "DOCS_MANAGE", "COURSES_SCHEDULE", "MESSAGES_SEND_COMPANY", "COMPANY_INFO_UPDATE"
-    ]
+    ],
+    description: "Tarefas operacionais delegadas, gerir faturas e formandos da empresa."
   },
   {
     _id: "ALUNO",
@@ -324,7 +328,8 @@ const ROLES_DATA = [
       "CERTIFICATES_VIEW", "HISTORY_VIEW_OWN", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
       "MESSAGES_TUTOR", "REQUESTS_REGISTER", "PERSONAL_DATA_UPDATE",
       "COURSES_CREATE" // Aluno Individual pode gerar os seus próprios cursos privados na Fábrica de Cursos (IA)
-    ]
+    ],
+    description: "Aceder à sala de aula, realizar quizzes e emitir certificados."
   },
   {
     _id: "GESTOR_ACADEMICO",
@@ -333,7 +338,8 @@ const ROLES_DATA = [
       "COURSES_CREATE", "COURSES_EDIT", "COURSES_ARCHIVE", "COURSES_PUBLISH",
       "ACADEMICS_ASSIGN", "HISTORY_VIEW_ALL", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
       "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
-    ]
+    ],
+    description: "Planeamento pedagógico, criação de cursos e docência de turmas."
   },
   {
     _id: "PROFESSOR",
@@ -341,7 +347,8 @@ const ROLES_DATA = [
     permissions: [
       "COURSES_TEACH", "COURSES_ASSIGNED_VIEW", "HISTORY_VIEW_ALL", "DOCS_VIEW",
       "COMMUNICATE_COMPANIES", "COMMUNICATE_ADMIN", "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
-    ]
+    ],
+    description: "Lecionar turmas, propor avaliações e responder a dúvidas pedagógicas."
   },
   {
     _id: "FORMADOR",
@@ -349,7 +356,8 @@ const ROLES_DATA = [
     permissions: [
       "CONTENTS_CREATE", "CONTENTS_EDIT", "CONTENTS_UPDATE", "NOTIFICATIONS_RECEIVE",
       "OCCURRENCES_REGISTER", "COMMUNICATE_ADMIN", "PERSONAL_DATA_UPDATE"
-    ]
+    ],
+    description: "Criação de conteúdos estruturados e parágrafos semânticos para as lições."
   },
   {
     _id: "TUTOR",
@@ -357,7 +365,8 @@ const ROLES_DATA = [
     permissions: [
       "STUDENTS_ACCOMPANY", "PROGRESS_VIEW", "DOCS_VIEW", "HISTORY_VIEW_ALL",
       "COMMUNICATE_STUDENTS", "OCCURRENCES_REGISTER", "NOTIFICATIONS_RECEIVE", "PERSONAL_DATA_UPDATE"
-    ]
+    ],
+    description: "Acompanhar alunos no player e dar apoio direto às lições."
   },
   {
     _id: "FINANCEIRO",
@@ -365,7 +374,8 @@ const ROLES_DATA = [
     permissions: [
       "PAYMENTS_CONTROL", "PAYMENTS_CONFIRM", "FINANCIAL_DOCS_EMIT", "HISTORY_VIEW_ALL",
       "DOCS_VIEW", "COMMUNICATE_ADMIN", "NOTIFICATIONS_RECEIVE", "PERSONAL_DATA_UPDATE"
-    ]
+    ],
+    description: "Controlo de pagamentos, validação de depósitos e recibos em PDF."
   },
   {
     _id: "SUPORTE",
@@ -373,7 +383,8 @@ const ROLES_DATA = [
     permissions: [
       "INCIDENTS_RESOLVE", "COMPANIES_MANAGE_TECH", "USERS_MANAGE_TECH", "PARAMS_CONFIG_TECH",
       "AUDIT_VIEW_TECH", "SYSTEM_MONITOR", "PERMISSIONS_EDIT_TECH"
-    ]
+    ],
+    description: "Incidentes técnicos, monitorização de APIs e auditoria de infraestrutura."
   }
 ];
 

@@ -150,9 +150,16 @@ export async function POST(req: NextRequest) {
     const tenantMapping = userRecord.tenants?.find((t: any) => t.tenantId === tenantId);
     const assignedRoles: string[] = tenantMapping ? tenantMapping.roles : ["ALUNO"];
 
-    // Validar se o utilizador possui o perfil solicitado
+    // Validar se o utilizador possui o perfil solicitado. Exceção: um Administrador (perfil
+    // ATRIBUÍDO, não precisa de já estar ativo) pode mudar para qualquer perfil existente na
+    // plataforma, para testar o acesso de cada tipo de conta na sua própria empresa — desde
+    // que o perfil pedido exista mesmo (nunca aceita um valor arbitrário).
     if (!assignedRoles.includes(role)) {
-      return NextResponse.json({ error: "Acesso negado para este perfil" }, { status: 403 });
+      const isAdmin = assignedRoles.includes("ADMIN");
+      const roleExists = isAdmin ? !!(await db.collection("roles").findOne({ _id: role })) : false;
+      if (!roleExists) {
+        return NextResponse.json({ error: "Acesso negado para este perfil" }, { status: 403 });
+      }
     }
 
     // Definir cookie com validade de 24h
