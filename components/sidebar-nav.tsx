@@ -59,7 +59,7 @@ export default function SidebarNav() {
   const [relatoriosOpen, setRelatoriosOpen] = useState(true);
   const [administracaoOpen, setAdministracaoOpen] = useState(true);
 
-  // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configuração > Menus)
+  // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configurações > Menus)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -610,7 +610,7 @@ export default function SidebarNav() {
           >
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="h-4 w-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
-              <span>{t("nav_administracao_group", "Configuração")}</span>
+              <span>{t("nav_administracao_group", "Configurações")}</span>
             </div>
             {administracaoOpen ? (
               <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -648,7 +648,7 @@ export default function SidebarNav() {
               <SecureRender requiredPermission="ROLES_MANAGE">
                 <Link href="/dashboard/admin/roles" className={linkClass("/dashboard/admin/roles")}>
                   <UserCog className="h-4 w-4 text-orange-400" />
-                  {t("nav_access_profiles", "Perfil de Acesso")}
+                  {t("nav_access_profiles", "Perfis de acesso")}
                 </Link>
               </SecureRender>
               )}

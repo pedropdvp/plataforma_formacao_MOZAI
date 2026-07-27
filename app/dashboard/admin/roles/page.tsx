@@ -333,7 +333,7 @@ export default function AccessProfilesPage() {
       <div>
         <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2.5">
           <UserCog className="h-6 w-6 text-orange-400" />
-          Perfil de Acesso
+          Perfis de acesso
         </h1>
         <p className="text-sm text-slate-400">
           Mude o seu próprio perfil ativo para testar o acesso de qualquer tipo de conta na sua empresa, ou

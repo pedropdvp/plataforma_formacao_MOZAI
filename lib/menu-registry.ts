@@ -27,7 +27,7 @@ export const MENU_GROUPS: MenuGroupDef[] = [
   { id: "workspace", label: "Workspace" },
   { id: "suporte", label: "Suporte" },
   { id: "relatorios", label: "Relatórios" },
-  { id: "configuracao", label: "Configuração" },
+  { id: "configuracao", label: "Configurações" },
 ];
 
 export const MENU_ITEMS: MenuItemDef[] = [
@@ -89,7 +89,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
-  { id: "access-profiles", groupId: "configuracao", label: "Perfil de Acesso", path: "/dashboard/admin/roles" },
+  { id: "access-profiles", groupId: "configuracao", label: "Perfis de acesso", path: "/dashboard/admin/roles" },
 ];
 
 /** Nunca pode ser ocultado — é o único sítio onde a visibilidade dos menus é revertida. */

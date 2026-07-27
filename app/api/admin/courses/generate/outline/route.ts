@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const apiKey = await resolveOpenAIKeyForTenant(tenantId);
     if (!apiKey) {
       return NextResponse.json(
-        { error: "A sua empresa ainda não configurou uma chave da API OpenAI. Configure-a em Configuração > API's antes de gerar cursos." },
+        { error: "A sua empresa ainda não configurou uma chave da API OpenAI. Configure-a em Configurações > API's antes de gerar cursos." },
         { status: 402 }
       );
     }
