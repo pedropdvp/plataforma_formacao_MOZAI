@@ -88,6 +88,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   // Configuração
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
+  { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
   { id: "access-profiles", groupId: "configuracao", label: "Perfis de acesso", path: "/dashboard/admin/roles" },
 ];

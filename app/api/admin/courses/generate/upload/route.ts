@@ -1,59 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRequire } from "module";
-import { pathToFileURL } from "url";
 import { auth } from "@clerk/nextjs/server";
 import { ingestExtractedPages, ExtractedPage } from "@/lib/ai/ingest";
+import { extractPdfContent } from "@/lib/pdf-extract";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-let pdfWorkerConfigured = false;
-
-/**
- * Aponta explicitamente o pdf-parse/pdfjs-dist para o ficheiro real do worker em
- * node_modules, em vez de deixar a resolução automática (que depende de import()
- * relativo ao próprio pacote e falha quando o Turbopack transforma esse caminho —
- * erro "Setting up fake worker failed: Cannot find module ...pdf.worker.mjs").
- */
-function ensurePdfWorkerConfigured(PDFParse: any) {
-  if (pdfWorkerConfigured) return;
-  try {
-    const require = createRequire(import.meta.url);
-    const workerPath = require.resolve("pdf-parse/dist/worker/pdf.worker.mjs");
-    PDFParse.setWorker(pathToFileURL(workerPath).href);
-  } catch (err) {
-    console.warn("Não foi possível configurar explicitamente o worker do pdf-parse:", err);
-  }
-  pdfWorkerConfigured = true;
-}
-
-/**
- * Extrai texto e imagens embutidas de um PDF usando pdf-parse (getText + getImage).
- */
-async function extractPdfContent(buffer: Buffer): Promise<ExtractedPage[]> {
-  const { PDFParse } = await import("pdf-parse");
-  ensurePdfWorkerConfigured(PDFParse);
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const textResult = await parser.getText();
-    const imageResult = await parser.getImage({ imageThreshold: 80 });
-
-    const imagesByPage = new Map<number, string[]>();
-    for (const page of imageResult.pages) {
-      imagesByPage.set(
-        page.pageNumber,
-        page.images.map((img) => img.dataUrl).filter(Boolean)
-      );
-    }
-
-    return textResult.pages.map((p) => ({
-      text: p.text || "",
-      images: imagesByPage.get(p.num) || [],
-    }));
-  } finally {
-    await parser.destroy();
-  }
-}
 
 /**
  * Extrai texto e imagens de um PPTX (ficheiro .zip com XML + media/) usando JSZip.

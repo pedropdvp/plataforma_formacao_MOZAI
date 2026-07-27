@@ -226,6 +226,7 @@ export const PERMISSIONS_DATA = [
   { _id: "BACKUP_MANAGE", name: "Gerir Backups", module: "ADMIN", description: "Criar e restaurar backups — Admin: de toda a plataforma; Gestor Empresa: só da sua empresa" },
   { _id: "MENUS_MANAGE", name: "Gerir Visibilidade de Menus", module: "ADMIN", description: "Definir quais os menus visíveis/ocultos na plataforma e em cada empresa" },
   { _id: "ROLES_MANAGE", name: "Gerir Perfis de Acesso", module: "ADMIN", description: "Ver, editar e eliminar perfis de acesso (roles) e respetivas permissões, e mudar de perfil ativo para testes" },
+  { _id: "CHATBOT_MANAGE", name: "Gerir ChatBot", module: "ADMIN", description: "Carregar o PDF de conhecimento do ChatBot — Admin: da plataforma; Gestor Empresa: só da sua empresa" },
 
   // Módulo COMPANY (Gestor Empresa / Funcionário)
   { _id: "STUDENTS_MANAGE", name: "Gerir Alunos", module: "COMPANY", description: "Criar, editar e eliminar alunos da empresa" },
@@ -296,7 +297,7 @@ const ROLES_DATA = [
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
       "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE", "CHATBOT_MANAGE"
     ],
     description: "Configuração global, auditoria e gestão corporativa de empresas."
   },
@@ -307,7 +308,7 @@ const ROLES_DATA = [
       "STUDENTS_MANAGE", "EMPLOYEES_MANAGE", "COURSES_SCHEDULE", "PAYMENTS_VIEW_ALL",
       "PAYMENTS_VALIDATE", "PAYMENTS_NOTIFY", "DOCS_MANAGE", "REPORTS_VIEW",
       "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "CHATBOT_MANAGE"
     ],
     description: "Gerir colaboradores, faturas e acompanhar relatórios corporativos B2B."
   },

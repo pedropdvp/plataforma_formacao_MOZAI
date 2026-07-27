@@ -143,6 +143,7 @@ export default function SidebarNav() {
   const isAdministracaoActive = [
     "/dashboard/admin/backups",
     "/dashboard/admin/api-keys",
+    "/dashboard/admin/chatbot",
     "/dashboard/admin/menus",
     "/dashboard/admin/roles"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
@@ -602,7 +603,7 @@ export default function SidebarNav() {
           alfabeticamente), visível para ADMIN (âmbito toda a plataforma) ou GESTOR_EMPRESA
           (âmbito só a sua empresa, exceto Menus — gestão de visibilidade é exclusiva do Admin);
           cada link tem ainda o seu próprio SecureRender para o caso de os níveis divergirem. */}
-      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("ROLES_MANAGE")) && isGroupVisible("configuracao") && (
+      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("CHATBOT_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("ROLES_MANAGE")) && isGroupVisible("configuracao") && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
@@ -635,6 +636,14 @@ export default function SidebarNav() {
                 <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
                   <Database className="h-4 w-4 text-orange-400" />
                   {t("nav_backup_restore", "Backup & Restore")}
+                </Link>
+              </SecureRender>
+              )}
+              {isItemVisible("chatbot") && (
+              <SecureRender requiredPermission="CHATBOT_MANAGE">
+                <Link href="/dashboard/admin/chatbot" className={linkClass("/dashboard/admin/chatbot")}>
+                  <Bot className="h-4 w-4 text-orange-400" />
+                  {t("nav_chatbot", "ChatBot")}
                 </Link>
               </SecureRender>
               )}

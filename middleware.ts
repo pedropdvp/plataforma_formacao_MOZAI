@@ -73,8 +73,12 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_ACADEMICO", "FORMADOR", "ALUNO");
         }
 
-        // Backup & Restore e API's (Configuração): Gestor Empresa acede em âmbito só da sua empresa
-        if (path.startsWith("/dashboard/admin/backups") || path.startsWith("/dashboard/admin/api-keys")) {
+        // Backup & Restore, API's e ChatBot (Configuração): Gestor Empresa acede em âmbito só da sua empresa
+        if (
+          path.startsWith("/dashboard/admin/backups") ||
+          path.startsWith("/dashboard/admin/api-keys") ||
+          path.startsWith("/dashboard/admin/chatbot")
+        ) {
           allowedRoles.push("GESTOR_EMPRESA");
         }
 
