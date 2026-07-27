@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Bot, Loader2, ShieldAlert, Upload, Trash2, CheckCircle2, XCircle, FileText } from "lucide-react";
+import { Bot, Loader2, ShieldAlert, Upload, Trash2, CheckCircle2, XCircle, FileText, BarChart3 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAccess } from "@/hooks/use-access";
@@ -16,6 +16,22 @@ interface DocStatus {
 }
 
 interface CompanyDocStatus extends DocStatus {
+  name: string;
+}
+
+interface TenantStats {
+  conversations: number;
+  messages: number;
+  userMessages: number;
+  assistantMessages: number;
+  totalTokens: number;
+  conversations7d: number;
+  estimatedCostUsd: number;
+  perDay: { day: string; messages: number }[];
+}
+
+interface CompanyStats extends TenantStats {
+  tenantId: string;
   name: string;
 }
 
@@ -40,6 +56,10 @@ export default function ChatbotPage() {
   const [removing, setRemoving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [ownStats, setOwnStats] = useState<TenantStats | null>(null);
+  const [companyStats, setCompanyStats] = useState<CompanyStats[]>([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+
   const fetchStatus = async () => {
     setLoading(true);
     try {
@@ -56,8 +76,27 @@ export default function ChatbotPage() {
     }
   };
 
+  const fetchStats = async () => {
+    setLoadingStats(true);
+    try {
+      const res = await fetch("/api/admin/chatbot/stats");
+      if (res.ok) {
+        const data = await res.json();
+        setOwnStats(data.own || null);
+        setCompanyStats(data.companies || []);
+      }
+    } catch (err) {
+      console.error("Erro ao ler as estatísticas do ChatBot:", err);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   useEffect(() => {
-    if (canAccess) fetchStatus();
+    if (canAccess) {
+      fetchStatus();
+      fetchStats();
+    }
   }, [canAccess]);
 
   const handleFileSelected = async (file: File | undefined) => {
@@ -257,8 +296,84 @@ export default function ChatbotPage() {
               )}
             </div>
           )}
+
+          <div className="space-y-3">
+            <h2 className="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-orange-400" />
+              Utilização &amp; Custos {isAdmin ? "(Plataforma)" : "(Sua Empresa)"}
+            </h2>
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-xs">A carregar estatísticas...</span>
+              </div>
+            ) : ownStats ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <StatCard label="Conversas" value={ownStats.conversations} />
+                  <StatCard label="Mensagens" value={ownStats.messages} />
+                  <StatCard label="Tokens Usados" value={ownStats.totalTokens.toLocaleString("pt-PT")} />
+                  <StatCard label="Custo Estimado" value={`$${ownStats.estimatedCostUsd.toFixed(2)}`} />
+                </div>
+
+                {ownStats.perDay.length > 0 && (
+                  <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      Mensagens por dia (últimos 14 dias)
+                    </h3>
+                    <div className="space-y-1.5">
+                      {ownStats.perDay.map((d) => {
+                        const max = Math.max(...ownStats.perDay.map((x) => x.messages), 1);
+                        return (
+                          <div key={d.day} className="flex items-center gap-2.5">
+                            <span className="text-[10px] text-slate-500 w-16 shrink-0">{d.day.slice(5)}</span>
+                            <div className="flex-1 h-2 rounded-full bg-slate-900 overflow-hidden">
+                              <div
+                                className="h-full bg-indigo-500/60 rounded-full"
+                                style={{ width: `${(d.messages / max) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-slate-400 w-6 text-right shrink-0">{d.messages}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-slate-500 italic py-4">Ainda não há dados de utilização.</p>
+            )}
+
+            {isAdmin && companyStats.length > 0 && (
+              <div className="space-y-2.5">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Por Empresa</h3>
+                {companyStats.map((c) => (
+                  <div
+                    key={c.tenantId}
+                    className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 flex items-center justify-between gap-3"
+                  >
+                    <span className="text-xs font-bold text-slate-200">{c.name}</span>
+                    <span className="text-[10px] text-slate-500">
+                      {c.conversations} conversas · {c.messages} mensagens · {c.totalTokens.toLocaleString("pt-PT")} tokens · $
+                      {c.estimatedCostUsd.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-3.5">
+      <span className="block text-lg font-extrabold text-white">{value}</span>
+      <span className="block text-[10px] text-slate-500 mt-0.5">{label}</span>
     </div>
   );
 }
