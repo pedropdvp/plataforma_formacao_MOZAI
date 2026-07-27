@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
 
 export const runtime = "nodejs";
 
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Obter leaderboard do tenant (top 10 ordenado por XP)
+    // 2. Obter leaderboard do tenant (top 10 ordenado por MZ)
     const topProfiles = await db
       .collection("gamification_profiles")
       .find({ tenant_id: tenantId })
@@ -88,17 +89,30 @@ export async function GET(req: NextRequest) {
       userNamesMap[u._id] = `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email;
     });
 
+    // 3. Nível recalculado sempre a partir da escala ATUAL (não do campo `level` já
+    // guardado) — se o Admin alterar os limiares em Configurações > Níveis, todos os
+    // alunos veem o nível certo de imediato, sem precisar de recalcular dados antigos.
+    const levels = await getGamificationLevels();
+    const levelInfo = computeLevelInfo(profile.xp || 0, levels);
+
     const leaderboard = topProfiles.map((p: any, idx: number) => ({
       rank: idx + 1,
       name: userNamesMap[p._id] || "Aluno Incógnito",
       xp: p.xp,
-      level: p.level || Math.floor(p.xp / 100) + 1,
+      level: computeLevelInfo(p.xp || 0, levels).levelNumber,
       isCurrentUser: p._id === userId,
     }));
 
     return NextResponse.json({
       success: true,
-      profile,
+      profile: {
+        ...profile,
+        level: levelInfo.levelNumber,
+        levelName: levelInfo.name,
+        pointsRemaining: levelInfo.pointsRemaining,
+        progressPct: levelInfo.progressPct,
+        isMaxLevel: levelInfo.isMaxLevel,
+      },
       leaderboard,
     });
   } catch (error: any) {
@@ -160,7 +174,8 @@ export async function POST(req: NextRequest) {
     }
 
     const newXp = (profile.xp || 0) + xpToAward;
-    const newLevel = Math.floor(newXp / 100) + 1;
+    const levels = await getGamificationLevels();
+    const newLevel = computeLevelInfo(newXp, levels).levelNumber;
 
     // Verificar badges a desbloquear
     const currentBadges = profile.badges || [];

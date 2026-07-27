@@ -175,7 +175,6 @@ export default function AccessProfilesPage() {
   const [roles, setRoles] = useState<RoleDoc[]>([]);
   const [permissionsCatalog, setPermissionsCatalog] = useState<PermissionDoc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [viewingRole, setViewingRole] = useState<RoleDoc | null>(null);
   const [editingRole, setEditingRole] = useState<RoleDoc | null>(null);
@@ -209,27 +208,11 @@ export default function AccessProfilesPage() {
     if (isAdmin) fetchRoles();
   }, [isAdmin]);
 
-  const handleSwitch = async (role: RoleDoc) => {
-    setSwitchingId(role._id);
-    try {
-      const res = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: role._id })
-      });
-      if (res.ok) {
-        showToast(`A testar agora como "${role.name}".`, "success");
-        router.refresh();
-        router.push("/dashboard");
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || "Erro ao mudar de perfil.", "error");
-      }
-    } catch (err) {
-      showToast("Erro de comunicação ao mudar de perfil.", "error");
-    } finally {
-      setSwitchingId(null);
-    }
+  // "Alterar" leva sempre à mesma página "Escolha o seu Perfil de Acesso" usada pelo botão
+  // "Alterar Perfil" do cabeçalho — um único sítio para escolher o perfil ativo, em vez de
+  // duplicar aqui uma mudança direta que poderia divergir desse fluxo já existente.
+  const handleSwitch = () => {
+    router.push("/choose-role");
   };
 
   const handleDelete = async (role: RoleDoc) => {
@@ -354,9 +337,8 @@ export default function AccessProfilesPage() {
             {roles.map((role) => {
               const visual = ROLE_VISUALS[role._id] || DEFAULT_VISUAL;
               const Icon = visual.icon;
-              const isSwitching = switchingId === role._id;
               const isDeleting = deletingId === role._id;
-              const isBusy = switchingId !== null || deletingId !== null;
+              const isBusy = deletingId !== null;
 
               return (
                 <div
@@ -377,10 +359,10 @@ export default function AccessProfilesPage() {
 
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     <ActionButton
-                      icon={isSwitching ? Loader2 : RefreshCw}
+                      icon={RefreshCw}
                       label="Alterar"
                       tooltip="Muda o perfil de acesso"
-                      onClick={() => handleSwitch(role)}
+                      onClick={handleSwitch}
                       disabled={isBusy}
                     />
                     <ActionButton

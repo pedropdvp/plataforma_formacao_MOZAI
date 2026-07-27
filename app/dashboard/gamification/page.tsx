@@ -12,6 +12,10 @@ interface Badge {
 interface Profile {
   xp: number;
   level: number;
+  levelName: string;
+  pointsRemaining: number;
+  progressPct: number;
+  isMaxLevel: boolean;
   streak: number;
   badges: Badge[];
 }
@@ -59,40 +63,37 @@ export default function GamificationPage() {
 
   const xp = profile?.xp || 0;
   const level = profile?.level || 1;
+  const levelName = profile?.levelName || "Aprendiz";
+  const pointsRemaining = profile?.pointsRemaining || 0;
+  const isMaxLevel = profile?.isMaxLevel || false;
+  const progressPct = profile?.progressPct ?? 0;
   const streak = profile?.streak || 0;
   const unlockedBadges = profile?.badges || [];
-
-  // Próximo nível cálculo
-  const currentLevelXpBase = (level - 1) * 100;
-  const nextLevelXpBase = level * 100;
-  const xpInCurrentLevel = xp - currentLevelXpBase;
-  const xpNeededForNextLevel = 100;
-  const progressPct = Math.min(Math.max((xpInCurrentLevel / xpNeededForNextLevel) * 100, 0), 100);
 
   const badgesList = [
     {
       id: "first-step",
       title: "Primeiro Passo",
       desc: "Concluiu a primeira lição na plataforma.",
-      reward: "+15 XP",
+      reward: "+15 MZ",
     },
     {
       id: "quiz-master",
       title: "Mestre de Quizzes",
       desc: "Obteve nota máxima (100%) num teste rápido.",
-      reward: "+30 XP",
+      reward: "+30 MZ",
     },
     {
       id: "streak-5",
       title: "Foco Inabalável",
       desc: "Manteve uma sequência de 5 dias seguidos de estudo.",
-      reward: "+50 XP",
+      reward: "+50 MZ",
     },
     {
       id: "course-conqueror",
       title: "Desbravador de Cursos",
       desc: "Concluiu o primeiro curso com aproveitamento completo.",
-      reward: "+100 XP",
+      reward: "+100 MZ",
     },
   ];
 
@@ -132,13 +133,14 @@ export default function GamificationPage() {
             <div className="space-y-2">
               <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Nível Atual</span>
               <div className="text-5xl font-extrabold text-white">{level}</div>
-              <span className="text-xs text-slate-500 font-medium">{xp} total de XP</span>
+              <span className="text-xs font-bold text-indigo-400">{levelName}</span>
+              <span className="text-xs text-slate-500 font-medium block">{xp} MZ totais</span>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between text-[10px] text-slate-400 font-bold">
-                <span>Progresso para Nível {level + 1}</span>
-                <span>{xpInCurrentLevel} / {xpNeededForNextLevel} XP</span>
+                <span>{isMaxLevel ? "Nível máximo atingido" : `Progresso para Nível ${level + 1}`}</span>
+                {!isMaxLevel && <span>{pointsRemaining} MZ em falta</span>}
               </div>
               <div className="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-800">
                 <div
@@ -249,7 +251,7 @@ export default function GamificationPage() {
                       </td>
                       <td className="px-4 py-3 truncate max-w-[200px]">{item.name}</td>
                       <td className="px-4 py-3 text-center">{item.level}</td>
-                      <td className="px-4 py-3 text-right pr-6 font-bold text-slate-200">{item.xp} XP</td>
+                      <td className="px-4 py-3 text-right pr-6 font-bold text-slate-200">{item.xp} MZ</td>
                     </tr>
                   ))}
                 </tbody>

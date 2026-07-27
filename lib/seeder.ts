@@ -227,6 +227,7 @@ export const PERMISSIONS_DATA = [
   { _id: "MENUS_MANAGE", name: "Gerir Visibilidade de Menus", module: "ADMIN", description: "Definir quais os menus visíveis/ocultos na plataforma e em cada empresa" },
   { _id: "ROLES_MANAGE", name: "Gerir Perfis de Acesso", module: "ADMIN", description: "Ver, editar e eliminar perfis de acesso (roles) e respetivas permissões, e mudar de perfil ativo para testes" },
   { _id: "CHATBOT_MANAGE", name: "Gerir ChatBot", module: "ADMIN", description: "Carregar o PDF de conhecimento do ChatBot — Admin: da plataforma; Gestor Empresa: só da sua empresa" },
+  { _id: "LEVELS_MANAGE", name: "Gerir Níveis", module: "ADMIN", description: "Definir os nomes e limiares de pontos (MZ) dos níveis dos alunos, para toda a plataforma" },
 
   // Módulo COMPANY (Gestor Empresa / Funcionário)
   { _id: "STUDENTS_MANAGE", name: "Gerir Alunos", module: "COMPANY", description: "Criar, editar e eliminar alunos da empresa" },
@@ -297,7 +298,7 @@ const ROLES_DATA = [
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
       "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE", "CHATBOT_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE", "CHATBOT_MANAGE", "LEVELS_MANAGE"
     ],
     description: "Configuração global, auditoria e gestão corporativa de empresas."
   },

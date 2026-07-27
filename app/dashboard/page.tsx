@@ -19,7 +19,7 @@ import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
 import GreetingText from "@/components/greeting-text";
 import DashboardCharts from "@/components/dashboard-charts";
-import { getLevelTierName, getXpRemainingForNextLevel } from "@/lib/gamification-levels";
+import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
 
 // Nº de lições + título por curso: cursos reais do Sanity + fallback dos cursos-demo
 const DEMO_COURSES: Record<string, { title: string; lessonsCount: number }> = {
@@ -38,7 +38,6 @@ export default async function DashboardPage() {
   // Valores padrão para o estado vazio/fallback
   let studentName = "Aluno";
   let xp = 0;
-  let level = 1;
   let streak = 0;
   let badgesCount = 0;
   let rank = 0;
@@ -63,7 +62,6 @@ export default async function DashboardPage() {
       // 2. Perfil de gamificação (XP, nível, streak, badges) + ranking no tenant
       const profile = await db.collection("gamification_profiles").findOne({ _id: userId });
       xp = profile?.xp || 0;
-      level = profile?.level || 1;
       streak = profile?.streak || 0;
       badgesCount = profile?.badges?.length || 0;
 
@@ -141,9 +139,11 @@ export default async function DashboardPage() {
     }
   }
 
-  const tierName = getLevelTierName(level);
-  const xpRemaining = getXpRemainingForNextLevel(xp);
-  const levelProgressPct = Math.round(((100 - xpRemaining) / 100) * 100);
+  const levels = await getGamificationLevels();
+  const levelInfo = computeLevelInfo(xp, levels);
+  const tierName = levelInfo.name;
+  const xpRemaining = levelInfo.pointsRemaining;
+  const levelProgressPct = Math.round(levelInfo.progressPct);
 
   const statusChartData = [
     { name: "Concluídos", valor: completedCoursesCount },
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <StatTile icon={Star} label="Nível" value={tierName} color="text-indigo-400 border-indigo-500/10" />
-          <StatTile icon={Zap} label="XP Total" value={xp} color="text-amber-400 border-amber-500/10" />
+          <StatTile icon={Zap} label="MZ Total" value={xp} color="text-amber-400 border-amber-500/10" />
           <StatTile icon={Trophy} label="Ranking" value={`#${rank}`} color="text-amber-400 border-amber-500/10" />
           <StatTile icon={Medal} label="Badges" value={badgesCount} color="text-violet-400 border-violet-500/10" />
           <StatTile icon={Award} label="Certificados" value={completedCoursesCount} color="text-emerald-400 border-emerald-500/10" />
@@ -227,7 +227,9 @@ export default async function DashboardPage() {
         <div className="space-y-2 pt-2 border-t border-slate-900">
           <div className="flex items-center justify-between text-xs font-semibold">
             <span className="text-slate-300">{tierName}</span>
-            <span className="text-slate-500">{xpRemaining} XP restantes para o próximo nível</span>
+            <span className="text-slate-500">
+              {levelInfo.isMaxLevel ? "Nível máximo atingido" : `${xpRemaining} MZ restantes para o próximo nível`}
+            </span>
           </div>
           <div className="h-2 w-full bg-slate-900 rounded-full border border-slate-800 overflow-hidden">
             <div
