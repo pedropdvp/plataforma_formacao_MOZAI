@@ -1,5 +1,13 @@
 # Instruções para Claude Code
 
+## Idioma de comunicação
+
+Todas as respostas do Claude Code ao utilizador neste projeto — mensagens de conversa,
+explicações, resumos, perguntas — devem ser sempre escritas em Português de Portugal,
+exceto quando o utilizador pedir explicitamente outro idioma numa mensagem concreta.
+Esta regra aplica-se à comunicação em si, não só ao código/texto gerado (ver ponto 16
+abaixo, que cobre especificamente esse caso).
+
 ## Antes de gerar qualquer código
 
 1. Ler todos os ficheiros da pasta `docs`.
