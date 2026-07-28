@@ -1,13 +1,118 @@
 "use client";
 
 import { useToast } from "@/components/ui/toast-provider";
+import { useAccess } from "@/hooks/use-access";
 
 import React, { useState } from "react";
-import { CreditCard, ShieldCheck, Download, QrCode, Sparkles, UserCheck } from "lucide-react";
+import { CreditCard, ShieldCheck, Download, QrCode, Sparkles, UserCheck, Loader2 } from "lucide-react";
+
+const CREDENTIAL_ID = "MZ-CARD-94821";
+const VALID_UNTIL = "12/07/2027";
 
 export default function ProfessionalCardPage() {
   const { showToast } = useToast();
+  const { userName } = useAccess();
   const [specialty, setSpecialty] = useState("Engenharia de Prompt e IA Generativa");
+  const [downloading, setDownloading] = useState(false);
+
+  const studentName = userName || "Estudante MOZAI";
+
+  // Gera um PDF real do cartão profissional (mesma técnica usada em Certificados/Diplomas)
+  // e dispara o download nativo do browser.
+  const handleDownload = () => {
+    setDownloading(true);
+    setTimeout(() => {
+      setDownloading(false);
+      showToast("Cartão Profissional descarregado.", "success");
+
+      const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 595.28 841.89] /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> /F2 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> >> >>
+endobj
+5 0 obj
+<< /Length 1000 >>
+stream
+BT
+/F2 26 Tf
+70 740 Td
+(MOZAI INTERNATIONAL) Tj
+ET
+BT
+/F1 16 Tf
+70 690 Td
+(CARTAO PROFISSIONAL) Tj
+ET
+BT
+/F1 12 Tf
+70 610 Td
+(Certificamos para os devidos efeitos que:) Tj
+ET
+BT
+/F2 18 Tf
+70 570 Td
+(${studentName.toUpperCase()}) Tj
+ET
+BT
+/F1 12 Tf
+70 510 Td
+(possui a qualificacao certificada de:) Tj
+ET
+BT
+/F2 14 Tf
+70 470 Td
+(Especialista em ${specialty}) Tj
+ET
+BT
+/F1 11 Tf
+70 390 Td
+(ID de Credencial: ${CREDENTIAL_ID}) Tj
+ET
+BT
+/F1 11 Tf
+70 360 Td
+(Valido ate: ${VALID_UNTIL}) Tj
+ET
+BT
+/F1 9 Tf
+70 240 Td
+(Assinado digitalmente por Mozai Credentials Agent B2B SaaS) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000222 00000 n
+0000000355 00000 n
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1400
+%%EOF`;
+
+      const blob = new Blob([pdfContent], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Cartao_Profissional_${studentName.replace(/[^A-Za-z0-9]/g, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1200);
+  };
 
   return (
     <div className="space-y-8">
@@ -49,7 +154,7 @@ export default function ProfessionalCardPage() {
             {/* Middle: User Role and Name */}
             <div className="space-y-1 relative z-10">
               <span className="text-[9px] text-slate-500 uppercase tracking-widest block font-medium">QUALIFICAÇÃO CERTIFICADA</span>
-              <span className="text-base font-extrabold text-white block truncate">Estudante MOZAI</span>
+              <span className="text-base font-extrabold text-white block truncate">{studentName}</span>
               <p className="text-[10px] text-indigo-300 font-semibold bg-indigo-500/5 border border-indigo-500/10 px-2.5 py-1 rounded-lg w-fit">
                 Especialista em {specialty}
               </p>
@@ -59,13 +164,13 @@ export default function ProfessionalCardPage() {
             <div className="flex items-end justify-between border-t border-slate-900/60 pt-4 relative z-10">
               <div className="space-y-0.5">
                 <span className="text-[7px] text-slate-500 block">ID DE CREDENCIAL</span>
-                <span className="font-mono text-[10px] text-slate-300 font-bold select-all">MZ-CARD-94821</span>
+                <span className="font-mono text-[10px] text-slate-300 font-bold select-all">{CREDENTIAL_ID}</span>
               </div>
 
               <div className="flex items-center gap-3">
                 <div className="text-right">
                   <span className="text-[7px] text-slate-500 block">VÁLIDO ATÉ</span>
-                  <span className="text-[9px] text-slate-350 font-bold">12/07/2027</span>
+                  <span className="text-[9px] text-slate-350 font-bold">{VALID_UNTIL}</span>
                 </div>
                 <div className="p-1 bg-white rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
                   <QrCode className="h-6 w-6 text-slate-950" />
@@ -77,11 +182,12 @@ export default function ProfessionalCardPage() {
           {/* Action Tools */}
           <div className="flex gap-4">
             <button
-              onClick={() => showToast("A gerar PDF imprimível do Cartão de Identidade Profissional...", "info")}
-              className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-600/10"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-600/10 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Download className="h-4 w-4" />
-              Descarregar Cartão (PDF)
+              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {downloading ? "A gerar PDF..." : "Descarregar Cartão (PDF)"}
             </button>
             <button
               onClick={() => showToast("A adicionar credencial profissional ao Apple Wallet...", "info")}
