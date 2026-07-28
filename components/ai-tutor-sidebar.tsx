@@ -56,7 +56,8 @@ export default function AiTutorSidebar({ courseId }: AiTutorSidebarProps) {
       });
 
       if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`);
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
       }
 
       const reader = res.body.getReader();

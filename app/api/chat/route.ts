@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { debitCredits } from "@/lib/ai-credits";
 
 export const maxDuration = 30; // 30 segundos de limite de execução
 
@@ -24,6 +25,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Parâmetros 'messages' e 'courseId' são obrigatórios." },
         { status: 400 }
+      );
+    }
+
+    // 0. Debitar 1 crédito IA por pergunta ao Tutor (atómico — nunca deixa saldo negativo)
+    const newBalance = await debitCredits(tenantId, userId, 1);
+    if (newBalance === null) {
+      return NextResponse.json(
+        { error: "Saldo de Créditos IA insuficiente. Recarregue em Créditos IA para continuar a usar o Tutor de IA." },
+        { status: 402 }
       );
     }
 

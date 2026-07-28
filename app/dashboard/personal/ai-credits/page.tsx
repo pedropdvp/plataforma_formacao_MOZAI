@@ -2,16 +2,43 @@
 
 import { useToast } from "@/components/ui/toast-provider";
 
-import React, { useState } from "react";
-import { Cpu, Zap, ShoppingBag, ArrowRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Cpu, Zap, ShoppingBag, ArrowRight, Loader2 } from "lucide-react";
 
 export default function AiCreditsPage() {
   const { showToast } = useToast();
-  const [credits, setCredits] = useState(150);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [buyingPack, setBuyingPack] = useState<string | null>(null);
 
-  const handleBuyCredits = (amount: number, price: string) => {
-    showToast(`Compra de ${amount} créditos IA iniciada no valor de ${price}.`, "success");
-    setCredits((prev) => prev + amount);
+  useEffect(() => {
+    fetch("/api/ai-credits")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success) setCredits(data.balance);
+      })
+      .catch((err) => console.error("Erro ao ler créditos IA:", err));
+  }, []);
+
+  const handleBuyCredits = async (pack: string) => {
+    setBuyingPack(pack);
+    try {
+      const res = await fetch("/api/ai-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pack }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCredits(data.balance);
+        showToast(`Compra de ${data.added} créditos IA concluída (${data.price}).`, "success");
+      } else {
+        showToast(data.error || "Erro ao recarregar créditos IA.", "error");
+      }
+    } catch (err) {
+      showToast("Erro de comunicação ao recarregar créditos IA.", "error");
+    } finally {
+      setBuyingPack(null);
+    }
   };
 
   return (
@@ -34,7 +61,7 @@ export default function AiCreditsPage() {
             <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">Saldo Disponível</span>
             <span className="text-5xl font-extrabold text-white flex items-center gap-1.5 justify-center">
               <Zap className="h-10 w-10 text-amber-500 fill-amber-500" />
-              {credits}
+              {credits === null ? <Loader2 className="h-9 w-9 animate-spin text-slate-500" /> : credits}
             </span>
             <span className="text-[10px] text-slate-400 block pt-1">Créditos de API</span>
           </div>
@@ -67,11 +94,12 @@ export default function AiCreditsPage() {
               <div className="pt-6 border-t border-slate-900/60 mt-6 flex items-center justify-between">
                 <span className="text-lg font-extrabold text-white">4,90 €</span>
                 <button
-                  onClick={() => handleBuyCredits(100, "4,90 €")}
-                  className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-650 text-xs font-semibold text-white group-hover:bg-indigo-650 transition-all flex items-center gap-1 cursor-pointer"
+                  onClick={() => handleBuyCredits("bronze")}
+                  disabled={buyingPack !== null}
+                  className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-650 text-xs font-semibold text-white group-hover:bg-indigo-650 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Adquirir
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  {buyingPack === "bronze" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </div>
             </div>
@@ -92,11 +120,12 @@ export default function AiCreditsPage() {
               <div className="pt-6 border-t border-slate-900/60 mt-6 flex items-center justify-between">
                 <span className="text-lg font-extrabold text-white">19,90 €</span>
                 <button
-                  onClick={() => handleBuyCredits(500, "19,90 €")}
-                  className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-650 text-xs font-semibold text-white group-hover:bg-indigo-650 transition-all flex items-center gap-1 cursor-pointer"
+                  onClick={() => handleBuyCredits("prata")}
+                  disabled={buyingPack !== null}
+                  className="h-9 px-4 rounded-xl bg-slate-900 hover:bg-indigo-650 text-xs font-semibold text-white group-hover:bg-indigo-650 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Adquirir
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  {buyingPack === "prata" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </div>
             </div>
