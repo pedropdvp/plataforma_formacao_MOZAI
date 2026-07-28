@@ -17,21 +17,21 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
 
     // 2. Buscar progresso de todos os utilizadores deste tenant
-    const progressList = await db.collection("user_progress").find({ tenantId }).toArray();
-    const cognitiveLogs = await db.collection("cognitive_logs").find({ tenantId }).toArray();
+    const progressList = await db.collection("user_progress").find({ tenant_id: tenantId }).toArray();
+    const cognitiveLogs = await db.collection("cognitive_logs").find({ tenant_id: tenantId }).toArray();
 
     // 3. Processar Métricas Corporativas (KPIs)
     const uniqueUserIds = Array.from(new Set(progressList.map((p: any) => p.userId)));
-    const activeEmployees = Math.max(uniqueUserIds.length, 3); // Mínimo 3 simulado se vazio
+    const activeEmployees = uniqueUserIds.length;
 
     // Calcular taxa de conclusão média (lições completadas vs total de lições estimadas: 3 lições por curso em 3 cursos)
     const completedLessonsCount = progressList.filter((p: any) => p.status === "completed").length;
     const totalPossibleLessons = Math.max(uniqueUserIds.length * 9, 9);
-    const completionRate = Math.round(Math.min((completedLessonsCount / totalPossibleLessons) * 100, 100)) || 45;
+    const completionRate = Math.round(Math.min((completedLessonsCount / totalPossibleLessons) * 100, 100));
 
     // Calcular total de horas de estudo (soma de watchTime em segundos convertidos para horas)
     const totalWatchSeconds = progressList.reduce((acc: number, curr: any) => acc + (curr.watchTime || 0), 0);
-    const totalStudyHours = Math.round(totalWatchSeconds / 3600) || 12;
+    const totalStudyHours = Math.round(totalWatchSeconds / 3600);
 
     // 4. Inventário de Competências (Mapeado dinamicamente das lições completadas)
     const isCompleted = (cId: string, lId: string) =>
@@ -83,8 +83,8 @@ export async function GET(req: NextRequest) {
     // 5. Analisar logs cognitivos agregados para obter tendências corporativas
     const searchTerms: Record<string, number> = {};
     cognitiveLogs.forEach((log: any) => {
-      if (Array.isArray(log.keywords)) {
-        log.keywords.forEach((word: string) => {
+      if (Array.isArray(log.topics)) {
+        log.topics.forEach((word: string) => {
           searchTerms[word] = (searchTerms[word] || 0) + 1;
         });
       }
@@ -103,36 +103,24 @@ export async function GET(req: NextRequest) {
       )}". Sugerimos agendar uma aula ao vivo de tira-dúvidas sobre estes temas esta semana.`;
     }
 
-    // 6. Inventário de Colaboradores (Employee List)
-    const employeeList = [
-      {
-        id: "emp-1",
-        name: "Pedro Marques",
-        role: "Software Developer",
-        completedLessons: progressList.filter((p: any) => p.userId === userId && p.status === "completed").length || 1,
-        activeCourses: Array.from(new Set(progressList.filter((p: any) => p.userId === userId).map((p: any) => p.courseId))).length || 1,
-        interests: sortedTerms.length > 0 ? sortedTerms : ["Python", "FastAPI"],
-        isMe: true,
-      },
-      {
-        id: "emp-2",
-        name: "Ana Costa",
-        role: "Frontend Engineer",
-        completedLessons: 4,
-        activeCourses: 2,
-        interests: ["Next.js", "Clerk", "CSS"],
-        isMe: false,
-      },
-      {
-        id: "emp-3",
-        name: "João Silva",
-        role: "DevOps Specialist",
-        completedLessons: 2,
-        activeCourses: 1,
-        interests: ["Docker", "Kubernetes", "AWS"],
-        isMe: false,
-      },
-    ];
+    // 6. Inventário de Colaboradores (Employee List) — utilizadores reais deste tenant
+    const tenantUsers = await db.collection("users").find({ "tenants.tenantId": tenantId }).toArray();
+    const employeeList = tenantUsers.map((u: any) => {
+      const userProgress = progressList.filter((p: any) => p.userId === u._id);
+      const userTopics = cognitiveLogs
+        .filter((log: any) => log.userId === u._id)
+        .flatMap((log: any) => (Array.isArray(log.topics) ? log.topics : []));
+      const tenantMapping = u.tenants?.find((t: any) => t.tenantId === tenantId);
+      return {
+        id: u._id,
+        name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || "Utilizador",
+        role: tenantMapping?.roles?.[0] || "Aluno",
+        completedLessons: userProgress.filter((p: any) => p.status === "completed").length,
+        activeCourses: Array.from(new Set(userProgress.map((p: any) => p.courseId))).length,
+        interests: Array.from(new Set(userTopics)).slice(0, 3),
+        isMe: u._id === userId,
+      };
+    });
 
     // 7. Estatísticas Globais de Acessos para ADMIN/SUPORTE (Requisito do Utilizador)
     const activeRole = req.cookies.get("active-role")?.value;

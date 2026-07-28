@@ -109,6 +109,34 @@ export async function GET(req: NextRequest) {
       .find(query)
       .toArray();
 
+    // Retenção Pedagógica real: média de acerto (%) em todas as tentativas de quiz do utilizador
+    let retentionPct = 0;
+    try {
+      const attempts = await db.collection("quiz_attempts").find({ tenant_id: tenantId, userId }).toArray();
+      if (attempts.length > 0) {
+        const avgScore = attempts.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / attempts.length;
+        retentionPct = Math.round(avgScore * 100);
+      }
+    } catch (e) {
+      console.warn("Erro ao calcular retenção pedagógica:", e);
+    }
+
+    // Velocidade de Execução real: ritmo de lições concluídas nos últimos 7 dias
+    let velocityPct = 0;
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const recentCompletions = await db.collection("study_history").countDocuments({
+        tenant_id: tenantId,
+        userId,
+        action: "completed_lesson",
+        timestamp: { $gte: sevenDaysAgo },
+      });
+      // 5 lições concluídas numa semana = 100% (ritmo de referência)
+      velocityPct = Math.min(100, Math.round((recentCompletions / 5) * 100));
+    } catch (e) {
+      console.warn("Erro ao calcular velocidade de execução:", e);
+    }
+
     // Análise Cognitiva do Digital Twin: Extrair tópicos de interesse das perguntas à IA
     let topTopics: string[] = [];
     try {
@@ -138,6 +166,8 @@ export async function GET(req: NextRequest) {
       success: true,
       progress: progressList,
       topTopics,
+      retentionPct,
+      velocityPct,
     });
   } catch (error: any) {
     console.error("Erro na leitura do progresso:", error);

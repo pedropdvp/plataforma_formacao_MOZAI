@@ -54,6 +54,7 @@ export default function ChatbotWidget() {
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [webSearchOn, setWebSearchOn] = useState(false);
+  const [persona, setPersona] = useState("assistente");
 
   const [recognizing, setRecognizing] = useState(false);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -232,6 +233,7 @@ export default function ChatbotWidget() {
           conversationId,
           file: fileToSend || undefined,
           webSearch: webSearchOn,
+          persona,
         }),
       });
 
@@ -324,6 +326,21 @@ export default function ChatbotWidget() {
                 <X className="h-4 w-4" />
               </button>
             </div>
+          </div>
+
+          <div className="px-4 py-2 border-b border-slate-900 bg-slate-950/40 shrink-0">
+            <select
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              aria-label="Escolher persona do assistente"
+              className="w-full h-7 px-2 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 cursor-pointer"
+            >
+              <option value="assistente">🤖 Assistente Geral</option>
+              <option value="mentor">🧭 Mentor</option>
+              <option value="coach_carreira">💼 Coach de Carreira</option>
+              <option value="code_reviewer">🧑‍💻 Code Reviewer</option>
+              <option value="examinador">📝 Examinador</option>
+            </select>
           </div>
 
           {showHistory ? (

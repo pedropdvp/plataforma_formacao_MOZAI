@@ -376,10 +376,10 @@ export default function HRDashboardClient({
 
   const completedLessonsCount = progressList.filter((p: any) => p.status === "completed").length;
   const totalPossibleLessons = Math.max(uniqueUserIds.length * 9, 9);
-  const completionRate = Math.round(Math.min((completedLessonsCount / totalPossibleLessons) * 100, 100)) || 45;
+  const completionRate = Math.round(Math.min((completedLessonsCount / totalPossibleLessons) * 100, 100));
 
   const totalWatchSeconds = progressList.reduce((acc: number, curr: any) => acc + (curr.watchTime || 0), 0);
-  const totalStudyHours = Math.round(totalWatchSeconds / 3600) || 12;
+  const totalStudyHours = Math.round(totalWatchSeconds / 3600);
 
   // Gargalos Críticos: lições onde há mais colaboradores "in-progress" do que "completed" (pontos de bloqueio real)
   const LESSON_TITLES: Record<string, string> = {
@@ -431,8 +431,8 @@ export default function HRDashboardClient({
   // 3. Analisar logs cognitivos agregados para obter tendências corporativas
   const searchTerms: Record<string, number> = {};
   initialCognitiveLogs.forEach((log: any) => {
-    if (Array.isArray(log.keywords)) {
-      log.keywords.forEach((word: string) => {
+    if (Array.isArray(log.topics)) {
+      log.topics.forEach((word: string) => {
         searchTerms[word] = (searchTerms[word] || 0) + 1;
       });
     }
@@ -450,33 +450,22 @@ export default function HRDashboardClient({
     )}". Sugerimos agendar uma aula ao vivo de tira-dúvidas sobre estes temas esta semana.`;
   }
 
-  // 4. Inventário de Colaboradores Estático (Fallback visual para o dashboard inicial)
-  const demoEmployeeList = [
-    {
-      id: "emp-1",
-      name: "Tu (Gestor)",
-      role: "Software Developer",
-      completedLessons: progressList.filter((p: any) => p.userId === userId && p.status === "completed").length,
-      activeCourses: Array.from(new Set(progressList.filter((p: any) => p.userId === userId).map((p: any) => p.courseId))).length,
-      interests: sortedTerms.length > 0 ? sortedTerms : ["Python", "FastAPI"],
-    },
-    {
-      id: "emp-2",
-      name: "Ana Costa",
-      role: "Frontend Engineer",
-      completedLessons: 4,
-      activeCourses: 2,
-      interests: ["Next.js", "Clerk", "CSS"],
-    },
-    {
-      id: "emp-3",
-      name: "João Silva",
-      role: "DevOps Specialist",
-      completedLessons: 2,
-      activeCourses: 1,
-      interests: ["Docker", "Kubernetes", "AWS"],
-    },
-  ];
+  // 4. Inventário de Colaboradores — utilizadores reais deste tenant
+  const realEmployeeList = users.map((u: any) => {
+    const userProgress = progressList.filter((p: any) => p.userId === u._id);
+    const userTopics = initialCognitiveLogs
+      .filter((log: any) => log.userId === u._id)
+      .flatMap((log: any) => (Array.isArray(log.topics) ? log.topics : []));
+    const tenantMapping = u.tenants?.find((t: any) => t.tenantId === tenantId);
+    return {
+      id: u._id,
+      name: `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || "Utilizador",
+      role: tenantMapping?.roles?.[0] || "Aluno",
+      completedLessons: userProgress.filter((p: any) => p.status === "completed").length,
+      activeCourses: Array.from(new Set(userProgress.map((p: any) => p.courseId))).length,
+      interests: Array.from(new Set(userTopics)).slice(0, 3),
+    };
+  });
 
   return (
     <div className="space-y-6 report-page-container">
@@ -806,11 +795,11 @@ export default function HRDashboardClient({
             </div>
           </div>
 
-          {/* Lista de Colaboradores Demo */}
+          {/* Lista de Colaboradores */}
           <div className="border border-slate-700 bg-slate-950/40 rounded-3xl p-5 space-y-4">
             <h3 className="font-bold text-sm text-white flex items-center gap-2">
               <Users className="h-4.5 w-4.5 text-indigo-400" />
-              Lista de Colaboradores Registados (Demonstração)
+              Lista de Colaboradores Registados
             </h3>
 
             <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60">
@@ -825,7 +814,13 @@ export default function HRDashboardClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-900">
-                  {demoEmployeeList.map((emp) => (
+                  {realEmployeeList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-4 text-center text-slate-500 italic">
+                        Ainda não existem colaboradores registados nesta empresa.
+                      </td>
+                    </tr>
+                  ) : realEmployeeList.map((emp) => (
                     <tr key={emp.id} className="hover:bg-slate-900/30 transition-colors">
                       <td className="p-2.5 font-semibold text-white">{emp.name}</td>
                       <td className="p-2.5 text-slate-350">{emp.role}</td>

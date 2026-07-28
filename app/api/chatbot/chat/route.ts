@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
-import { streamChatbotAnswer } from "@/lib/ai/chatbot-engine";
+import { streamChatbotAnswer, CHATBOT_PERSONAS, type ChatbotPersonaId } from "@/lib/ai/chatbot-engine";
 import { extractPdfContent } from "@/lib/pdf-extract";
 import {
   createConversation,
@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const webSearch = body.webSearch === true;
   const file = validateFile(body.file);
+  const persona: ChatbotPersonaId = body.persona in CHATBOT_PERSONAS ? body.persona : "assistente";
 
   if (!message && !file) {
     return NextResponse.json({ error: "Mensagem em falta." }, { status: 400 });
@@ -146,6 +147,7 @@ export async function POST(req: NextRequest) {
       attachmentText,
       attachmentName: file?.name,
       webSearch,
+      persona,
       onFinish: (full, totalTokens) => addMessage(conversationId, "assistant", full, totalTokens),
       onError: (error) => {
         if (errorHandled) return;

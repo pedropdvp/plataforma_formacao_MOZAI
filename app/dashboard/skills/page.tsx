@@ -16,6 +16,8 @@ export default function SkillsOSPage() {
   const [skills, setSkills] = useState<SkillNode[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<SkillNode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [retentionPct, setRetentionPct] = useState(0);
+  const [velocityPct, setVelocityPct] = useState(0);
 
   useEffect(() => {
     async function loadProgressAndSkills() {
@@ -174,6 +176,8 @@ export default function SkillsOSPage() {
           setSkills(computedSkills);
           // Pré-selecionar o primeiro nó ativo ou o primeiro da lista
           setSelectedSkill(computedSkills[0]);
+          setRetentionPct(data.retentionPct || 0);
+          setVelocityPct(data.velocityPct || 0);
         }
       } catch (error) {
         console.error("Erro ao carregar competências:", error);
@@ -282,20 +286,20 @@ export default function SkillsOSPage() {
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Retenção Pedagógica</span>
-                      <span className="font-bold text-white">{selectedSkill.score > 0 ? "88%" : "0%"}</span>
+                      <span className="font-bold text-white" title="Média real de acerto em todos os quizzes respondidos">{retentionPct}%</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: selectedSkill.score > 0 ? "88%" : "0%" }} />
+                      <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${retentionPct}%` }} />
                     </div>
                   </div>
 
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Velocidade de Execução</span>
-                      <span className="font-bold text-white">{selectedSkill.score > 0 ? "72%" : "0%"}</span>
+                      <span className="font-bold text-white" title="Ritmo real de lições concluídas nos últimos 7 dias">{velocityPct}%</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-500 rounded-full transition-all duration-300" style={{ width: selectedSkill.score > 0 ? "72%" : "0%" }} />
+                      <div className="h-full bg-cyan-500 rounded-full transition-all duration-300" style={{ width: `${velocityPct}%` }} />
                     </div>
                   </div>
 

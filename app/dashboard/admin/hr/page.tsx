@@ -19,13 +19,13 @@ export default async function HRDashboardPage() {
   const db = await getDb();
   
   // Converter cursor para objetos planos
-  const progressRaw = await db.collection("user_progress").find({ tenantId }).toArray();
+  const progressRaw = await db.collection("user_progress").find({ tenant_id: tenantId }).toArray();
   const progressList = progressRaw.map((p: any) => ({
     ...p,
     _id: p._id.toString()
   }));
 
-  const logsRaw = await db.collection("cognitive_logs").find({ tenantId }).toArray();
+  const logsRaw = await db.collection("cognitive_logs").find({ tenant_id: tenantId }).toArray();
   const cognitiveLogs = logsRaw.map((l: any) => ({
     ...l,
     _id: l._id.toString()

@@ -9,7 +9,46 @@ export default function CareerOSPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [cvText, setCvText] = useState("");
+  const [extractingPdf, setExtractingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const cvFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCvFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      showToast("Só é possível carregar ficheiros PDF.", "error");
+      return;
+    }
+
+    setExtractingPdf(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1] || "");
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch("/api/career/extract-cv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ data: base64 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCvText(data.text);
+        showToast("Texto do CV extraído com sucesso. Reveja antes de analisar.", "success");
+      } else {
+        showToast(data.error || "Erro ao extrair o PDF.", "error");
+      }
+    } catch (err) {
+      showToast("Erro de comunicação ao extrair o PDF.", "error");
+    } finally {
+      setExtractingPdf(false);
+    }
+  };
 
   // --- CURSOS À MEDIDA (STUDENT CUSTOM PATH) STATE ---
   const [goal, setGoal] = useState("");
@@ -109,9 +148,27 @@ export default function CareerOSPage() {
 
             <form onSubmit={handleAnalyze} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-medium">
-                  Cole o seu CV, Resumo ou Link do LinkedIn aqui:
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-xs text-slate-400 font-medium">
+                    Cole o seu CV, Resumo ou Link do LinkedIn aqui:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => cvFileInputRef.current?.click()}
+                    disabled={extractingPdf}
+                    className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {extractingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                    Carregar PDF
+                  </button>
+                  <input
+                    ref={cvFileInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleCvFileSelected}
+                    className="hidden"
+                  />
+                </div>
                 <textarea
                   value={cvText}
                   onChange={(e) => setCvText(e.target.value)}
