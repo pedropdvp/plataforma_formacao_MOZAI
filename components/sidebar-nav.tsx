@@ -45,20 +45,67 @@ import {
   Layers
 } from "lucide-react";
 
+// Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
+// recarga da página (reload do Next.js em dev, refresh manual, etc.) não force os menus
+// recolhidos pelo utilizador a reabrirem sozinhos.
+const SIDEBAR_GROUPS_STORAGE_KEY = "mozai-sidebar-groups";
+
+function loadStoredGroupState(groupId: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
+    if (!raw) return true;
+    const parsed = JSON.parse(raw);
+    return typeof parsed[groupId] === "boolean" ? parsed[groupId] : true;
+  } catch {
+    return true;
+  }
+}
+
 export default function SidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { activeRole, hasPermission } = useAccess();
 
-  // Estados dos agrupadores (iniciam expandidos true por padrão)
-  const [aprendizagemOpen, setAprendizagemOpen] = useState(true);
-  const [comunicacaoOpen, setComunicacaoOpen] = useState(true);
-  const [financeiroOpen, setFinanceiroOpen] = useState(true);
-  const [pessoalOpen, setPessoalOpen] = useState(true);
-  const [workspaceOpen, setWorkspaceOpen] = useState(true);
-  const [guiasOpen, setGuiasOpen] = useState(true);
-  const [relatoriosOpen, setRelatoriosOpen] = useState(true);
-  const [administracaoOpen, setAdministracaoOpen] = useState(true);
+  // Estados dos agrupadores (iniciam a partir do que foi guardado, ou expandidos por padrão)
+  const [aprendizagemOpen, setAprendizagemOpen] = useState(() => loadStoredGroupState("aprendizagem"));
+  const [comunicacaoOpen, setComunicacaoOpen] = useState(() => loadStoredGroupState("comunicacao"));
+  const [financeiroOpen, setFinanceiroOpen] = useState(() => loadStoredGroupState("financeiro"));
+  const [pessoalOpen, setPessoalOpen] = useState(() => loadStoredGroupState("pessoal"));
+  const [workspaceOpen, setWorkspaceOpen] = useState(() => loadStoredGroupState("workspace"));
+  const [guiasOpen, setGuiasOpen] = useState(() => loadStoredGroupState("guias"));
+  const [relatoriosOpen, setRelatoriosOpen] = useState(() => loadStoredGroupState("relatorios"));
+  const [administracaoOpen, setAdministracaoOpen] = useState(() => loadStoredGroupState("administracao"));
+
+  // Guarda o estado sempre que um agrupador é aberto/fechado
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_GROUPS_STORAGE_KEY,
+        JSON.stringify({
+          aprendizagem: aprendizagemOpen,
+          comunicacao: comunicacaoOpen,
+          financeiro: financeiroOpen,
+          pessoal: pessoalOpen,
+          workspace: workspaceOpen,
+          guias: guiasOpen,
+          relatorios: relatoriosOpen,
+          administracao: administracaoOpen,
+        })
+      );
+    } catch {
+      // localStorage indisponível (modo privado, quota excedida, etc.) — ignora silenciosamente
+    }
+  }, [
+    aprendizagemOpen,
+    comunicacaoOpen,
+    financeiroOpen,
+    pessoalOpen,
+    workspaceOpen,
+    guiasOpen,
+    relatoriosOpen,
+    administracaoOpen,
+  ]);
 
   // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configurações > Menus)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
