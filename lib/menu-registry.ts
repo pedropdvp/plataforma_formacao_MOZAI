@@ -64,7 +64,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
 
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
-  { id: "auto-update", groupId: "workspace", label: "Auto-Update (Engine)", path: "/dashboard/admin/auto-update" },
+  { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
   { id: "content-factory", groupId: "workspace", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },

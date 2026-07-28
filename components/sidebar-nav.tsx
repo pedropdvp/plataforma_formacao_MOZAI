@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SecureRender from "@/components/secure-render";
@@ -50,15 +50,13 @@ import {
 // recolhidos pelo utilizador a reabrirem sozinhos.
 const SIDEBAR_GROUPS_STORAGE_KEY = "mozai-sidebar-groups";
 
-function loadStoredGroupState(groupId: string): boolean {
-  if (typeof window === "undefined") return true;
+function loadStoredGroupState(): Record<string, boolean> | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
-    if (!raw) return true;
-    const parsed = JSON.parse(raw);
-    return typeof parsed[groupId] === "boolean" ? parsed[groupId] : true;
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return true;
+    return null;
   }
 }
 
@@ -67,18 +65,41 @@ export default function SidebarNav() {
   const { t } = useLanguage();
   const { activeRole, hasPermission } = useAccess();
 
-  // Estados dos agrupadores (iniciam a partir do que foi guardado, ou expandidos por padrão)
-  const [aprendizagemOpen, setAprendizagemOpen] = useState(() => loadStoredGroupState("aprendizagem"));
-  const [comunicacaoOpen, setComunicacaoOpen] = useState(() => loadStoredGroupState("comunicacao"));
-  const [financeiroOpen, setFinanceiroOpen] = useState(() => loadStoredGroupState("financeiro"));
-  const [pessoalOpen, setPessoalOpen] = useState(() => loadStoredGroupState("pessoal"));
-  const [workspaceOpen, setWorkspaceOpen] = useState(() => loadStoredGroupState("workspace"));
-  const [guiasOpen, setGuiasOpen] = useState(() => loadStoredGroupState("guias"));
-  const [relatoriosOpen, setRelatoriosOpen] = useState(() => loadStoredGroupState("relatorios"));
-  const [administracaoOpen, setAdministracaoOpen] = useState(() => loadStoredGroupState("administracao"));
+  // Estados dos agrupadores — iniciam SEMPRE expandidos (igual ao servidor) para evitar
+  // erros de hidratação; o valor guardado em localStorage só é aplicado depois da
+  // montagem no cliente (ver useLayoutEffect abaixo), nunca durante o render inicial.
+  const [aprendizagemOpen, setAprendizagemOpen] = useState(true);
+  const [comunicacaoOpen, setComunicacaoOpen] = useState(true);
+  const [financeiroOpen, setFinanceiroOpen] = useState(true);
+  const [pessoalOpen, setPessoalOpen] = useState(true);
+  const [workspaceOpen, setWorkspaceOpen] = useState(true);
+  const [guiasOpen, setGuiasOpen] = useState(true);
+  const [relatoriosOpen, setRelatoriosOpen] = useState(true);
+  const [administracaoOpen, setAdministracaoOpen] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Guarda o estado sempre que um agrupador é aberto/fechado
+  // Aplica o estado guardado assim que o componente monta no cliente (antes do
+  // browser pintar), para minimizar o "flash" de grupos que estavam recolhidos.
+  useLayoutEffect(() => {
+    const stored = loadStoredGroupState();
+    if (stored) {
+      if (typeof stored.aprendizagem === "boolean") setAprendizagemOpen(stored.aprendizagem);
+      if (typeof stored.comunicacao === "boolean") setComunicacaoOpen(stored.comunicacao);
+      if (typeof stored.financeiro === "boolean") setFinanceiroOpen(stored.financeiro);
+      if (typeof stored.pessoal === "boolean") setPessoalOpen(stored.pessoal);
+      if (typeof stored.workspace === "boolean") setWorkspaceOpen(stored.workspace);
+      if (typeof stored.guias === "boolean") setGuiasOpen(stored.guias);
+      if (typeof stored.relatorios === "boolean") setRelatoriosOpen(stored.relatorios);
+      if (typeof stored.administracao === "boolean") setAdministracaoOpen(stored.administracao);
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Guarda o estado sempre que um agrupador é aberto/fechado (nunca no primeiro
+  // render, para não reescrever o valor guardado com os defaults antes de o ler)
   useEffect(() => {
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(
         SIDEBAR_GROUPS_STORAGE_KEY,
@@ -105,6 +126,7 @@ export default function SidebarNav() {
     guiasOpen,
     relatoriosOpen,
     administracaoOpen,
+    hydrated,
   ]);
 
   // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configurações > Menus)
@@ -491,7 +513,7 @@ export default function SidebarNav() {
             <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">
               <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
                 <Settings className="h-4 w-4 text-rose-400" />
-                {t("nav_auto_update", "Auto-Update (Engine)")}
+                {t("nav_auto_update", "Atualização Automática (Daily Engine)")}
               </Link>
             </SecureRender>
             )}
