@@ -115,20 +115,31 @@ export default function MenuVisibilityPage() {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-        <label className="text-xs font-bold text-slate-300 shrink-0">Âmbito:</label>
-        <select
-          value={selectedTenantId}
-          onChange={(e) => setSelectedTenantId(e.target.value)}
-          className="h-10 px-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <label className="text-xs font-bold text-slate-300 shrink-0">Âmbito:</label>
+          <select
+            value={selectedTenantId}
+            onChange={(e) => setSelectedTenantId(e.target.value)}
+            className="h-10 px-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+          >
+            <option value="root">Plataforma (todas as empresas por defeito)</option>
+            {companies.map((c) => (
+              <option key={c.tenantId} value={c.tenantId}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving || loading}
+          className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
         >
-          <option value="root">Plataforma (todas as empresas por defeito)</option>
-          {companies.map((c) => (
-            <option key={c.tenantId} value={c.tenantId}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar
+        </button>
       </div>
 
       {loading ? (
@@ -176,17 +187,6 @@ export default function MenuVisibilityPage() {
               </div>
             </div>
           ))}
-
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Guardar
-            </button>
-          </div>
         </div>
       )}
     </div>
