@@ -6,6 +6,7 @@ export interface TenantBranding {
   brandColor: string;
   logoUrl: string;
   ssoActive: boolean;
+  plan: string;
 }
 
 /**
@@ -23,6 +24,7 @@ export async function getActiveTenantBranding(tenantId: string): Promise<TenantB
         brandColor: "#6366f1", // Indigo
         logoUrl: "",
         ssoActive: false,
+        plan: "BASIC",
       };
     }
 
@@ -32,6 +34,7 @@ export async function getActiveTenantBranding(tenantId: string): Promise<TenantB
       brandColor: settings.brandColor || "#6366f1",
       logoUrl: settings.logoUrl || "",
       ssoActive: !!settings.ssoActive,
+      plan: settings.plan || "BASIC",
     };
   } catch (error) {
     console.error("Erro ao carregar branding do tenant ativo:", error);
@@ -41,6 +44,7 @@ export async function getActiveTenantBranding(tenantId: string): Promise<TenantB
       brandColor: "#6366f1",
       logoUrl: "",
       ssoActive: false,
+      plan: "BASIC",
     };
   }
 }

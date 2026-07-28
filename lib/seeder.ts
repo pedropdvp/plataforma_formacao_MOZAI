@@ -241,6 +241,7 @@ export const PERMISSIONS_DATA = [
   { _id: "COMPANY_INFO_UPDATE", name: "Atualizar Dados da Empresa", module: "COMPANY", description: "Editar designação, logo e definições do tenant" },
   { _id: "MESSAGES_SEND_COMPANY", name: "Enviar Mensagens na Empresa", module: "COMPANY", description: "Comunicar com colaboradores e formandos do mesmo tenant" },
   { _id: "API_KEYS_MANAGE", name: "Gerir Chaves de API", module: "COMPANY", description: "Configurar a chave de API (OpenAI) usada na Fábrica de Cursos — Admin: da plataforma; Gestor Empresa: só da sua empresa" },
+  { _id: "FORUM_MANAGE", name: "Gerir Fóruns", module: "COMPANY", description: "Criar e eliminar fóruns de discussão da empresa" },
 
   // Módulo STUDENT (Aluno)
   { _id: "AUTH_BASIC", name: "Autenticar-se", module: "STUDENT", description: "Realizar login básico e validação de conta" },
@@ -298,7 +299,7 @@ const ROLES_DATA = [
       "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "USER_ROLES_CHANGE",
       "GLOBAL_SETTINGS_CONFIG", "LOGS_VIEW", "AUTH_CONFIG", "INTEGRATIONS_CONFIG", "NOTIFICATIONS_CONFIG",
       "PAYMENTS_VIEW_ALL", "PAYMENTS_VALIDATE", "COURSES_CREATE", "HISTORY_VIEW_ALL",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE", "CHATBOT_MANAGE", "LEVELS_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "MENUS_MANAGE", "ROLES_MANAGE", "CHATBOT_MANAGE", "LEVELS_MANAGE", "FORUM_MANAGE"
     ],
     description: "Configuração global, auditoria e gestão corporativa de empresas."
   },
@@ -309,7 +310,7 @@ const ROLES_DATA = [
       "STUDENTS_MANAGE", "EMPLOYEES_MANAGE", "COURSES_SCHEDULE", "PAYMENTS_VIEW_ALL",
       "PAYMENTS_VALIDATE", "PAYMENTS_NOTIFY", "DOCS_MANAGE", "REPORTS_VIEW",
       "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY",
-      "BACKUP_MANAGE", "API_KEYS_MANAGE", "CHATBOT_MANAGE"
+      "BACKUP_MANAGE", "API_KEYS_MANAGE", "CHATBOT_MANAGE", "FORUM_MANAGE"
     ],
     description: "Gerir colaboradores, faturas e acompanhar relatórios corporativos B2B."
   },

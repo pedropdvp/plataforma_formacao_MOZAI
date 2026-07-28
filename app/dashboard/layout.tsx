@@ -140,6 +140,19 @@ export default async function DashboardLayout({
     return "Alterar Perfil";
   };
 
+  const getPlanLabel = (plan: string, lang: string) => {
+    const planKey = (plan || "BASIC").toUpperCase();
+    const names: Record<string, { PT: string; EN: string; FR: string }> = {
+      BASIC: { PT: "Basic", EN: "Basic", FR: "Basic" },
+      PREMIUM: { PT: "Premium", EN: "Premium", FR: "Premium" },
+      ENTERPRISE: { PT: "Enterprise", EN: "Enterprise", FR: "Enterprise" },
+    };
+    const name = names[planKey]?.[lang as "PT" | "EN" | "FR"] || planKey;
+    if (lang === "EN") return `Plan: ${name}`;
+    if (lang === "FR") return `Forfait: ${name}`;
+    return `Plano: ${name}`;
+  };
+
   // Obter as configurações de branding reais do tenant no banco
   const branding = await getActiveTenantBranding(tenantId);
 
@@ -210,6 +223,9 @@ export default async function DashboardLayout({
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
                 {language === "EN" ? "Profile" : language === "FR" ? "Profil" : "Perfil"}: {getProfileLabel(activeRole, language)}
+              </span>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                {getPlanLabel(branding.plan, language)}
               </span>
               {hasMultipleRoles && (
                 <Link
