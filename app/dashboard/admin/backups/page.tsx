@@ -111,26 +111,26 @@ export default function BackupRestorePage() {
 
   return (
     <div className="space-y-8 max-w-4xl report-page-container">
-      <div>
-        <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2.5">
-          <Database className="h-6 w-6 text-orange-400" />
-          Backup &amp; Restore
-        </h1>
-        <p className="text-sm text-slate-400">
-          {isCompanyManager
-            ? "Um backup cobre apenas os dados da sua empresa (cursos, progresso, utilizadores, etc.). Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."
-            : "Um backup diário é criado automaticamente às 03:00 e guardado de forma duradoura, cobrindo toda a plataforma multi-tenant. Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."}
-        </p>
-      </div>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2.5">
+            <Database className="h-6 w-6 text-orange-400" />
+            Backup &amp; Restore
+          </h1>
+          <p className="text-sm text-slate-400">
+            {isCompanyManager
+              ? "Um backup cobre apenas os dados da sua empresa (cursos, progresso, utilizadores, etc.). Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."
+              : "Um backup diário é criado automaticamente às 03:00 e guardado de forma duradoura, cobrindo toda a plataforma multi-tenant. Local e produção partilham a mesma base de dados, por isso qualquer backup cobre sempre os dois ambientes."}
+          </p>
+        </div>
 
-      <div className="flex justify-end">
         <button
           onClick={handleCreateBackup}
           disabled={creatingBackup}
-          className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+          className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shrink-0"
         >
           {creatingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Criar Backup Agora
+          Criar Backup
         </button>
       </div>
 
@@ -141,7 +141,7 @@ export default function BackupRestorePage() {
         </div>
       ) : backups.length === 0 ? (
         <p className="text-xs text-slate-500 italic py-6">
-          Nenhum backup encontrado ainda. Clica em "Criar Backup Agora" para criar o primeiro.
+          Nenhum backup encontrado ainda. Clica em "Criar Backup" para criar o primeiro.
         </p>
       ) : (
         <div className="space-y-2.5">
