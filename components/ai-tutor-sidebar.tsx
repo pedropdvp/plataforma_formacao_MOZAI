@@ -72,9 +72,11 @@ export default function AiTutorSidebar({ courseId }: AiTutorSidebarProps) {
         );
       }
 
-      // Se a stream não devolveu texto (ex.: só tool-call), remove a bolha vazia
+      // Se a stream não devolveu texto, a geração falhou silenciosamente do lado do
+      // servidor (ex.: quota da OpenAI esgotada) — remove a bolha vazia e mostra o aviso.
       if (!acc.trim()) {
         setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+        setError("Necessário adicionar crédito à conta da API na OpenAI.");
       }
     } catch (err: any) {
       console.error("Erro no Tutor de IA:", err);
@@ -191,9 +193,7 @@ export default function AiTutorSidebar({ courseId }: AiTutorSidebarProps) {
               <AlertCircle className="h-4 w-4" />
               Erro de Ligação
             </div>
-            <p className="text-[11px] text-rose-500/80">
-              Ocorreu um problema ao enviar a mensagem. Por favor, tente novamente.
-            </p>
+            <p className="text-[11px] text-rose-500/80">{error}</p>
             <button
               onClick={reload}
               className="inline-flex items-center justify-center gap-1.5 h-7 px-3 rounded-lg bg-rose-600/10 hover:bg-rose-600/20 text-[10px] font-semibold text-rose-400 transition-colors self-start"
