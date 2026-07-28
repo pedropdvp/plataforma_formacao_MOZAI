@@ -54,8 +54,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "payments", groupId: "financeiro", label: "Pagamentos", path: "/dashboard/financial/payments" },
 
   // Pessoal
-  { id: "account", groupId: "pessoal", label: "A minha Conta", path: "/dashboard/personal/profile" },
   { id: "change-password", groupId: "pessoal", label: "Alterar Password", path: "/dashboard/personal/change-password" },
+  { id: "account", groupId: "pessoal", label: "A minha Conta", path: "/dashboard/personal/profile" },
   { id: "professional-card", groupId: "pessoal", label: "Cartão Profissional", path: "/dashboard/professional-card" },
   { id: "certificates", groupId: "pessoal", label: "Certificados", path: "/dashboard/certificates" },
   { id: "ai-credits", groupId: "pessoal", label: "Créditos IA", path: "/dashboard/personal/ai-credits" },
@@ -65,11 +65,11 @@ export const MENU_ITEMS: MenuItemDef[] = [
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
   { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
+  { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
   { id: "content-factory", groupId: "workspace", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
   { id: "hr-console", groupId: "workspace", label: "Gestão de RH", path: "/dashboard/admin/hr" },
-  { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "skills-os", groupId: "workspace", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
 
   // Suporte
@@ -86,8 +86,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "rep-teachers", groupId: "relatorios", label: "Professores", path: "/dashboard/reports/teachers" },
 
   // Configuração
-  { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
+  { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
   { id: "levels", groupId: "configuracao", label: "Níveis", path: "/dashboard/admin/levels" },

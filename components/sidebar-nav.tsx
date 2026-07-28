@@ -263,12 +263,6 @@ export default function SidebarNav() {
               {t("nav_catalog", "Catálogo")}
             </Link>
             )}
-            {isItemVisible("marketplace") && (
-            <Link href="/dashboard/marketplace" className={linkClass("/dashboard/marketplace")}>
-              <Store className="h-4 w-4 text-violet-400" />
-              {t("nav_marketplace", "Marketplace")}
-            </Link>
-            )}
             {isItemVisible("challenges") && (
             <Link href="/dashboard/challenges" className={linkClass("/dashboard/challenges")}>
               <Terminal className="h-4 w-4 text-cyan-400" />
@@ -279,6 +273,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/gamification" className={linkClass("/dashboard/gamification")}>
               <Trophy className="h-4 w-4 text-amber-500" />
               {t("nav_gamification", "Gamificação")}
+            </Link>
+            )}
+            {isItemVisible("marketplace") && (
+            <Link href="/dashboard/marketplace" className={linkClass("/dashboard/marketplace")}>
+              <Store className="h-4 w-4 text-violet-400" />
+              {t("nav_marketplace", "Marketplace")}
             </Link>
             )}
             {isItemVisible("my-courses") && (
@@ -431,16 +431,16 @@ export default function SidebarNav() {
         {sidebarSection(
           pessoalOpen,
           <>
-            {isItemVisible("account") && (
-            <Link href="/dashboard/personal/profile" className={linkClass("/dashboard/personal/profile")}>
-              <User className="h-4 w-4 text-indigo-400" />
-              {t("nav_account", "A minha Conta")}
-            </Link>
-            )}
             {isItemVisible("change-password") && (
             <Link href="/dashboard/personal/change-password" className={linkClass("/dashboard/personal/change-password")}>
               <Key className="h-4 w-4 text-cyan-400" />
               {t("nav_password", "Alterar Password")}
+            </Link>
+            )}
+            {isItemVisible("account") && (
+            <Link href="/dashboard/personal/profile" className={linkClass("/dashboard/personal/profile")}>
+              <User className="h-4 w-4 text-indigo-400" />
+              {t("nav_account", "A minha Conta")}
             </Link>
             )}
             {isItemVisible("professional-card") && (
@@ -517,6 +517,12 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
+            {isItemVisible("career") && (
+            <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>
+              <Brain className="h-4 w-4 text-violet-400" />
+              {t("nav_career", "Carreira & Mentoria")}
+            </Link>
+            )}
             {isItemVisible("coding-lab") && (
             <Link href="/dashboard/skills/coding-lab" className={linkClass("/dashboard/skills/coding-lab")}>
               <Terminal className="h-4 w-4 text-emerald-400" />
@@ -546,12 +552,6 @@ export default function SidebarNav() {
                 {t("nav_hr_console", "Gestão de RH")}
               </Link>
             </SecureRender>
-            )}
-            {isItemVisible("career") && (
-            <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>
-              <Brain className="h-4 w-4 text-violet-400" />
-              {t("nav_career", "Carreira & Mentoria")}
-            </Link>
             )}
             {isItemVisible("skills-os") && (
             <Link href="/dashboard/skills" className={linkClass("/dashboard/skills")}>
