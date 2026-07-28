@@ -281,6 +281,12 @@ export default function SidebarNav() {
               {t("nav_marketplace", "Marketplace")}
             </Link>
             )}
+            {isItemVisible("progress") && (
+            <Link href="/dashboard/personal/progress" className={linkClass("/dashboard/personal/progress")}>
+              <GraduationCap className="h-4 w-4 text-emerald-400" />
+              {t("nav_progress", "Meu Progresso & DigitalTwin")}
+            </Link>
+            )}
             {isItemVisible("my-courses") && (
             <Link href="/dashboard/my-courses" className={linkClass("/dashboard/my-courses")}>
               <BookOpen className="h-4 w-4 text-indigo-400" />
@@ -291,12 +297,6 @@ export default function SidebarNav() {
             <Link href="/dashboard/mozai-academy" className={linkClass("/dashboard/mozai-academy")}>
               <Compass className="h-4 w-4 text-indigo-400" />
               {t("nav_academy", "MOZAI Academy")}
-            </Link>
-            )}
-            {isItemVisible("progress") && (
-            <Link href="/dashboard/personal/progress" className={linkClass("/dashboard/personal/progress")}>
-              <GraduationCap className="h-4 w-4 text-emerald-400" />
-              {t("nav_progress", "Progresso")}
             </Link>
             )}
             {isItemVisible("avatar-training") && (

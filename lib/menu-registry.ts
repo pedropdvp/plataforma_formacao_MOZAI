@@ -33,12 +33,12 @@ export const MENU_GROUPS: MenuGroupDef[] = [
 export const MENU_ITEMS: MenuItemDef[] = [
   // Aprendizagem
   { id: "catalog", groupId: "aprendizagem", label: "Catálogo", path: "/dashboard/catalog" },
-  { id: "marketplace", groupId: "aprendizagem", label: "Marketplace", path: "/dashboard/marketplace" },
   { id: "challenges", groupId: "aprendizagem", label: "Desafios", path: "/dashboard/challenges" },
   { id: "gamification", groupId: "aprendizagem", label: "Gamificação", path: "/dashboard/gamification" },
+  { id: "marketplace", groupId: "aprendizagem", label: "Marketplace", path: "/dashboard/marketplace" },
+  { id: "progress", groupId: "aprendizagem", label: "Meu Progresso & DigitalTwin", path: "/dashboard/personal/progress" },
   { id: "my-courses", groupId: "aprendizagem", label: "Meus Cursos", path: "/dashboard/my-courses" },
   { id: "mozai-academy", groupId: "aprendizagem", label: "MOZAI Academy", path: "/dashboard/mozai-academy" },
-  { id: "progress", groupId: "aprendizagem", label: "Progresso", path: "/dashboard/personal/progress" },
   { id: "avatar-training", groupId: "aprendizagem", label: "Treino com Avatares", path: "/dashboard/avatar-training" },
 
   // Comunicação
