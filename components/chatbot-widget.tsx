@@ -264,7 +264,7 @@ export default function ChatbotWidget() {
       }
 
       if (!full.trim()) {
-        const fallback = "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes.";
+        const fallback = "Ocorreu um erro ao gerar a resposta. Necessário adicionar crédito à conta da API na OpenAI.";
         setMessages((prev) => {
           const next = [...prev];
           next[next.length - 1] = { role: "assistant", content: fallback };

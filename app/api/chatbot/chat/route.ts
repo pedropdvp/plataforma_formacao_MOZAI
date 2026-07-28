@@ -24,6 +24,37 @@ interface ChatFile {
   data: string; // base64, sem o prefixo "data:...;base64,"
 }
 
+/**
+ * Deteta especificamente o erro de quota/crédito esgotado da OpenAI (HTTP 429 insufficient_quota).
+ * Quando as tentativas automáticas do AI SDK se esgotam, o erro original vem envolvido num
+ * RetryError (propriedade "errors": array de APICallError) — por isso a verificação percorre
+ * também os erros aninhados, não só o objeto de topo.
+ */
+function isOpenAIQuotaError(error: unknown): boolean {
+  const seen: any[] = [];
+  const collect = (e: any, depth = 0) => {
+    if (!e || depth > 4 || seen.includes(e)) return;
+    seen.push(e);
+    if (Array.isArray(e.errors)) e.errors.forEach((sub: any) => collect(sub, depth + 1));
+    if (e.lastError) collect(e.lastError, depth + 1);
+    if (e.cause) collect(e.cause, depth + 1);
+  };
+  collect(error);
+
+  return seen.some((e) => {
+    if (e?.statusCode === 429) return true;
+    const text = JSON.stringify(e?.data ?? e?.responseBody ?? e?.message ?? e?.reason ?? "").toLowerCase();
+    return text.includes("insufficient_quota") || text.includes("exceeded your current quota");
+  });
+}
+
+function buildErrorNotice(error: unknown): string {
+  if (isOpenAIQuotaError(error)) {
+    return "Ocorreu um erro ao gerar a resposta. Necessário adicionar crédito à conta da API na OpenAI.";
+  }
+  return "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes.";
+}
+
 function validateFile(file: any): ChatFile | null {
   if (!file || typeof file !== "object") return null;
   const mimeType = String(file.mimeType || "");
@@ -116,21 +147,17 @@ export async function POST(req: NextRequest) {
       attachmentName: file?.name,
       webSearch,
       onFinish: (full, totalTokens) => addMessage(conversationId, "assistant", full, totalTokens),
-      onError: () => {
+      onError: (error) => {
         if (errorHandled) return;
         errorHandled = true;
-        return addMessage(
-          conversationId,
-          "assistant",
-          "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes."
-        );
+        return addMessage(conversationId, "assistant", buildErrorNotice(error));
       },
     });
 
     return result.toTextStreamResponse({ headers: { "X-Conversation-Id": conversationId } });
   } catch (err: any) {
     console.error("[chatbot] erro ao gerar resposta:", err?.message || err);
-    const notice = "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes.";
+    const notice = buildErrorNotice(err);
     await addMessage(conversationId, "assistant", notice);
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "X-Conversation-Id": conversationId },
