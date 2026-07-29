@@ -19,6 +19,7 @@ import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
 import GreetingText from "@/components/greeting-text";
 import DashboardCharts from "@/components/dashboard-charts";
+import AdaptiveLearningPanel from "@/components/adaptive-learning-panel";
 import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
 
 // Nº de lições + título por curso: cursos reais do Sanity + fallback dos cursos-demo
@@ -259,6 +260,9 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
+
+      {/* Percurso Adaptativo — recomendações personalizadas com base no desempenho real */}
+      <AdaptiveLearningPanel />
 
       {/* Card de Gráficos */}
       <section className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 md:p-8 space-y-6">

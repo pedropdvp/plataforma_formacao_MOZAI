@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { GraduationCap, BookOpen, Clock, Loader2, Brain, AlertTriangle } from "lucide-react";
+import AdaptiveLearningPanel from "@/components/adaptive-learning-panel";
 
 interface CourseDefinition {
   id: string;
@@ -138,6 +139,9 @@ export default function ProgressPage() {
               </div>
             ))}
           </div>
+
+          {/* Percurso Adaptativo */}
+          <AdaptiveLearningPanel />
 
           {/* Perfil Cognitivo / Digital Twin */}
           <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4">
