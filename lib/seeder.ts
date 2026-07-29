@@ -255,6 +255,7 @@ export const PERMISSIONS_DATA = [
   { _id: "MESSAGES_TUTOR", name: "Comunicar com o Tutor", module: "STUDENT", description: "Trocar mensagens com o tutor pedagógico" },
   { _id: "REQUESTS_REGISTER", name: "Registar Pedidos", module: "STUDENT", description: "Submeter pedidos de apoio à gerência" },
   { _id: "PERSONAL_DATA_UPDATE", name: "Atualizar Dados Pessoais", module: "STUDENT", description: "Editar dados de perfil e alterar palavra-passe" },
+  { _id: "PROJECTS_SUBMIT", name: "Submeter Projetos", module: "STUDENT", description: "Submeter trabalhos práticos para avaliação nos cursos" },
 
   // Módulo ACADEMIC (Gestor Académico / Professor / Formador / Tutor)
   { _id: "COURSES_CREATE", name: "Criar Cursos", module: "ACADEMIC", description: "Criar cursos estruturados e módulos base" },
@@ -274,6 +275,7 @@ export const PERMISSIONS_DATA = [
   { _id: "STUDENTS_ACCOMPANY", name: "Acompanhar Alunos", module: "ACADEMIC", description: "Monitorizar evolução académica de alunos sob tutela" },
   { _id: "PROGRESS_VIEW", name: "Consultar Progresso Pedagógico", module: "ACADEMIC", description: "Ver detalhe de percentagem de lições concluídas por aluno" },
   { _id: "COMMUNICATE_STUDENTS", name: "Comunicar com Alunos", module: "ACADEMIC", description: "Trocar mensagens pedagógicas com estudantes" },
+  { _id: "PROJECTS_REVIEW", name: "Avaliar Projetos", module: "ACADEMIC", description: "Rever, aprovar ou rejeitar projetos práticos submetidos pelos alunos, com nota e feedback" },
 
   // Módulo FINANCIAL (Financeiro)
   { _id: "PAYMENTS_CONTROL", name: "Controlar Pagamentos", module: "FINANCIAL", description: "Controlar pagamentos pendentes e transações da plataforma" },
@@ -329,7 +331,7 @@ const ROLES_DATA = [
     permissions: [
       "AUTH_BASIC", "COURSES_STUDY", "PAYMENTS_EXECUTE", "PAYMENTS_VIEW_OWN",
       "CERTIFICATES_VIEW", "HISTORY_VIEW_OWN", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
-      "MESSAGES_TUTOR", "REQUESTS_REGISTER", "PERSONAL_DATA_UPDATE",
+      "MESSAGES_TUTOR", "REQUESTS_REGISTER", "PERSONAL_DATA_UPDATE", "PROJECTS_SUBMIT",
       "COURSES_CREATE" // Aluno Individual pode gerar os seus próprios cursos privados na Fábrica de Cursos (IA)
     ],
     description: "Aceder à sala de aula, realizar quizzes e emitir certificados."
@@ -340,7 +342,7 @@ const ROLES_DATA = [
     permissions: [
       "COURSES_CREATE", "COURSES_EDIT", "COURSES_ARCHIVE", "COURSES_PUBLISH",
       "ACADEMICS_ASSIGN", "HISTORY_VIEW_ALL", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
-      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
+      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE", "PROJECTS_REVIEW"
     ],
     description: "Planeamento pedagógico, criação de cursos e docência de turmas."
   },
@@ -349,7 +351,8 @@ const ROLES_DATA = [
     name: "Professor",
     permissions: [
       "COURSES_TEACH", "COURSES_ASSIGNED_VIEW", "HISTORY_VIEW_ALL", "DOCS_VIEW",
-      "COMMUNICATE_COMPANIES", "COMMUNICATE_ADMIN", "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
+      "COMMUNICATE_COMPANIES", "COMMUNICATE_ADMIN", "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE",
+      "PROJECTS_REVIEW"
     ],
     description: "Lecionar turmas, propor avaliações e responder a dúvidas pedagógicas."
   },

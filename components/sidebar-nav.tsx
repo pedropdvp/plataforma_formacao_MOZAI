@@ -42,7 +42,8 @@ import {
   Store,
   SlidersHorizontal,
   UserCog,
-  Layers
+  Layers,
+  FolderKanban
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -157,7 +158,8 @@ export default function SidebarNav() {
     "/dashboard/mozai-academy",
     "/dashboard/personal/progress",
     "/dashboard/avatar-training",
-    "/dashboard/my-courses"
+    "/dashboard/my-courses",
+    "/dashboard/projects"
   ].some(path => pathname === path || pathname.startsWith(path + "/")) || pathname === "/dashboard";
 
   const isComunicacaoActive = [
@@ -191,6 +193,7 @@ export default function SidebarNav() {
     "/dashboard/admin",
     "/dashboard/admin/content-factory",
     "/dashboard/admin/hr",
+    "/dashboard/admin/projects",
     "/dashboard/career",
     "/dashboard/skills"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
@@ -297,6 +300,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/mozai-academy" className={linkClass("/dashboard/mozai-academy")}>
               <Compass className="h-4 w-4 text-indigo-400" />
               {t("nav_academy", "MOZAI Academy")}
+            </Link>
+            )}
+            {isItemVisible("projects") && (
+            <Link href="/dashboard/projects" className={linkClass("/dashboard/projects")}>
+              <FolderKanban className="h-4 w-4 text-cyan-400" />
+              {t("nav_projects", "Projetos")}
             </Link>
             )}
             {isItemVisible("avatar-training") && (
@@ -514,6 +523,14 @@ export default function SidebarNav() {
               <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
                 <Settings className="h-4 w-4 text-rose-400" />
                 {t("nav_auto_update", "Atualização Automática (Daily Engine)")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("project-review") && (
+            <SecureRender requiredPermission="PROJECTS_REVIEW">
+              <Link href="/dashboard/admin/projects" className={linkClass("/dashboard/admin/projects")}>
+                <FolderKanban className="h-4 w-4 text-cyan-400" />
+                {t("nav_project_review", "Avaliação de Projetos")}
               </Link>
             </SecureRender>
             )}

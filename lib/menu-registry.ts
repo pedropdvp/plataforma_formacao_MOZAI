@@ -39,6 +39,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "progress", groupId: "aprendizagem", label: "Meu Progresso & DigitalTwin", path: "/dashboard/personal/progress" },
   { id: "my-courses", groupId: "aprendizagem", label: "Meus Cursos", path: "/dashboard/my-courses" },
   { id: "mozai-academy", groupId: "aprendizagem", label: "MOZAI Academy", path: "/dashboard/mozai-academy" },
+  { id: "projects", groupId: "aprendizagem", label: "Projetos", path: "/dashboard/projects" },
   { id: "avatar-training", groupId: "aprendizagem", label: "Treino com Avatares", path: "/dashboard/avatar-training" },
 
   // Comunicação
@@ -65,6 +66,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
   { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
+  { id: "project-review", groupId: "workspace", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
   { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
