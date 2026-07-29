@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Play, Info, AlertTriangle, Lightbulb, CheckCircle2, XCircle, ChevronDown, Sparkles, Loader2, RotateCw, GitBranch, Volume2 } from "lucide-react";
 import type { LessonBlock } from "@/lib/lesson-blocks";
 import { CodeLabBlockView } from "@/components/lesson-blocks/CodeLabBlockView";
+import { TerminalLabBlockView } from "@/components/lesson-blocks/TerminalLabBlockView";
+import { SimulationLabBlockView } from "@/components/lesson-blocks/SimulationLabBlockView";
 
 interface BlockRendererProps {
   blocks: LessonBlock[];
@@ -113,6 +115,29 @@ function BlockView({
           starterCode={block.starterCode}
           expectedOutput={block.expectedOutput}
           instructions={block.instructions}
+          exerciseId={`${courseId || "standalone"}:${lessonKey || "na"}:${block.id}`}
+          courseId={courseId}
+          lessonKey={lessonKey}
+        />
+      );
+
+    case "terminalLab":
+      return (
+        <TerminalLabBlockView
+          instructions={block.instructions}
+          steps={block.steps}
+          expectedOutput={block.expectedOutput}
+          exerciseId={`${courseId || "standalone"}:${lessonKey || "na"}:${block.id}`}
+          courseId={courseId}
+          lessonKey={lessonKey}
+        />
+      );
+
+    case "simulationLab":
+      return (
+        <SimulationLabBlockView
+          title={block.title}
+          steps={block.steps}
           exerciseId={`${courseId || "standalone"}:${lessonKey || "na"}:${block.id}`}
           courseId={courseId}
           lessonKey={lessonKey}

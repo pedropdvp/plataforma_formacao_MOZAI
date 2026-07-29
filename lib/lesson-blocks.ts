@@ -50,6 +50,27 @@ export type LessonBlock =
       starterCode: string;
       expectedOutput?: string;
       instructions?: string;
+    }
+  | {
+      id: string;
+      type: "terminalLab";
+      instructions?: string;
+      /** Passos de referência mostrados como guia — apenas indicativos, não bloqueiam a
+       * digitação de outros comandos; servem para o aluno saber o que se espera dele. */
+      steps: { id: string; description: string; command: string }[];
+      /** Validado contra o stdout REAL (via Piston, linguagem bash) de todos os comandos
+       * digitados até ao momento, concatenados — tal como no Laboratório de Código. */
+      expectedOutput?: string;
+    }
+  | {
+      id: string;
+      type: "simulationLab";
+      title: string;
+      steps: {
+        id: string;
+        scenario: string;
+        choices: { id: string; text: string; feedback: string; isBest: boolean }[];
+      }[];
     };
 
 export type LessonBlockType = LessonBlock["type"];
@@ -67,6 +88,8 @@ export const BLOCK_TYPE_LABELS: Record<LessonBlockType, string> = {
   flashcards: "Cartões de Memória",
   hotspot: "Imagem Interativa",
   codeLab: "Laboratório de Código",
+  terminalLab: "Laboratório de Terminal",
+  simulationLab: "Simulação Guiada",
 };
 
 export function newBlockId(): string {
@@ -105,6 +128,29 @@ export function createEmptyBlock(type: LessonBlockType): LessonBlock {
       return { id, type: "hotspot", imageUrl: "", points: [] };
     case "codeLab":
       return { id, type: "codeLab", language: "python", starterCode: "", instructions: "" };
+    case "terminalLab":
+      return {
+        id,
+        type: "terminalLab",
+        instructions: "",
+        steps: [{ id: newBlockId(), description: "Liste os ficheiros da pasta atual", command: "ls" }],
+      };
+    case "simulationLab":
+      return {
+        id,
+        type: "simulationLab",
+        title: "Nova Simulação",
+        steps: [
+          {
+            id: newBlockId(),
+            scenario: "Descreva a situação que o aluno vai enfrentar.",
+            choices: [
+              { id: newBlockId(), text: "Opção A", feedback: "Explique a consequência desta escolha.", isBest: true },
+              { id: newBlockId(), text: "Opção B", feedback: "Explique a consequência desta escolha.", isBest: false },
+            ],
+          },
+        ],
+      };
   }
 }
 
@@ -197,6 +243,10 @@ export function blocksToPlainText(blocks: LessonBlock[]): string {
           return block.points.map((p) => `**${p.label}:** ${p.description}`).join("\n\n");
         case "codeLab":
           return block.instructions || "";
+        case "terminalLab":
+          return block.instructions || block.steps.map((s) => s.description).join("\n");
+        case "simulationLab":
+          return `**${block.title}**\n` + block.steps.map((s) => s.scenario).join("\n\n");
         case "video":
           return "";
         default:

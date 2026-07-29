@@ -37,6 +37,8 @@ import {
   Target,
   SquareTerminal,
   GitBranch,
+  TerminalSquare,
+  Route,
 } from "lucide-react";
 import {
   LessonBlock,
@@ -60,6 +62,8 @@ const BLOCK_TYPE_ICONS: Record<LessonBlockType, React.ElementType> = {
   flashcards: Layers,
   hotspot: Target,
   codeLab: SquareTerminal,
+  terminalLab: TerminalSquare,
+  simulationLab: Route,
 };
 
 const BLOCK_TYPES: LessonBlockType[] = [
@@ -75,6 +79,8 @@ const BLOCK_TYPES: LessonBlockType[] = [
   "flashcards",
   "hotspot",
   "codeLab",
+  "terminalLab",
+  "simulationLab",
 ];
 
 const END_ZONE_ID = "block-editor-end-zone";
@@ -716,6 +722,172 @@ function BlockFields({
             placeholder="Código inicial (starter code)"
           />
           <p className="text-[9px] text-slate-600">Execução real via Piston (API pública). Sem estado persistente entre execuções.</p>
+        </div>
+      );
+
+    case "terminalLab":
+      return (
+        <div className="space-y-2">
+          <input
+            value={block.instructions || ""}
+            onChange={(e) => onUpdate({ instructions: e.target.value })}
+            className={fieldClass}
+            placeholder="Instruções para o aluno"
+          />
+          <div className="space-y-1.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Passos de Referência (guia, não bloqueante)</span>
+            {block.steps.map((s, i) => (
+              <div key={s.id} className="flex gap-1.5 items-start">
+                <div className="flex-1 space-y-1">
+                  <input
+                    value={s.description}
+                    onChange={(e) => {
+                      const next = block.steps.map((st, idx) => (idx === i ? { ...st, description: e.target.value } : st));
+                      onUpdate({ steps: next });
+                    }}
+                    className={fieldClass}
+                    placeholder="Descrição do passo"
+                  />
+                  <input
+                    value={s.command}
+                    onChange={(e) => {
+                      const next = block.steps.map((st, idx) => (idx === i ? { ...st, command: e.target.value } : st));
+                      onUpdate({ steps: next });
+                    }}
+                    className={`${fieldClass} font-mono`}
+                    placeholder="Comando de referência (ex: ls -la)"
+                  />
+                </div>
+                <button
+                  onClick={() => onUpdate({ steps: block.steps.filter((_, idx) => idx !== i) })}
+                  className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0 mt-2"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            <button
+              onClick={() => onUpdate({ steps: [...block.steps, { id: newBlockId(), description: "", command: "" }] })}
+              className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+            >
+              + Adicionar passo
+            </button>
+          </div>
+          <input
+            value={block.expectedOutput || ""}
+            onChange={(e) => onUpdate({ expectedOutput: e.target.value })}
+            className={fieldClass}
+            placeholder="Output final esperado (opcional, valida a soma de todos os comandos digitados)"
+          />
+          <p className="text-[9px] text-slate-600">Terminal com execução real via Piston (bash). Sem estado persistente entre lições.</p>
+        </div>
+      );
+
+    case "simulationLab":
+      return (
+        <div className="space-y-2">
+          <input
+            value={block.title}
+            onChange={(e) => onUpdate({ title: e.target.value })}
+            className={fieldClass}
+            placeholder="Título da simulação"
+          />
+          {block.steps.map((step, si) => (
+            <div key={step.id} className="p-2.5 rounded-lg border border-slate-800 space-y-2">
+              <div className="flex items-start gap-1.5">
+                <textarea
+                  value={step.scenario}
+                  onChange={(e) => {
+                    const next = block.steps.map((s, idx) => (idx === si ? { ...s, scenario: e.target.value } : s));
+                    onUpdate({ steps: next });
+                  }}
+                  className={`${fieldClass} h-16 resize-y flex-1`}
+                  placeholder={`Cenário ${si + 1}`}
+                />
+                <button
+                  onClick={() => onUpdate({ steps: block.steps.filter((_, idx) => idx !== si) })}
+                  className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="space-y-1.5 pl-2 border-l border-slate-800">
+                {step.choices.map((c, ci) => (
+                  <div key={c.id} className="flex gap-1.5 items-start">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex gap-1.5">
+                        <input
+                          value={c.text}
+                          onChange={(e) => {
+                            const nextChoices = step.choices.map((ch, idx) => (idx === ci ? { ...ch, text: e.target.value } : ch));
+                            const next = block.steps.map((s, idx) => (idx === si ? { ...s, choices: nextChoices } : s));
+                            onUpdate({ steps: next });
+                          }}
+                          className={fieldClass}
+                          placeholder={`Opção ${ci + 1}`}
+                        />
+                        <label className="flex items-center gap-1 text-[9px] text-slate-500 shrink-0 px-1">
+                          <input
+                            type="checkbox"
+                            checked={c.isBest}
+                            onChange={(e) => {
+                              const nextChoices = step.choices.map((ch, idx) => (idx === ci ? { ...ch, isBest: e.target.checked } : ch));
+                              const next = block.steps.map((s, idx) => (idx === si ? { ...s, choices: nextChoices } : s));
+                              onUpdate({ steps: next });
+                            }}
+                          />
+                          Melhor
+                        </label>
+                      </div>
+                      <input
+                        value={c.feedback}
+                        onChange={(e) => {
+                          const nextChoices = step.choices.map((ch, idx) => (idx === ci ? { ...ch, feedback: e.target.value } : ch));
+                          const next = block.steps.map((s, idx) => (idx === si ? { ...s, choices: nextChoices } : s));
+                          onUpdate({ steps: next });
+                        }}
+                        className={fieldClass}
+                        placeholder="Feedback ao escolher esta opção"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        const nextChoices = step.choices.filter((_, idx) => idx !== ci);
+                        const next = block.steps.map((s, idx) => (idx === si ? { ...s, choices: nextChoices } : s));
+                        onUpdate({ steps: next });
+                      }}
+                      className="text-slate-600 hover:text-rose-400 cursor-pointer shrink-0 mt-2"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const nextChoices = [...step.choices, { id: newBlockId(), text: "", feedback: "", isBest: false }];
+                    const next = block.steps.map((s, idx) => (idx === si ? { ...s, choices: nextChoices } : s));
+                    onUpdate({ steps: next });
+                  }}
+                  className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                >
+                  + Adicionar opção
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() =>
+              onUpdate({
+                steps: [
+                  ...block.steps,
+                  { id: newBlockId(), scenario: "", choices: [{ id: newBlockId(), text: "", feedback: "", isBest: true }] },
+                ],
+              })
+            }
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+          >
+            + Adicionar cenário
+          </button>
         </div>
       );
 
