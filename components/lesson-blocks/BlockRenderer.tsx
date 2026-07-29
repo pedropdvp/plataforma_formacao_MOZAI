@@ -113,6 +113,9 @@ function BlockView({
           starterCode={block.starterCode}
           expectedOutput={block.expectedOutput}
           instructions={block.instructions}
+          exerciseId={`${courseId || "standalone"}:${lessonKey || "na"}:${block.id}`}
+          courseId={courseId}
+          lessonKey={lessonKey}
         />
       );
 

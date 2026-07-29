@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, History, CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import { CodeLabBlockView } from "@/components/lesson-blocks/CodeLabBlockView";
+
+interface AttemptHistoryItem {
+  _id: string;
+  passed: boolean | null;
+  timestamp: string;
+}
 
 const EXERCISES: Record<string, { starterCode: string; expectedOutput: string }> = {
   python: {
@@ -24,6 +30,9 @@ export default function CodingLabPage() {
   const [language, setLanguage] = useState("python");
   const [runtimes, setRuntimes] = useState<{ language: string; aliases: string[] }[]>([]);
   const [loadingRuntimes, setLoadingRuntimes] = useState(true);
+  const [history, setHistory] = useState<AttemptHistoryItem[]>([]);
+
+  const exerciseId = `standalone:coding-lab:${language}`;
 
   useEffect(() => {
     async function loadRuntimes() {
@@ -39,6 +48,23 @@ export default function CodingLabPage() {
     }
     loadRuntimes();
   }, []);
+
+  const loadHistory = async () => {
+    try {
+      const res = await fetch(`/api/coding-lab/attempts?exerciseId=${encodeURIComponent(exerciseId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data.attempts || []);
+      }
+    } catch {
+      // silencioso — o histórico é um extra, não bloqueia o uso do laboratório
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseId]);
 
   const exercise = EXERCISES[language] || EXERCISES.python;
   const availableLanguages = Object.keys(EXERCISES).filter(
@@ -102,6 +128,31 @@ export default function CodingLabPage() {
               O código corre isolado na infraestrutura pública do Piston — não no nosso servidor.
             </p>
           </div>
+
+          {/* Histórico de execuções */}
+          <div className="space-y-2 pt-2 border-t border-slate-900">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5" /> Últimas Execuções
+            </span>
+            {history.length === 0 ? (
+              <span className="text-[10px] text-slate-600 italic">Ainda não executou este exercício.</span>
+            ) : (
+              <div className="space-y-1.5">
+                {history.map((h) => (
+                  <div key={h._id} className="flex items-center justify-between text-[10px] text-slate-500 px-2.5 py-1.5 rounded-lg bg-slate-900/40">
+                    <span className="flex items-center gap-1.5">
+                      {h.passed === true ? (
+                        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                      ) : h.passed === false ? (
+                        <XCircle className="h-3 w-3 text-rose-400" />
+                      ) : null}
+                      {new Date(h.timestamp).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right side: Editor executável */}
@@ -112,6 +163,8 @@ export default function CodingLabPage() {
             starterCode={exercise.starterCode}
             expectedOutput={exercise.expectedOutput}
             instructions="Complete a função e execute para validar o resultado."
+            exerciseId={exerciseId}
+            onRunComplete={loadHistory}
           />
         </div>
       </div>

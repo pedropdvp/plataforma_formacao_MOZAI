@@ -79,6 +79,12 @@ class MockCollection {
     return arr[0] || null;
   }
 
+  async countDocuments(filter: any = {}) {
+    const res = this.find(filter);
+    const arr = await res.toArray();
+    return arr.length;
+  }
+
   async insertOne(doc: any) {
     const newDoc = { _id: Math.random().toString(36).substring(7), ...doc };
     mockDatabaseCache[this.name] = mockDatabaseCache[this.name] || [];

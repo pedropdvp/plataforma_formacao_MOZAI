@@ -19,6 +19,14 @@ interface CodeLabBlockViewProps {
   starterCode: string;
   expectedOutput?: string;
   instructions?: string;
+  /** Identificador estável do exercício (ex: "<courseId>:<lessonKey>:<blockId>"), usado
+   * para histórico de tentativas e para XP de gamificação contar só na primeira aprovação. */
+  exerciseId?: string;
+  courseId?: string;
+  lessonKey?: string;
+  /** Chamado depois de cada execução (com sucesso ou erro), para quem estiver a mostrar
+   * um histórico de tentativas o poder recarregar sem sondar em intervalos. */
+  onRunComplete?: () => void;
 }
 
 /**
@@ -26,10 +34,10 @@ interface CodeLabBlockViewProps {
  * Jupyter": execução real e isolada via Piston, mas sem kernels persistentes nem
  * estado partilhado entre blocos (isso seria um Jupyter real, fora de âmbito).
  */
-export function CodeLabBlockView({ language, starterCode, expectedOutput, instructions }: CodeLabBlockViewProps) {
+export function CodeLabBlockView({ language, starterCode, expectedOutput, instructions, exerciseId, courseId, lessonKey, onRunComplete }: CodeLabBlockViewProps) {
   const [code, setCode] = useState(starterCode);
   const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState<{ stdout: string; stderr: string; passed?: boolean } | null>(null);
+  const [output, setOutput] = useState<{ stdout: string; stderr: string; passed?: boolean; xpAwarded?: number; badgeUnlocked?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleRun = async () => {
@@ -39,11 +47,11 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
       const res = await fetch("/api/coding-lab/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, code, expectedOutput }),
+        body: JSON.stringify({ language, code, expectedOutput, exerciseId, courseId, lessonKey }),
       });
       const data = await res.json();
       if (res.ok) {
-        setOutput({ stdout: data.stdout, stderr: data.stderr, passed: data.passed });
+        setOutput({ stdout: data.stdout, stderr: data.stderr, passed: data.passed, xpAwarded: data.xpAwarded, badgeUnlocked: data.badgeUnlocked });
       } else {
         setError(data.error || "Erro ao executar o código.");
       }
@@ -51,6 +59,7 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
       setError("Erro de comunicação com o motor de execução (Piston).");
     } finally {
       setRunning(false);
+      onRunComplete?.();
     }
   };
 
@@ -96,6 +105,11 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
               )}
               {output?.stdout && <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap">{output.stdout}</pre>}
               {output?.stderr && <pre className="text-xs text-rose-400 font-mono whitespace-pre-wrap">{output.stderr}</pre>}
+              {!!output?.xpAwarded && (
+                <div className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+                  +{output.xpAwarded} XP{output.badgeUnlocked ? " · Distintivo \"Code Runner\" desbloqueado!" : ""}
+                </div>
+              )}
             </>
           )}
         </div>
