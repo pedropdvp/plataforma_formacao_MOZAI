@@ -1,10 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { searchRelevantContext } from "@/lib/vector-store";
 import { openai } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { streamText, generateObject } from "ai";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { debitCredits } from "@/lib/ai-credits";
+import { z } from "zod";
+
+const cognitiveLogSchema = z.object({
+  topic: z.string().describe("O tópico/conceito técnico principal da pergunta, em 1 a 3 palavras (ex: 'Embeddings', 'Server Components', 'Gestão de Estado')"),
+  complexity: z.enum(["baixa", "media", "alta"]).describe("Nível de complexidade conceptual da pergunta colocada pelo aluno"),
+  isConfusion: z.boolean().describe("true se a pergunta indicar dificuldade, confusão ou um pedido de repetição/clarificação de algo já explicado"),
+});
 
 export const maxDuration = 30; // 30 segundos de limite de execução
 
@@ -40,26 +47,31 @@ export async function POST(req: NextRequest) {
     // 1. Obter a última mensagem do utilizador (a pergunta atual)
     const latestUserMessage = messages[messages.length - 1].content;
 
-    // Gravação assíncrona do log cognitivo e análise de tópicos (Digital Twin)
-    try {
-      const db = await getDb();
-      const cleanWords = latestUserMessage
-        .toLowerCase()
-        .replace(/[^\p{L}\d\s]/gu, "") // Suporta caracteres acentuados latinos
-        .split(/\s+/)
-        .filter((w: string) => w.length > 4 && !["sobre", "como", "fazer", "porque", "minha", "quais", "quais", "posso", "ajuda"].includes(w));
+    // Classificação e gravação do log cognitivo (Digital Twin) — corre DEPOIS de a resposta
+    // ao aluno já ter sido enviada (after()), para não atrasar o Tutor de IA com esta chamada extra.
+    after(async () => {
+      try {
+        const { object: classification } = await generateObject({
+          model: openai("gpt-4o-mini"),
+          schema: cognitiveLogSchema,
+          prompt: `Classifica a seguinte pergunta feita por um aluno a um Tutor de IA durante uma aula:\n\n"${latestUserMessage}"`,
+        });
 
-      await db.collection("cognitive_logs").insertOne({
-        tenant_id: tenantId,
-        userId,
-        courseId,
-        question: latestUserMessage,
-        topics: cleanWords,
-        timestamp: new Date(),
-      });
-    } catch (dbErr) {
-      console.warn("Erro ao registar log cognitivo do Digital Twin:", dbErr);
-    }
+        const db = await getDb();
+        await db.collection("cognitive_logs").insertOne({
+          tenant_id: tenantId,
+          userId,
+          courseId,
+          question: latestUserMessage,
+          topic: classification.topic,
+          complexity: classification.complexity,
+          isConfusion: classification.isConfusion,
+          timestamp: new Date(),
+        });
+      } catch (dbErr) {
+        console.warn("Erro ao registar log cognitivo do Digital Twin:", dbErr);
+      }
+    });
 
     // 2. Procurar contexto semântico relevante nas lições usando RAG (Vector Search)
     const contextChunks = await searchRelevantContext(tenantId, courseId, latestUserMessage, 3);

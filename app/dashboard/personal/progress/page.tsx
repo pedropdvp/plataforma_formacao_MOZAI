@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { GraduationCap, BookOpen, Clock, Loader2, Brain } from "lucide-react";
+import { GraduationCap, BookOpen, Clock, Loader2, Brain, AlertTriangle } from "lucide-react";
 
 interface CourseDefinition {
   id: string;
@@ -27,6 +27,8 @@ interface CourseProgressResult {
 export default function ProgressPage() {
   const [progressList, setProgressList] = useState<CourseProgressResult[]>([]);
   const [topTopics, setTopTopics] = useState<string[]>([]);
+  const [difficultTopics, setDifficultTopics] = useState<string[]>([]);
+  const [complexityBreakdown, setComplexityBreakdown] = useState({ baixa: 0, media: 0, alta: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export default function ProgressPage() {
         const data = progressRes.ok ? await progressRes.json() : {};
         const userProgressArray = data.progress || [];
         setTopTopics(data.topTopics || []);
+        setDifficultTopics(data.difficultTopics || []);
+        setComplexityBreakdown(data.complexityBreakdown || { baixa: 0, media: 0, alta: 0 });
 
         // Definições de curso: só cursos criados na Fábrica de Cursos (IA) — igual ao
         // Catálogo e a Meus Cursos. Os demos ficam só como reserva, quando ainda não existir
@@ -161,6 +165,49 @@ export default function ProgressPage() {
                 ))
               )}
             </div>
+
+            {(complexityBreakdown.baixa + complexityBreakdown.media + complexityBreakdown.alta) > 0 && (
+              <div className="pt-2 space-y-1.5">
+                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Complexidade das perguntas colocadas
+                </span>
+                <div className="h-2 w-full rounded-full bg-slate-950 border border-slate-900 overflow-hidden flex">
+                  {(["baixa", "media", "alta"] as const).map((level) => {
+                    const total = complexityBreakdown.baixa + complexityBreakdown.media + complexityBreakdown.alta;
+                    const pct = total > 0 ? (complexityBreakdown[level] / total) * 100 : 0;
+                    const color =
+                      level === "baixa" ? "bg-emerald-500" : level === "media" ? "bg-amber-500" : "bg-rose-500";
+                    return pct > 0 ? (
+                      <div key={level} className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+                    ) : null;
+                  })}
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-500">
+                  <span>Baixa: {complexityBreakdown.baixa}</span>
+                  <span>Média: {complexityBreakdown.media}</span>
+                  <span>Alta: {complexityBreakdown.alta}</span>
+                </div>
+              </div>
+            )}
+
+            {difficultTopics.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Conceitos com maior dificuldade
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {difficultTopics.map((topic, index) => (
+                    <span
+                      key={index}
+                      className="text-[10px] font-mono font-bold text-amber-400 bg-amber-500/5 border border-amber-500/10 px-3 py-1 rounded-full uppercase tracking-wider"
+                    >
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

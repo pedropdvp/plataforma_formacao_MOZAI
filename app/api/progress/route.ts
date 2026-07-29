@@ -137,8 +137,12 @@ export async function GET(req: NextRequest) {
       console.warn("Erro ao calcular velocidade de execução:", e);
     }
 
-    // Análise Cognitiva do Digital Twin: Extrair tópicos de interesse das perguntas à IA
+    // Análise Cognitiva do Digital Twin: tópicos de interesse, complexidade e conceitos
+    // onde o aluno revela mais dificuldade, com base na classificação feita pela IA
+    // sobre cada pergunta colocada ao Tutor (ver app/api/chat/route.ts).
     let topTopics: string[] = [];
+    let difficultTopics: string[] = [];
+    let complexityBreakdown = { baixa: 0, media: 0, alta: 0 };
     try {
       const cognitiveLogs = await db
         .collection("cognitive_logs")
@@ -146,8 +150,20 @@ export async function GET(req: NextRequest) {
         .toArray();
 
       const topicCounts: Record<string, number> = {};
+      const confusionCounts: Record<string, number> = {};
+
       cognitiveLogs.forEach((log: any) => {
-        if (log.topics && Array.isArray(log.topics)) {
+        // Formato atual: log.topic (string) + log.complexity + log.isConfusion.
+        // Formato legado (antes da classificação por IA): log.topics (array de palavras-chave).
+        if (log.topic) {
+          topicCounts[log.topic] = (topicCounts[log.topic] || 0) + 1;
+          if (log.complexity && log.complexity in complexityBreakdown) {
+            complexityBreakdown[log.complexity as keyof typeof complexityBreakdown]++;
+          }
+          if (log.isConfusion) {
+            confusionCounts[log.topic] = (confusionCounts[log.topic] || 0) + 1;
+          }
+        } else if (Array.isArray(log.topics)) {
           log.topics.forEach((topic: string) => {
             topicCounts[topic] = (topicCounts[topic] || 0) + 1;
           });
@@ -155,6 +171,11 @@ export async function GET(req: NextRequest) {
       });
 
       topTopics = Object.entries(topicCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([topic]) => topic)
+        .slice(0, 5);
+
+      difficultTopics = Object.entries(confusionCounts)
         .sort((a, b) => b[1] - a[1])
         .map(([topic]) => topic)
         .slice(0, 5);
@@ -166,6 +187,8 @@ export async function GET(req: NextRequest) {
       success: true,
       progress: progressList,
       topTopics,
+      difficultTopics,
+      complexityBreakdown,
       retentionPct,
       velocityPct,
     });
