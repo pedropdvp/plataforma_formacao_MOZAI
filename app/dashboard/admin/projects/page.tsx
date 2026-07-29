@@ -12,6 +12,8 @@ import {
   Hourglass,
   Clock,
   X,
+  Settings2,
+  Save,
 } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
 import { useToast } from "@/components/ui/toast-provider";
@@ -35,6 +37,24 @@ interface ProjectSubmission {
   reviewedBy: string | null;
 }
 
+interface CourseOption {
+  id: string;
+  title: string;
+}
+
+interface ProjectRequirement {
+  courseId: string;
+  courseTitle: string;
+  isRequired: boolean;
+  dueDate: string | null;
+}
+
+const DEMO_COURSES: CourseOption[] = [
+  { id: "course-1", title: "Engenharia de IA e RAG Avançado" },
+  { id: "course-2", title: "Next.js 16 e Arquiteturas Composable SaaS" },
+  { id: "course-3", title: "Smart Contracts e Criptografia com Solidity" },
+];
+
 const STATUS_CONFIG: Record<ProjectSubmission["status"], { label: string; color: string; icon: React.ElementType }> = {
   submitted: { label: "Por Avaliar", color: "text-amber-400 bg-amber-500/10 border-amber-500/20", icon: Hourglass },
   reviewing: { label: "Em Avaliação", color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", icon: Clock },
@@ -42,7 +62,8 @@ const STATUS_CONFIG: Record<ProjectSubmission["status"], { label: string; color:
   rejected: { label: "Rejeitado", color: "text-rose-400 bg-rose-500/10 border-rose-500/20", icon: XCircle },
 };
 
-const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "PROFESSOR", "GESTOR_ACADEMICO"];
+// Regra de negócio: só Admin e Professor podem avaliar projetos (não pares, não Suporte).
+const REVIEWER_ROLES = ["ADMIN", "PROFESSOR"];
 
 export default function AdminProjectsPage() {
   const { activeRole, isLoading: loadingRole } = useAccess();
@@ -56,6 +77,14 @@ export default function AdminProjectsPage() {
   const [gradeInput, setGradeInput] = useState("");
   const [feedbackInput, setFeedbackInput] = useState("");
   const [isSavingReview, setIsSavingReview] = useState(false);
+
+  // Configuração de requisito de projeto por curso (obrigatoriedade + prazo)
+  const [courses, setCourses] = useState<CourseOption[]>(DEMO_COURSES);
+  const [requirements, setRequirements] = useState<ProjectRequirement[]>([]);
+  const [configCourseId, setConfigCourseId] = useState("");
+  const [configIsRequired, setConfigIsRequired] = useState(false);
+  const [configDueDate, setConfigDueDate] = useState("");
+  const [isSavingRequirement, setIsSavingRequirement] = useState(false);
 
   const loadSubmissions = async () => {
     try {
@@ -71,10 +100,78 @@ export default function AdminProjectsPage() {
     }
   };
 
+  const loadConfigData = async () => {
+    try {
+      const [catalogRes, requirementsRes] = await Promise.all([
+        fetch("/api/catalog"),
+        fetch("/api/projects/requirements"),
+      ]);
+
+      if (catalogRes.ok) {
+        const data = await catalogRes.json();
+        const real: CourseOption[] = (data.courses || []).map((c: any) => ({ id: c._id, title: c.title }));
+        if (real.length > 0) {
+          const realIds = new Set(real.map((c) => c.id));
+          const combined = [...real, ...DEMO_COURSES.filter((c) => !realIds.has(c.id))];
+          setCourses(combined);
+          setConfigCourseId((prev) => prev || combined[0].id);
+        } else {
+          setConfigCourseId((prev) => prev || DEMO_COURSES[0].id);
+        }
+      }
+
+      if (requirementsRes.ok) {
+        const data = await requirementsRes.json();
+        setRequirements(data.requirements || []);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar configuração de requisitos de projetos:", error);
+    }
+  };
+
   useEffect(() => {
-    if (canAccess) loadSubmissions();
+    if (canAccess) {
+      loadSubmissions();
+      loadConfigData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAccess]);
+
+  // Ao trocar de curso no painel de configuração, pré-preencher com o requisito já guardado
+  useEffect(() => {
+    const existing = requirements.find((r) => r.courseId === configCourseId);
+    setConfigIsRequired(existing?.isRequired || false);
+    setConfigDueDate(existing?.dueDate ? existing.dueDate.slice(0, 10) : "");
+  }, [configCourseId, requirements]);
+
+  const handleSaveRequirement = async () => {
+    if (!configCourseId) return;
+    setIsSavingRequirement(true);
+    try {
+      const course = courses.find((c) => c.id === configCourseId);
+      const res = await fetch("/api/admin/projects/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: configCourseId,
+          courseTitle: course?.title || "Curso",
+          isRequired: configIsRequired,
+          dueDate: configDueDate || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Requisito de projeto do curso guardado.", "success");
+        loadConfigData();
+      } else {
+        showToast(data.error || "Erro ao guardar requisito.", "error");
+      }
+    } catch (error: any) {
+      showToast(error?.message || "Erro ao guardar requisito.", "error");
+    } finally {
+      setIsSavingRequirement(false);
+    }
+  };
 
   const openReview = (submission: ProjectSubmission) => {
     setReviewTarget(submission);
@@ -133,7 +230,7 @@ export default function AdminProjectsPage() {
         </div>
         <h1 className="text-xl font-bold text-white">Acesso Restrito</h1>
         <p className="text-sm text-slate-400 max-w-[420px]">
-          Só Administradores, Professores ou Gestores Académicos podem avaliar projetos submetidos pelos alunos.
+          Só Administradores ou Professores podem avaliar projetos submetidos pelos alunos.
         </p>
       </div>
     );
@@ -151,6 +248,63 @@ export default function AdminProjectsPage() {
         <p className="text-sm text-slate-400">
           Reveja os projetos práticos submetidos pelos alunos, atribua uma nota e dê feedback.
         </p>
+      </div>
+
+      {/* Configuração de Requisito de Projeto por Curso */}
+      <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4 shadow-xl">
+        <h3 className="font-bold text-sm text-white flex items-center gap-2">
+          <Settings2 className="h-4 w-4 text-cyan-400" />
+          Requisito de Projeto por Curso
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Defina se o projeto prático é obrigatório para a emissão do certificado do curso, e o prazo de entrega.
+        </p>
+
+        <div className="grid sm:grid-cols-3 gap-4 items-end">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Curso</label>
+            <select
+              value={configCourseId}
+              onChange={(e) => setConfigCourseId(e.target.value)}
+              className="w-full h-10 rounded-xl bg-slate-950 border border-slate-900 px-3 text-xs text-white focus:outline-none focus:border-indigo-500/50"
+            >
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Prazo de Entrega</label>
+            <input
+              type="date"
+              value={configDueDate}
+              onChange={(e) => setConfigDueDate(e.target.value)}
+              className="w-full h-10 rounded-xl bg-slate-950 border border-slate-900 px-3 text-xs text-white focus:outline-none focus:border-indigo-500/50"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={configIsRequired}
+                onChange={(e) => setConfigIsRequired(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-800 bg-slate-950 accent-cyan-500 cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-300">Obrigatório para certificado</span>
+            </label>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveRequirement}
+          disabled={isSavingRequirement}
+          className="h-9 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
+        >
+          {isSavingRequirement ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar Requisito
+        </button>
       </div>
 
       {/* Filtros */}

@@ -11,12 +11,20 @@ import {
   CheckCircle2,
   XCircle,
   Hourglass,
+  AlertTriangle,
+  CalendarClock,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 interface CourseOption {
   id: string;
   title: string;
+}
+
+interface ProjectRequirement {
+  courseId: string;
+  isRequired: boolean;
+  dueDate: string | null;
 }
 
 interface ProjectSubmission {
@@ -31,6 +39,7 @@ interface ProjectSubmission {
   status: "submitted" | "reviewing" | "approved" | "rejected";
   grade: number | null;
   feedback: string | null;
+  isLate?: boolean;
   submittedAt: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
@@ -55,6 +64,7 @@ export default function ProjectsPage() {
   const { showToast } = useToast();
 
   const [courses, setCourses] = useState<CourseOption[]>(DEMO_COURSES);
+  const [requirements, setRequirements] = useState<ProjectRequirement[]>([]);
   const [submissions, setSubmissions] = useState<ProjectSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,9 +78,10 @@ export default function ProjectsPage() {
 
   const loadData = async () => {
     try {
-      const [catalogRes, submissionsRes] = await Promise.all([
+      const [catalogRes, submissionsRes, requirementsRes] = await Promise.all([
         fetch("/api/catalog"),
         fetch("/api/projects"),
+        fetch("/api/projects/requirements"),
       ]);
 
       if (catalogRes.ok) {
@@ -89,12 +100,19 @@ export default function ProjectsPage() {
         const data = await submissionsRes.json();
         setSubmissions(data.submissions || []);
       }
+
+      if (requirementsRes.ok) {
+        const data = await requirementsRes.json();
+        setRequirements(data.requirements || []);
+      }
     } catch (error) {
       console.error("Erro ao carregar dados de Projetos:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  const selectedRequirement = requirements.find((r) => r.courseId === courseId);
 
   useEffect(() => {
     loadData();
@@ -214,6 +232,23 @@ export default function ProjectsPage() {
           </div>
         </div>
 
+        {selectedRequirement && (selectedRequirement.isRequired || selectedRequirement.dueDate) && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+            {selectedRequirement.isRequired && (
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Obrigatório para o certificado deste curso
+              </span>
+            )}
+            {selectedRequirement.dueDate && (
+              <span className="text-[10px] font-bold text-slate-300 bg-slate-900/60 border border-slate-800 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                <CalendarClock className="h-3.5 w-3.5" />
+                Prazo: {new Date(selectedRequirement.dueDate).toLocaleDateString("pt-PT")}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Descrição</label>
           <textarea
@@ -312,6 +347,11 @@ export default function ProjectsPage() {
                     </a>
                   )}
                   <span className="text-slate-600">Submetido em {new Date(s.submittedAt).toLocaleDateString("pt-PT")}</span>
+                  {s.isLate && (
+                    <span className="text-rose-400 bg-rose-500/5 border border-rose-500/10 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold">
+                      <AlertTriangle className="h-3 w-3" /> Fora do prazo
+                    </span>
+                  )}
                 </div>
 
                 {(s.status === "approved" || s.status === "rejected") && (s.feedback || s.grade !== null) && (

@@ -62,6 +62,12 @@ export async function POST(req: NextRequest) {
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const studentName = userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || userRecord.email : "Aluno";
 
+    // Verifica o prazo de entrega definido pelo Professor/Admin para este curso (se existir)
+    // e marca a submissão como atrasada — não bloqueia a entrega, apenas sinaliza ao avaliador.
+    const requirement = await db.collection("project_requirements").findOne({ tenant_id: tenantId, courseId });
+    const dueDate = requirement?.dueDate ? new Date(requirement.dueDate) : null;
+    const isLate = dueDate ? new Date() > dueDate : false;
+
     const submission = {
       tenant_id: tenantId,
       userId,
@@ -76,6 +82,7 @@ export async function POST(req: NextRequest) {
       status: "submitted", // submitted | reviewing | approved | rejected
       grade: null,
       feedback: null,
+      isLate,
       submittedAt: new Date(),
       reviewedAt: null,
       reviewedBy: null,

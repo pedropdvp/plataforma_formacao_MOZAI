@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 
-const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "PROFESSOR", "GESTOR_ACADEMICO"];
+// Regra de negócio: só Admin e Professor podem avaliar projetos (não pares, não Suporte).
+const REVIEWER_ROLES = ["ADMIN", "PROFESSOR"];
 
 // GET — Lista todas as submissões de projetos do tenant, para a fila de avaliação de
 // formadores/administração. Requer um papel ativo com permissão de avaliação.

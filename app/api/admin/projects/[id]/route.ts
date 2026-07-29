@@ -4,7 +4,8 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 
-const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "PROFESSOR", "GESTOR_ACADEMICO"];
+// Regra de negócio: só Admin e Professor podem avaliar projetos (não pares, não Suporte).
+const REVIEWER_ROLES = ["ADMIN", "PROFESSOR"];
 
 // PATCH — Avalia uma submissão de projeto: aprova ou rejeita, com nota (0-100) e feedback
 // escrito. Ao aprovar, marca também a lição/curso associado como concluído em

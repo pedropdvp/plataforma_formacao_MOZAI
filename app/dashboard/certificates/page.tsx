@@ -39,6 +39,7 @@ const ALL_COURSES = [
 export default function CertificatesPage() {
   const { userName } = useAccess();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [pendingProjectCourses, setPendingProjectCourses] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Estados de visualização e download
@@ -51,9 +52,11 @@ export default function CertificatesPage() {
   useEffect(() => {
     async function loadCertificatesData() {
       try {
-        const [catalogRes, progressRes] = await Promise.all([
+        const [catalogRes, progressRes, requirementsRes, projectsRes] = await Promise.all([
           fetch("/api/catalog"),
           fetch("/api/progress"),
+          fetch("/api/projects/requirements"),
+          fetch("/api/projects"),
         ]);
 
         let allAvailableCourses: any[] = ALL_COURSES;
@@ -77,16 +80,44 @@ export default function CertificatesPage() {
           progressList = pdata.progress || [];
         }
 
+        // Requisitos de projeto por curso (obrigatoriedade definida pelo Professor/Admin)
+        let requirementsList: any[] = [];
+        if (requirementsRes.ok) {
+          const rdata = await requirementsRes.json();
+          requirementsList = rdata.requirements || [];
+        }
+
+        // Submissões de projeto do próprio aluno, para verificar se já há uma aprovada
+        let ownSubmissions: any[] = [];
+        if (projectsRes.ok) {
+          const sdata = await projectsRes.json();
+          ownSubmissions = sdata.submissions || [];
+        }
+
         // Mapear apenas cursos concluídos a 100% como certificados reais
         const certList: Certificate[] = [];
+        const blockedByProject: string[] = [];
         allAvailableCourses.forEach((course) => {
+          // As lições concluídas por aprovação de projeto (lessonId sintético "project-<id>")
+          // não contam para o total de lições reais do curso — o requisito de projeto é
+          // verificado à parte, abaixo, para não inflacionar artificialmente este número.
           const courseProgress = progressList.filter(
-            (p: any) => p.courseId === course._id && p.status === "completed"
+            (p: any) => p.courseId === course._id && p.status === "completed" && !String(p.lessonId).startsWith("project-")
           );
           const completedCount = courseProgress.length;
           const denom = course.lessonsCount > 0 ? course.lessonsCount : 3;
 
-          if (completedCount >= denom && denom > 0) {
+          // Regra de negócio: o projeto só bloqueia o certificado se o Professor/Admin o
+          // tiver marcado como obrigatório para este curso especificamente.
+          const requirement = requirementsList.find((r: any) => r.courseId === course._id);
+          const projectRequired = requirement?.isRequired || false;
+          const projectApproved = ownSubmissions.some((s: any) => s.courseId === course._id && s.status === "approved");
+
+          if (completedCount >= denom && denom > 0 && projectRequired && !projectApproved) {
+            blockedByProject.push(course.title);
+          }
+
+          if (completedCount >= denom && denom > 0 && (!projectRequired || projectApproved)) {
             // Obter data da última lição concluída do curso
             let finalDate = "Hoje";
             if (courseProgress.length > 0) {
@@ -115,6 +146,7 @@ export default function CertificatesPage() {
         });
 
         setCertificates(certList);
+        setPendingProjectCourses(blockedByProject);
       } catch (err) {
         console.error("Erro ao ler dados de certificados:", err);
       } finally {
@@ -251,6 +283,15 @@ startxref
           Consulte e gerencie os seus certificados oficiais emitidos na conclusão de cada curso.
         </p>
       </div>
+
+      {/* Aviso: cursos concluídos mas bloqueados por falta de projeto aprovado */}
+      {pendingProjectCourses.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
+          <span className="font-bold block mb-1">Falta o projeto prático para emitir o certificado</span>
+          Concluiu todas as lições de: {pendingProjectCourses.join(", ")}. Este(s) curso(s) exige(m) um projeto prático aprovado antes da emissão do certificado —{" "}
+          <a href="/dashboard/projects" className="underline hover:text-amber-200">submeta o seu projeto aqui</a>.
+        </div>
+      )}
 
       {/* Main Area */}
       {certificates.length === 0 ? (

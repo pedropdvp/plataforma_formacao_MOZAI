@@ -342,7 +342,9 @@ const ROLES_DATA = [
     permissions: [
       "COURSES_CREATE", "COURSES_EDIT", "COURSES_ARCHIVE", "COURSES_PUBLISH",
       "ACADEMICS_ASSIGN", "HISTORY_VIEW_ALL", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
-      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE", "PROJECTS_REVIEW"
+      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
+      // Nota: a avaliação de projetos (PROJECTS_REVIEW) é exclusiva de ADMIN e PROFESSOR —
+      // o Gestor Académico não avalia projetos por decisão de negócio.
     ],
     description: "Planeamento pedagógico, criação de cursos e docência de turmas."
   },

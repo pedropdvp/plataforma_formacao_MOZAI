@@ -100,14 +100,24 @@ class MockCollection {
     return { acknowledged: true, insertedCount: docs.length, insertedIds };
   }
 
-  async updateOne(filter: any, update: any) {
+  async updateOne(filter: any, update: any, options: { upsert?: boolean } = {}) {
     const item = await this.findOne(filter);
     if (item) {
       const setFields = update.$set || update;
       Object.assign(item, setFields);
-      return { acknowledged: true, modifiedCount: 1 };
+      return { acknowledged: true, matchedCount: 1, modifiedCount: 1, upsertedId: null };
     }
-    return { acknowledged: true, modifiedCount: 0 };
+    // Suporta { upsert: true } tal como o driver real — sem isto, qualquer chamada real a
+    // `.updateOne(filter, update, { upsert: true })` ficava silenciosamente sem efeito assim
+    // que a app caía no mock, em vez de criar o documento em falta.
+    if (options.upsert) {
+      const setFields = update.$set || update;
+      const newDoc = { _id: Math.random().toString(36).substring(7), ...filter, ...setFields };
+      mockDatabaseCache[this.name] = mockDatabaseCache[this.name] || [];
+      mockDatabaseCache[this.name].push(newDoc);
+      return { acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedId: newDoc._id };
+    }
+    return { acknowledged: true, matchedCount: 0, modifiedCount: 0, upsertedId: null };
   }
 
   async deleteOne(filter: any) {
