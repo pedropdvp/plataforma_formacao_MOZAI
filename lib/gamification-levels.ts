@@ -28,12 +28,20 @@ const DEFAULT_LEVELS: Omit<GamificationLevel, "id">[] = [
 ];
 
 export async function getGamificationLevels(): Promise<GamificationLevel[]> {
-  const db = await getDb();
-  const rows = await db.collection("gamification_levels").find({}).sort({ threshold: 1 }).toArray();
-  if (rows.length === 0) {
+  try {
+    const db = await getDb();
+    const rows = await db.collection("gamification_levels").find({}).sort({ threshold: 1 }).toArray();
+    if (rows.length === 0) {
+      return DEFAULT_LEVELS.map((l, i) => ({ id: `default-${i}`, ...l }));
+    }
+    return rows.map((r: any) => ({ id: r._id.toString(), name: r.name, threshold: r.threshold }));
+  } catch (error) {
+    // Se a base de dados estiver indisponível (ex.: falha de ligação ao MongoDB Atlas),
+    // nunca deixar isto rebentar a renderização da página — os níveis por omissão garantem
+    // que o cálculo de nível/gamificação continua a funcionar em modo degradado.
+    console.warn("Falha ao ler a escala de níveis, a usar níveis por omissão:", error);
     return DEFAULT_LEVELS.map((l, i) => ({ id: `default-${i}`, ...l }));
   }
-  return rows.map((r: any) => ({ id: r._id.toString(), name: r.name, threshold: r.threshold }));
 }
 
 export interface LevelInfo {

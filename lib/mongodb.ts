@@ -49,14 +49,27 @@ class MockCollection {
       return true;
     });
 
-    return {
-      limit: (num: number) => {
-        const sliced = filtered.slice(0, num);
-        return {
-          toArray: async () => sliced
-        };
+    // Suporta encadear .sort(...) antes de .limit()/.toArray(), tal como o driver real —
+    // sem isto, qualquer chamada real a `.find(...).sort(...)` rebentava assim que a app
+    // caía no mock (ex.: MongoDB Atlas temporariamente inacessível), derrubando a página inteira.
+    const withCursorMethods = (rows: any[]): any => ({
+      sort: (sortSpec: Record<string, 1 | -1>) => {
+        const sortedRows = [...rows].sort((a, b) => {
+          for (const key in sortSpec) {
+            const dir = sortSpec[key];
+            if (a[key] < b[key]) return -1 * dir;
+            if (a[key] > b[key]) return 1 * dir;
+          }
+          return 0;
+        });
+        return withCursorMethods(sortedRows);
       },
-      toArray: async () => filtered
+      limit: (num: number) => withCursorMethods(rows.slice(0, num)),
+      toArray: async () => rows,
+    });
+
+    return {
+      ...withCursorMethods(filtered)
     };
   }
 
