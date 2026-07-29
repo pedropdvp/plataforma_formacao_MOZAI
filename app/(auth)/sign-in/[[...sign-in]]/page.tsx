@@ -2,68 +2,64 @@
 
 import React, { useState } from "react";
 import { SignIn } from "@clerk/nextjs";
-import { ShieldCheck, Mail, Loader2, ArrowRight, CheckCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useSignIn } from "@clerk/nextjs/legacy";
+import { ShieldCheck, Mail, Loader2, ArrowRight } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 export default function SignInPage() {
-  const router = useRouter();
+  const { signIn, isLoaded } = useSignIn();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"standard" | "sso">("standard");
 
   // Estados SSO
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [ssoDetails, setSsoDetails] = useState<any>(null);
   const [statusMessage, setStatusMessage] = useState("");
 
   const handleSsoCheck = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes("@")) return;
+    if (!email.trim() || !email.includes("@") || !isLoaded) return;
 
     setLoading(true);
-    setSsoDetails(null);
     setStatusMessage("A pesquisar domínio nos registos do WorkOS...");
 
     try {
+      // 1. Descoberta de organização por domínio (real, via WorkOS) — só para mostrar
+      // ao utilizador a que empresa vai ligar-se e definir o tenant antes do redirecionamento.
       const res = await fetch("/api/auth/sso-discover", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-
       const data = await res.json();
-      if (res.ok && data.success) {
-        setSsoDetails(data);
-        
-        // Simular o redirecionamento SAML SSO
-        setTimeout(() => {
-          setStatusMessage("Conexão SAML ativa encontrada!");
-        }, 1000);
 
-        setTimeout(() => {
-          setStatusMessage(`A redirecionar para ${data.provider} da ${data.organizationName}...`);
-        }, 2000);
-
-        setTimeout(() => {
-          // Guardar tenant nos cookies para simular o redirecionamento com isolamento
-          document.cookie = `x-tenant-id=${data.tenantId}; path=/; max-age=86400`;
-          setStatusMessage("Autenticado via SAML SSO com sucesso!");
-        }, 3500);
-
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 4500);
-
-      } else {
-        showToast(data.message || "Este domínio não possui conexão SAML SSO configurada.", "warning");
+      if (!res.ok || !data.success) {
+        showToast(data.message || "Este domínio não possui conexão SSO configurada.", "warning");
         setLoading(false);
+        return;
       }
-    } catch (err) {
+
+      // Guarda o tenant descoberto antes de sair para o IdP — a sessão real só é criada
+      // no callback (/sso-callback), este cookie só define o isolamento de dados a usar
+      // assim que o Clerk confirmar a sessão.
+      document.cookie = `x-tenant-id=${data.tenantId}; path=/; max-age=86400`;
+      setStatusMessage(`A redirecionar para o login da ${data.organizationName}...`);
+
+      // 2. Login real via Enterprise SSO do Clerk (SAML/OIDC) — o Clerk redireciona para
+      // o Identity Provider real da empresa (Okta, Azure AD, etc.) configurado no painel
+      // do Clerk para este domínio, e volta a /sso-callback com uma sessão verdadeira.
+      await signIn.authenticateWithRedirect({
+        strategy: "enterprise_sso",
+        identifier: email,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/dashboard",
+      });
+    } catch (err: any) {
       console.error(err);
-      showToast("Erro ao ligar ao servidor de autenticação WorkOS.", "error");
+      const message =
+        err?.errors?.[0]?.message ||
+        "Não foi possível iniciar o SSO. Verifique se a sua organização tem uma ligação Enterprise SSO configurada no Clerk para este domínio.";
+      showToast(message, "error");
       setLoading(false);
     }
   };
@@ -133,7 +129,7 @@ export default function SignInPage() {
                 </p>
               </div>
 
-              {!ssoDetails ? (
+              {!loading ? (
                 <form onSubmit={handleSsoCheck} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
@@ -148,40 +144,21 @@ export default function SignInPage() {
                       className="w-full h-11 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none transition-colors"
                       required
                     />
-                    <p className="text-[9px] text-slate-650 leading-relaxed pt-1">
-                      Dica: Domínios simulados incluem <strong>acme.com</strong> ou <strong>empresa.com</strong>.
-                    </p>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !isLoaded}
                     className="w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all disabled:opacity-50"
                   >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        A verificar...
-                      </>
-                    ) : (
-                      <>
-                        Verificar Domínio SSO
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </>
-                    )}
+                    Verificar Domínio SSO
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 </form>
               ) : (
                 <div className="p-8 text-center flex flex-col items-center justify-center space-y-4">
                   <Loader2 className="h-8 w-8 text-indigo-400 animate-spin" />
-                  <div className="space-y-2">
-                    <span className="block text-xs font-bold text-white">
-                      {statusMessage}
-                    </span>
-                    <span className="text-[10px] text-slate-500 block">
-                      Organização: {ssoDetails.organizationName}
-                    </span>
-                  </div>
+                  <span className="block text-xs font-bold text-white">{statusMessage}</span>
                 </div>
               )}
 
