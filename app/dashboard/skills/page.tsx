@@ -22,7 +22,7 @@ export default function SkillsOSPage() {
   useEffect(() => {
     async function loadProgressAndSkills() {
       try {
-        const res = await fetch("/api/progress");
+        const [res, catalogRes] = await Promise.all([fetch("/api/progress"), fetch("/api/catalog")]);
         if (res.ok) {
           const data = await res.json();
           const progressList = data.progress || [];
@@ -172,6 +172,36 @@ export default function SkillsOSPage() {
               connections: [],
             },
           ];
+
+          // Cobertura dinâmica: os nós acima são curados manualmente para os cursos-demo
+          // (granularidade fina, por conceito técnico). Qualquer OUTRO curso real — criado
+          // na Fábrica de Cursos (IA) ou carregado no Sanity — não tinha nenhum nó no grafo
+          // até aqui. Gera-se um nó (por curso) a partir do progresso real do aluno, para o
+          // Skills OS cobrir toda a plataforma e não só os cursos-demo.
+          const CURATED_COURSE_IDS = new Set(["course-1", "course-2", "course-3", "course-4", "course-criptomoedas-n1"]);
+          if (catalogRes.ok) {
+            const catalogData = await catalogRes.json();
+            const realCourses = (catalogData.courses || []).filter((c: any) => !CURATED_COURSE_IDS.has(c._id));
+
+            realCourses.forEach((course: any) => {
+              const completedCount = progressList.filter(
+                (p: any) => p.courseId === course._id && p.status === "completed"
+              ).length;
+              const denom = course.lessonsCount > 0 ? course.lessonsCount : 1;
+              const score = Math.min(Math.round((completedCount / denom) * 100), 100);
+              const level =
+                score === 0 ? "Bloqueado" : score < 40 ? "Iniciado" : score < 70 ? "Básico" : score < 90 ? "Intermédio" : "Avançado";
+
+              computedSkills.push({
+                id: course._id,
+                label: course.title,
+                score,
+                type: course.category || "Curso",
+                level,
+                connections: [],
+              });
+            });
+          }
 
           setSkills(computedSkills);
           // Pré-selecionar o primeiro nó ativo ou o primeiro da lista
