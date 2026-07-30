@@ -31,11 +31,30 @@ export default async function HRDashboardPage() {
     _id: l._id.toString()
   }));
 
+  // Tentativas reais de quiz — alimentam o motor de pontuação contínua do Skills OS
+  // (lib/skills-os.ts), reaproveitado aqui para o Gap Analysis deixar de usar números fixos.
+  const quizAttemptsRaw = await db.collection("quiz_attempts").find({ tenant_id: tenantId }).toArray();
+  const quizAttempts = quizAttemptsRaw.map((q: any) => ({ ...q, _id: q._id.toString() }));
+
   // 2. Estatísticas Globais de Acessos para ADMIN/SUPORTE (Requisito do Utilizador)
   const isAdminOrSupport = activeRole === "ADMIN" || activeRole === "SUPORTE";
   let globalStats: any = null;
+  let globalTopTopics: string[] = [];
 
   if (isAdminOrSupport) {
+    // Tendência real de dúvidas ao Tutor de IA em TODA a plataforma (todos os tenants) —
+    // só calculada para quem tem visão global, para nunca misturar dados de outra empresa
+    // na vista de um Gestor Empresa.
+    const allCognitiveLogs = await db.collection("cognitive_logs").find({}).toArray();
+    const globalTopicCounts: Record<string, number> = {};
+    allCognitiveLogs.forEach((log: any) => {
+      const topic = log.topic || (Array.isArray(log.topics) ? log.topics[0] : null);
+      if (topic) globalTopicCounts[topic] = (globalTopicCounts[topic] || 0) + 1;
+    });
+    globalTopTopics = Object.entries(globalTopicCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([topic]) => topic);
     const allUsers = await db.collection("users").find({}).toArray();
     const allCompanies = await db.collection("tenants").find({}).toArray();
     const rootSettings = await db.collection("tenant_settings").findOne({ tenant_id: "root" });
@@ -111,11 +130,13 @@ export default async function HRDashboardPage() {
     <HRDashboardClient
       initialProgress={progressList}
       initialCognitiveLogs={cognitiveLogs}
+      initialQuizAttempts={quizAttempts}
       tenantId={tenantId}
       companyName={branding.companyName}
       brandColor={branding.brandColor}
       userId={userId || ""}
       globalStats={globalStats}
+      globalTopTopics={globalTopTopics}
       activeRole={activeRole}
     />
   );

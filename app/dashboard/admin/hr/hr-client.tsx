@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/toast-provider";
 import { DetailModal, DetailModalColumn } from "@/components/ui/detail-modal";
 import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
+import { computeSkillNodes, CURATED_SKILL_DEFS } from "@/lib/skills-os";
 import {
   Users, BookOpen, AlertTriangle, TrendingUp, Compass, ArrowRight, UserCheck,
   CheckCircle2, Plus, Mail, User, ShieldAlert, GraduationCap, X, Loader2, LifeBuoy,
@@ -13,11 +14,13 @@ import {
 interface HRClientProps {
   initialProgress: any[];
   initialCognitiveLogs: any[];
+  initialQuizAttempts: any[];
   tenantId: string;
   companyName: string;
   brandColor: string;
   userId: string;
   globalStats?: any;
+  globalTopTopics?: string[];
   activeRole?: string | null;
 }
 
@@ -33,11 +36,13 @@ interface DBUser {
 export default function HRDashboardClient({
   initialProgress,
   initialCognitiveLogs,
+  initialQuizAttempts,
   tenantId,
   companyName,
   brandColor,
   userId,
   globalStats,
+  globalTopTopics = [],
   activeRole
 }: HRClientProps) {
   const isGlobal = activeRole === "ADMIN" || activeRole === "SUPORTE";
@@ -415,23 +420,30 @@ export default function HRDashboardClient({
       : [{ lessonTitle: "Blockchain e Consenso", stalledCount: 2 }];
   }
 
-  // 2. Inventário de Competências (Mapeado dinamicamente das lições completadas)
-  const isCompleted = (cId: string, lId: string) =>
-    progressList.some((p: any) => p.courseId === cId && p.lessonId === lId && p.status === "completed");
+  // 2. Inventário de Competências — reaproveita o MESMO motor de pontuação contínua do
+  // Skills OS (lib/skills-os.ts: média real de quiz + decaimento por inatividade), corrido
+  // por cada colaborador e agregado, em vez dos números fixos por lição concluída de antes.
+  const perEmployeeNodes = users.map((u: any) => {
+    const userProgress = progressList.filter((p: any) => p.userId === u._id);
+    const userQuizAttempts = initialQuizAttempts.filter((a: any) => a.userId === u._id);
+    return computeSkillNodes(userProgress, userQuizAttempts);
+  });
 
-  const skillsInventory = [
-    { name: "Python Core", averageScore: isCompleted("course-1", "lesson-1-1") ? 88 : 40, coverage: isCompleted("course-1", "lesson-1-1") ? 90 : 25 },
-    { name: "FastAPI Routing", averageScore: isCompleted("course-1", "lesson-1-1") ? 72 : 30, coverage: isCompleted("course-1", "lesson-1-1") ? 60 : 15 },
-    { name: "Docker Containers", averageScore: isCompleted("course-1", "lesson-1-2") ? 82 : 35, coverage: isCompleted("course-1", "lesson-1-2") ? 75 : 10 },
-    { name: "RAG & Vector Search", averageScore: isCompleted("course-1", "lesson-1-3") ? 79 : 20, coverage: isCompleted("course-1", "lesson-1-3") ? 55 : 5 },
-    { name: "Next.js 16 RSC", averageScore: isCompleted("course-2", "lesson-1-1") ? 84 : 45, coverage: isCompleted("course-2", "lesson-1-1") ? 80 : 30 },
-    { name: "Solidity Blockchain", averageScore: isCompleted("course-3", "lesson-1-1") ? 92 : 30, coverage: isCompleted("course-3", "lesson-1-1") ? 70 : 10 },
-  ];
+  const skillsInventory = CURATED_SKILL_DEFS.map((def) => {
+    const scoresForSkill = perEmployeeNodes.map((nodes) => nodes.find((n) => n.id === def.id)).filter((n): n is NonNullable<typeof n> => !!n);
+    const withScore = scoresForSkill.filter((n) => n.score > 0);
+    const averageScore = withScore.length > 0 ? Math.round(withScore.reduce((sum, n) => sum + n.score, 0) / withScore.length) : 0;
+    const coverage = scoresForSkill.length > 0 ? Math.round((withScore.length / scoresForSkill.length) * 100) : 0;
+    return { name: def.label, averageScore, coverage };
+  }).filter((s) => s.coverage > 0);
 
-  // 3. Analisar logs cognitivos agregados para obter tendências corporativas
+  // 3. Analisar logs cognitivos agregados para obter tendências corporativas — lê o
+  // formato atual (log.topic, classificado por IA) e o legado (log.topics[]).
   const searchTerms: Record<string, number> = {};
   initialCognitiveLogs.forEach((log: any) => {
-    if (Array.isArray(log.topics)) {
+    if (log.topic) {
+      searchTerms[log.topic] = (searchTerms[log.topic] || 0) + 1;
+    } else if (Array.isArray(log.topics)) {
       log.topics.forEach((word: string) => {
         searchTerms[word] = (searchTerms[word] || 0) + 1;
       });
@@ -450,12 +462,48 @@ export default function HRDashboardClient({
     )}". Sugerimos agendar uma aula ao vivo de tira-dúvidas sobre estes temas esta semana.`;
   }
 
-  // 4. Inventário de Colaboradores — utilizadores reais deste tenant
+  // 4. Plano Individual REAL: colaborador com a pontuação de competência mais baixa entre
+  // quem já tem dados — nunca um nome/pontuação inventados.
+  let individualPlan = "Ainda não há dados de desempenho suficientes para um plano individual.";
+  let worstScore = 101;
+  perEmployeeNodes.forEach((nodes, idx) => {
+    const employee = users[idx] as any;
+    nodes.filter((n) => n.score > 0).forEach((n) => {
+      if (n.score < worstScore) {
+        worstScore = n.score;
+        const empName = `${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.email || "Este colaborador";
+        individualPlan = `${empName} está com ${n.score}% de fluência em "${n.label}" — o ponto mais fraco identificado na equipa. Recomendamos reforço direcionado a esta competência.`;
+      }
+    });
+  });
+
+  // 5. Plano por Departamento (agrupado pelo perfil de acesso real — a plataforma ainda
+  // não tem um campo de "departamento" próprio, por isso usa o agrupamento real existente).
+  let departmentPlan = "Sem grupos de perfil suficientes para um plano por departamento.";
+  let worstGroupAvg = 101;
+  const roleGroupIndexes: Record<string, number[]> = {};
+  users.forEach((u: any, idx: number) => {
+    const tenantMapping = u.tenants?.find((t: any) => t.tenantId === tenantId);
+    const role = tenantMapping?.roles?.[0] || "Aluno";
+    if (!roleGroupIndexes[role]) roleGroupIndexes[role] = [];
+    roleGroupIndexes[role].push(idx);
+  });
+  Object.entries(roleGroupIndexes).forEach(([role, indexes]) => {
+    const groupScores = indexes.flatMap((idx) => perEmployeeNodes[idx].filter((n) => n.score > 0).map((n) => n.score));
+    if (groupScores.length === 0) return;
+    const avg = Math.round(groupScores.reduce((s, v) => s + v, 0) / groupScores.length);
+    if (avg < worstGroupAvg) {
+      worstGroupAvg = avg;
+      departmentPlan = `O grupo "${role}" tem a fluência média mais baixa da empresa (${avg}%), com base em ${groupScores.length} competência(s) medida(s). Considere priorizar formação para este grupo.`;
+    }
+  });
+
+  // 6. Inventário de Colaboradores — utilizadores reais deste tenant
   const realEmployeeList = users.map((u: any) => {
     const userProgress = progressList.filter((p: any) => p.userId === u._id);
     const userTopics = initialCognitiveLogs
       .filter((log: any) => log.userId === u._id)
-      .flatMap((log: any) => (Array.isArray(log.topics) ? log.topics : []));
+      .flatMap((log: any) => (log.topic ? [log.topic] : Array.isArray(log.topics) ? log.topics : []));
     const tenantMapping = u.tenants?.find((t: any) => t.tenantId === tenantId);
     return {
       id: u._id,
@@ -780,9 +828,7 @@ export default function HRDashboardClient({
                   <span className="font-bold text-[10px] uppercase tracking-wider text-cyan-400 block">
                     Plano Individual
                   </span>
-                  <p className="text-slate-400 leading-relaxed">
-                    Pedro Marques necessita reforçar conhecimentos em Docker (módulo 2) para assumir liderança técnica no deploy do Q3.
-                  </p>
+                  <p className="text-slate-400 leading-relaxed">{individualPlan}</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
@@ -791,6 +837,26 @@ export default function HRDashboardClient({
                   </span>
                   <p className="text-slate-400 leading-relaxed">{teamPlan}</p>
                 </div>
+
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                  <span className="font-bold text-[10px] uppercase tracking-wider text-amber-400 block">
+                    Plano por Departamento (Perfil de Acesso)
+                  </span>
+                  <p className="text-slate-400 leading-relaxed">{departmentPlan}</p>
+                </div>
+
+                {isGlobal && (
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-emerald-400 block">
+                      Plano Global (Toda a Plataforma)
+                    </span>
+                    <p className="text-slate-400 leading-relaxed">
+                      {globalTopTopics.length > 0
+                        ? `Em toda a plataforma, os temas com mais dúvidas ao Tutor de IA são: "${globalTopTopics.join(", ")}". Considere reforçar estes conteúdos no catálogo global.`
+                        : "Ainda não há interações suficientes com o Tutor de IA em toda a plataforma para um plano global."}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

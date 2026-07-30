@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { computeSkillNodes, CURATED_SKILL_DEFS, ScoredSkillNode } from "@/lib/skills-os";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,9 +17,13 @@ export async function GET(req: NextRequest) {
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const db = await getDb();
 
-    // 2. Buscar progresso de todos os utilizadores deste tenant
-    const progressList = await db.collection("user_progress").find({ tenant_id: tenantId }).toArray();
-    const cognitiveLogs = await db.collection("cognitive_logs").find({ tenant_id: tenantId }).toArray();
+    // 2. Buscar progresso e desempenho reais de todos os utilizadores deste tenant
+    const [progressList, cognitiveLogs, quizAttempts, tenantUsers] = await Promise.all([
+      db.collection("user_progress").find({ tenant_id: tenantId }).toArray(),
+      db.collection("cognitive_logs").find({ tenant_id: tenantId }).toArray(),
+      db.collection("quiz_attempts").find({ tenant_id: tenantId }).toArray(),
+      db.collection("users").find({ "tenants.tenantId": tenantId }).toArray(),
+    ]);
 
     // 3. Processar Métricas Corporativas (KPIs)
     const uniqueUserIds = Array.from(new Set(progressList.map((p: any) => p.userId)));
@@ -33,57 +38,35 @@ export async function GET(req: NextRequest) {
     const totalWatchSeconds = progressList.reduce((acc: number, curr: any) => acc + (curr.watchTime || 0), 0);
     const totalStudyHours = Math.round(totalWatchSeconds / 3600);
 
-    // 4. Inventário de Competências (Mapeado dinamicamente das lições completadas)
-    const isCompleted = (cId: string, lId: string) =>
-      progressList.some((p: any) => p.courseId === cId && p.lessonId === lId && p.status === "completed");
+    // 4. Inventário de Competências — reaproveita o MESMO motor de pontuação contínua do
+    // Skills OS (lib/skills-os.ts: média real de quiz + decaimento por inatividade), em
+    // vez de números fixos por lição concluída. Corre por cada colaborador e agrega
+    // (média entre quem já tem alguma pontuação = "coverage"), para dar uma visão real
+    // de força/cobertura da empresa nesta competência.
+    const perEmployeeNodes: ScoredSkillNode[][] = tenantUsers.map((u: any) => {
+      const userProgress = progressList.filter((p: any) => p.userId === u._id);
+      const userQuizAttempts = quizAttempts.filter((a: any) => a.userId === u._id);
+      return computeSkillNodes(userProgress, userQuizAttempts);
+    });
 
-    const skillsInventory = [
-      {
-        name: "Python Core",
-        averageScore: isCompleted("course-1", "lesson-1-1") ? 88 : 40,
-        coverage: isCompleted("course-1", "lesson-1-1") ? 90 : 25,
-      },
-      {
-        name: "FastAPI Routing",
-        averageScore: isCompleted("course-1", "lesson-1-1") ? 72 : 30,
-        coverage: isCompleted("course-1", "lesson-1-1") ? 60 : 15,
-      },
-      {
-        name: "Docker Containers",
-        averageScore: isCompleted("course-1", "lesson-1-2") ? 82 : 35,
-        coverage: isCompleted("course-1", "lesson-1-2") ? 75 : 10,
-      },
-      {
-        name: "RAG & Vector Search",
-        averageScore: isCompleted("course-1", "lesson-1-3") ? 79 : 20,
-        coverage: isCompleted("course-1", "lesson-1-3") ? 55 : 5,
-      },
-      {
-        name: "Next.js 16 RSC",
-        averageScore: isCompleted("course-2", "lesson-1-1") ? 84 : 45,
-        coverage: isCompleted("course-2", "lesson-1-1") ? 80 : 30,
-      },
-      {
-        name: "Solidity Blockchain",
-        averageScore: isCompleted("course-3", "lesson-1-1") ? 92 : 30,
-        coverage: isCompleted("course-3", "lesson-1-1") ? 70 : 10,
-      },
-      {
-        name: "Bitcoin & Descentralização",
-        averageScore: isCompleted("course-criptomoedas-n1", "introducao-as-criptomoedas-e-satoshi-nakamoto") || isCompleted("course-4", "lesson-1-1") ? 95 : 30,
-        coverage: isCompleted("course-criptomoedas-n1", "introducao-as-criptomoedas-e-satoshi-nakamoto") || isCompleted("course-4", "lesson-1-1") ? 80 : 15,
-      },
-      {
-        name: "Stablecoins & Altcoins",
-        averageScore: isCompleted("course-criptomoedas-n1", "stablecoins-e-altcoins") || isCompleted("course-4", "lesson-1-2") ? 88 : 25,
-        coverage: isCompleted("course-criptomoedas-n1", "stablecoins-e-altcoins") || isCompleted("course-4", "lesson-1-2") ? 75 : 10,
-      },
-    ];
+    const skillsInventory = CURATED_SKILL_DEFS.map((def) => {
+      const scoresForSkill = perEmployeeNodes
+        .map((nodes: ScoredSkillNode[]) => nodes.find((n) => n.id === def.id))
+        .filter((n): n is ScoredSkillNode => !!n);
+      const withScore = scoresForSkill.filter((n) => n.score > 0);
+      const averageScore = withScore.length > 0 ? Math.round(withScore.reduce((sum: number, n) => sum + n.score, 0) / withScore.length) : 0;
+      const coverage = scoresForSkill.length > 0 ? Math.round((withScore.length / scoresForSkill.length) * 100) : 0;
+      return { name: def.label, averageScore, coverage };
+    }).filter((s) => s.coverage > 0); // só mostra competências com pelo menos algum colaborador com dados reais
 
-    // 5. Analisar logs cognitivos agregados para obter tendências corporativas
+    // 5. Analisar logs cognitivos agregados para obter tendências corporativas — lê tanto
+    // o formato atual (log.topic, string única, classificada por IA) como o legado
+    // (log.topics[], simples palavras-chave) para não perder cobertura de nenhum dos dois.
     const searchTerms: Record<string, number> = {};
     cognitiveLogs.forEach((log: any) => {
-      if (Array.isArray(log.topics)) {
+      if (log.topic) {
+        searchTerms[log.topic] = (searchTerms[log.topic] || 0) + 1;
+      } else if (Array.isArray(log.topics)) {
         log.topics.forEach((word: string) => {
           searchTerms[word] = (searchTerms[word] || 0) + 1;
         });
@@ -104,12 +87,11 @@ export async function GET(req: NextRequest) {
     }
 
     // 6. Inventário de Colaboradores (Employee List) — utilizadores reais deste tenant
-    const tenantUsers = await db.collection("users").find({ "tenants.tenantId": tenantId }).toArray();
     const employeeList = tenantUsers.map((u: any) => {
       const userProgress = progressList.filter((p: any) => p.userId === u._id);
       const userTopics = cognitiveLogs
         .filter((log: any) => log.userId === u._id)
-        .flatMap((log: any) => (Array.isArray(log.topics) ? log.topics : []));
+        .flatMap((log: any) => (log.topic ? [log.topic] : Array.isArray(log.topics) ? log.topics : []));
       const tenantMapping = u.tenants?.find((t: any) => t.tenantId === tenantId);
       return {
         id: u._id,
@@ -120,6 +102,47 @@ export async function GET(req: NextRequest) {
         interests: Array.from(new Set(userTopics)).slice(0, 3),
         isMe: u._id === userId,
       };
+    });
+
+    // 7. Plano Individual REAL: identifica o colaborador com a pontuação de competência
+    // mais baixa entre quem já tem dados (nunca inventa um nome nem uma pontuação).
+    let individualPlan = "Ainda não há dados de desempenho suficientes para um plano individual.";
+    let worstScore = 101;
+    perEmployeeNodes.forEach((nodes: ScoredSkillNode[], idx: number) => {
+      const employee: any = tenantUsers[idx];
+      nodes
+        .filter((n) => n.score > 0)
+        .forEach((n) => {
+          if (n.score < worstScore) {
+            worstScore = n.score;
+            const empName = `${employee.firstName || ""} ${employee.lastName || ""}`.trim() || employee.email || "Este colaborador";
+            individualPlan = `${empName} está com ${n.score}% de fluência em "${n.label}" — o ponto mais fraco identificado na equipa. Recomendamos reforço direcionado a esta competência.`;
+          }
+        });
+    });
+
+    // 8. Plano por Departamento (agrupado pelo perfil de acesso real de cada colaborador —
+    // a plataforma ainda não tem um campo de "departamento" próprio, por isso usa o
+    // agrupamento real que já existe, em vez de inventar uma unidade organizacional).
+    const roleGroups: Record<string, { userIds: string[] }> = {};
+    employeeList.forEach((emp: any) => {
+      if (!roleGroups[emp.role]) roleGroups[emp.role] = { userIds: [] };
+      roleGroups[emp.role].userIds.push(emp.id);
+    });
+    let departmentPlan = "Sem grupos de perfil suficientes para um plano por departamento.";
+    let worstGroupAvg = 101;
+    Object.entries(roleGroups).forEach(([role, group]) => {
+      const groupScores = group.userIds
+        .flatMap((uid) => {
+          const idx = tenantUsers.findIndex((u: any) => u._id === uid);
+          return idx >= 0 ? perEmployeeNodes[idx].filter((n: ScoredSkillNode) => n.score > 0).map((n: ScoredSkillNode) => n.score) : [];
+        });
+      if (groupScores.length === 0) return;
+      const avg = Math.round(groupScores.reduce((s, v) => s + v, 0) / groupScores.length);
+      if (avg < worstGroupAvg) {
+        worstGroupAvg = avg;
+        departmentPlan = `O grupo "${role}" tem a fluência média mais baixa da empresa (${avg}%), com base em ${groupScores.length} competência(s) medida(s). Considere priorizar formação para este grupo.`;
+      }
     });
 
     // 7. Estatísticas Globais de Acessos para ADMIN/SUPORTE (Requisito do Utilizador)
@@ -186,16 +209,46 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // 9. Plano Global (ADMIN/SUPORTE): tendência real de dúvidas ao Tutor de IA em TODA a
+    // plataforma (todos os tenants), não só desta empresa — só calculado para quem tem
+    // visão global, para não misturar dados de outras empresas na visão de um Gestor Empresa.
+    let globalPlan: string | null = null;
+    if (isAdminOrSupport) {
+      const allCognitiveLogs = await db.collection("cognitive_logs").find({}).toArray();
+      const globalTopicCounts: Record<string, number> = {};
+      allCognitiveLogs.forEach((log: any) => {
+        const topic = log.topic || (Array.isArray(log.topics) ? log.topics[0] : null);
+        if (topic) globalTopicCounts[topic] = (globalTopicCounts[topic] || 0) + 1;
+      });
+      const topGlobalTopics = Object.entries(globalTopicCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([topic]) => topic);
+
+      globalPlan =
+        topGlobalTopics.length > 0
+          ? `Em toda a plataforma, os temas com mais dúvidas ao Tutor de IA são: "${topGlobalTopics.join(", ")}". Considere reforçar estes conteúdos no catálogo global.`
+          : "Ainda não há interações suficientes com o Tutor de IA em toda a plataforma para um plano global.";
+    }
+
+    // Contagem real de lacunas críticas: competências da empresa com fluência média abaixo
+    // de 40% (o mesmo limiar "Iniciado" usado no Skills OS) — não é uma regra fixa por
+    // faixa de conclusão.
+    const criticalGapsCount = skillsInventory.filter((s) => s.averageScore > 0 && s.averageScore < 40).length;
+
     return NextResponse.json({
       success: true,
       kpis: {
         activeEmployees,
         completionRate,
         totalStudyHours,
-        criticalGapsCount: completionRate < 60 ? 3 : 1,
+        criticalGapsCount,
       },
       skillsInventory,
       teamPlan,
+      individualPlan,
+      departmentPlan,
+      globalPlan,
       employeeList,
       globalStats
     });
