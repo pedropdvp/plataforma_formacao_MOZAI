@@ -44,7 +44,8 @@ import {
   UserCog,
   Layers,
   FolderKanban,
-  Puzzle
+  Puzzle,
+  FlaskConical
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -191,6 +192,7 @@ export default function SidebarNav() {
   const isWorkspaceActive = [
     "/dashboard/marketing-agency",
     "/dashboard/admin/auto-update",
+    "/dashboard/ai-lab",
     "/dashboard/skills/coding-lab",
     "/dashboard/admin",
     "/dashboard/admin/content-factory",
@@ -553,6 +555,12 @@ export default function SidebarNav() {
                 {t("nav_project_review", "Avaliação de Projetos")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("ai-lab") && (
+            <Link href="/dashboard/ai-lab" className={linkClass("/dashboard/ai-lab")}>
+              <FlaskConical className="h-4 w-4 text-cyan-400" />
+              {t("nav_ai_lab", "AI Lab (Multi-Modelo)")}
+            </Link>
             )}
             {isItemVisible("career") && (
             <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>

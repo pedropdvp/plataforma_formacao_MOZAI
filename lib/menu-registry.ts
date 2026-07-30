@@ -69,6 +69,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "academy", groupId: "workspace", label: "Academia Corporativa", path: "/dashboard/admin/academy" },
   { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
   { id: "project-review", groupId: "workspace", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
+  { id: "ai-lab", groupId: "workspace", label: "AI Lab (Multi-Modelo)", path: "/dashboard/ai-lab" },
   { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
