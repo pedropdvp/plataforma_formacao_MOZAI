@@ -7,6 +7,8 @@ import SidebarNav from "@/components/sidebar-nav";
 import UIControls from "@/components/ui-controls";
 import ChatbotWidget from "@/components/chatbot-widget";
 import OnboardingModal from "@/components/onboarding-modal";
+import TermsConsentModal from "@/components/terms-consent-modal";
+import { CURRENT_TERMS_VERSION } from "@/lib/compliance";
 import { getActiveTenantBranding } from "@/lib/tenant";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
@@ -253,6 +255,7 @@ export default async function DashboardLayout({
 
       <ChatbotWidget />
       {!userRecord.onboardingCompletedAt && <OnboardingModal activeRole={activeRole} />}
+      {userRecord.termsVersion !== CURRENT_TERMS_VERSION && <TermsConsentModal />}
     </div>
   );
 }

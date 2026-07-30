@@ -183,7 +183,8 @@ export default function SidebarNav() {
     "/dashboard/certificates",
     "/dashboard/personal/ai-credits",
     "/dashboard/recycling",
-    "/dashboard/diplomas"
+    "/dashboard/diplomas",
+    "/dashboard/personal/privacy"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
   const isWorkspaceActive = [
@@ -218,6 +219,7 @@ export default function SidebarNav() {
     "/dashboard/admin/backups",
     "/dashboard/admin/api-keys",
     "/dashboard/admin/chatbot",
+    "/dashboard/admin/compliance",
     "/dashboard/admin/menus",
     "/dashboard/admin/levels",
     "/dashboard/admin/roles"
@@ -487,6 +489,12 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
+            {isItemVisible("privacy") && (
+            <Link href="/dashboard/personal/privacy" className={linkClass("/dashboard/personal/privacy")}>
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              {t("nav_privacy", "Privacidade & Dados")}
+            </Link>
+            )}
           </>
         )}
       </div>
@@ -700,7 +708,7 @@ export default function SidebarNav() {
           alfabeticamente), visível para ADMIN (âmbito toda a plataforma) ou GESTOR_EMPRESA
           (âmbito só a sua empresa, exceto Menus — gestão de visibilidade é exclusiva do Admin);
           cada link tem ainda o seu próprio SecureRender para o caso de os níveis divergirem. */}
-      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("CHATBOT_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("LEVELS_MANAGE") || hasPermission("ROLES_MANAGE")) && isGroupVisible("configuracao") && (
+      {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("CHATBOT_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("LEVELS_MANAGE") || hasPermission("ROLES_MANAGE") || hasPermission("LOGS_VIEW")) && isGroupVisible("configuracao") && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
             onClick={() => setAdministracaoOpen(!administracaoOpen)}
@@ -733,6 +741,14 @@ export default function SidebarNav() {
                 <Link href="/dashboard/admin/backups" className={linkClass("/dashboard/admin/backups")}>
                   <Database className="h-4 w-4 text-orange-400" />
                   {t("nav_backup_restore", "Backup & Restore")}
+                </Link>
+              </SecureRender>
+              )}
+              {isItemVisible("compliance") && (
+              <SecureRender requiredPermission="LOGS_VIEW">
+                <Link href="/dashboard/admin/compliance" className={linkClass("/dashboard/admin/compliance")}>
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  {t("nav_compliance", "Compliance (RGPD)")}
                 </Link>
               </SecureRender>
               )}

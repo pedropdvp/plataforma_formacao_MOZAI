@@ -62,6 +62,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "ai-credits", groupId: "pessoal", label: "Créditos IA", path: "/dashboard/personal/ai-credits" },
   { id: "recycling", groupId: "pessoal", label: "Cursos efetuados", path: "/dashboard/recycling" },
   { id: "diplomas", groupId: "pessoal", label: "Diplomas", path: "/dashboard/diplomas" },
+  { id: "privacy", groupId: "pessoal", label: "Privacidade & Dados", path: "/dashboard/personal/privacy" },
 
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
@@ -92,6 +93,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
+  { id: "compliance", groupId: "configuracao", label: "Compliance (RGPD)", path: "/dashboard/admin/compliance" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
   { id: "levels", groupId: "configuracao", label: "Níveis", path: "/dashboard/admin/levels" },
   { id: "access-profiles", groupId: "configuracao", label: "Perfis de acesso", path: "/dashboard/admin/roles" },
