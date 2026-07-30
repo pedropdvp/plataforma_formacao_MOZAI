@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2, TrendingDown, GitBranch, List } from "lucide-react";
+import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2, TrendingDown, GitBranch, List, Brain, Gauge, FolderCheck, GraduationCap, Rocket, ShieldCheck } from "lucide-react";
 import { SkillsGraphCanvas } from "@/components/skills-graph-canvas";
 
 interface SkillNode {
@@ -14,12 +14,22 @@ interface SkillNode {
   daysSinceActivity: number | null;
 }
 
+interface ContinuousMetrics {
+  knowledgePct: number;
+  confidencePct: number;
+  experience: { xp: number; levelName: string; progressPct: number };
+  projects: { avgGrade: number | null; approvedCount: number };
+  examsRetentionPct: number;
+  velocityPct: number;
+}
+
 export default function SkillsOSPage() {
   const [skills, setSkills] = useState<SkillNode[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<SkillNode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [retentionPct, setRetentionPct] = useState(0);
   const [velocityPct, setVelocityPct] = useState(0);
+  const [metrics, setMetrics] = useState<ContinuousMetrics | null>(null);
   const [viewMode, setViewMode] = useState<"graph" | "list">("graph");
 
   useEffect(() => {
@@ -33,6 +43,7 @@ export default function SkillsOSPage() {
           setSelectedSkill(nodes[0] || null);
           setRetentionPct(data.retentionPct || 0);
           setVelocityPct(data.velocityPct || 0);
+          setMetrics(data.continuousMetrics || null);
         }
       } catch (error) {
         console.error("Erro ao carregar o Grafo de Competências:", error);
@@ -56,6 +67,54 @@ export default function SkillsOSPage() {
           A pontuação de cada competência deriva da média real dos seus quizzes, com decaimento se não praticar — não é um valor fixo.
         </p>
       </div>
+
+      {/* Medição Contínua — as 7 dimensões, todas calculadas a partir de dados reais */}
+      {!isLoading && metrics && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <MetricTile
+            icon={Brain}
+            label="Conhecimento"
+            value={`${metrics.knowledgePct}%`}
+            hint="Amplitude do grafo desbloqueada"
+            color="text-violet-400 border-violet-500/10"
+          />
+          <MetricTile
+            icon={ShieldCheck}
+            label="Confiança"
+            value={`${metrics.confidencePct}%`}
+            hint="Força média das competências conhecidas"
+            color="text-indigo-400 border-indigo-500/10"
+          />
+          <MetricTile
+            icon={Rocket}
+            label="Experiência"
+            value={`${metrics.experience.xp} MZ`}
+            hint={`${metrics.experience.levelName} · ${metrics.experience.progressPct}% p/ próximo nível`}
+            color="text-amber-400 border-amber-500/10"
+          />
+          <MetricTile
+            icon={FolderCheck}
+            label="Projetos"
+            value={metrics.projects.avgGrade !== null ? `${metrics.projects.avgGrade}%` : "—"}
+            hint={metrics.projects.approvedCount > 0 ? `${metrics.projects.approvedCount} aprovado(s)` : "Nenhum projeto aprovado ainda"}
+            color="text-cyan-400 border-cyan-500/10"
+          />
+          <MetricTile
+            icon={GraduationCap}
+            label="Retenção / Exames"
+            value={`${metrics.examsRetentionPct}%`}
+            hint="Média real de acerto nos quizzes"
+            color="text-emerald-400 border-emerald-500/10"
+          />
+          <MetricTile
+            icon={Gauge}
+            label="Velocidade"
+            value={`${metrics.velocityPct}%`}
+            hint="Ritmo de lições nos últimos 7 dias"
+            color="text-rose-400 border-rose-500/10"
+          />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-slate-500 gap-2">
@@ -237,6 +296,29 @@ export default function SkillsOSPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function MetricTile({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  hint: string;
+  color: string;
+}) {
+  return (
+    <div className={`border rounded-2xl p-3.5 bg-[#070b13] ${color}`}>
+      <Icon className="h-4 w-4 mb-2" />
+      <span className="block text-lg font-extrabold text-white leading-none truncate">{value}</span>
+      <span className="block text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-wide">{label}</span>
+      <span className="block text-[9px] text-slate-600 mt-1 leading-snug">{hint}</span>
     </div>
   );
 }
