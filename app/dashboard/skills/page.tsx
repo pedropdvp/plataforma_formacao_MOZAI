@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2 } from "lucide-react";
+import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2, TrendingDown } from "lucide-react";
 
 interface SkillNode {
   id: string;
@@ -10,6 +10,7 @@ interface SkillNode {
   type: string;
   level: string;
   connections: string[];
+  daysSinceActivity: number | null;
 }
 
 export default function SkillsOSPage() {
@@ -20,203 +21,25 @@ export default function SkillsOSPage() {
   const [velocityPct, setVelocityPct] = useState(0);
 
   useEffect(() => {
-    async function loadProgressAndSkills() {
+    async function loadSkills() {
       try {
-        const [res, catalogRes] = await Promise.all([fetch("/api/progress"), fetch("/api/catalog")]);
+        const res = await fetch("/api/skills-os");
         if (res.ok) {
           const data = await res.json();
-          const progressList = data.progress || [];
-
-          // Helper check functions
-          const isLessonCompleted = (courseId: string, lessonId: string) =>
-            progressList.some(
-              (p: any) => p.courseId === courseId && p.lessonId === lessonId && p.status === "completed"
-            );
-
-          const isCourseStarted = (courseId: string) =>
-            progressList.some((p: any) => p.courseId === courseId);
-
-          const computedSkills: SkillNode[] = [
-            // Curso 1 Nodes: Engenharia de IA
-            {
-              id: "python",
-              label: "Python Core",
-              score: isLessonCompleted("course-1", "lesson-1-1") ? 92 : (isCourseStarted("course-1") ? 25 : 0),
-              type: "Linguagem",
-              level: isLessonCompleted("course-1", "lesson-1-1") ? "Avançado" : (isCourseStarted("course-1") ? "Básico" : "Bloqueado"),
-              connections: ["fastapi", "rest"],
-            },
-            {
-              id: "fastapi",
-              label: "FastAPI Routing",
-              score: isLessonCompleted("course-1", "lesson-1-1") ? 65 : (isCourseStarted("course-1") ? 15 : 0),
-              type: "Framework",
-              level: isLessonCompleted("course-1", "lesson-1-1") ? "Intermédio" : (isCourseStarted("course-1") ? "Básico" : "Bloqueado"),
-              connections: ["rest"],
-            },
-            {
-              id: "rest",
-              label: "REST API Design",
-              score: isLessonCompleted("course-1", "lesson-1-1") ? 84 : (isCourseStarted("course-1") ? 20 : 0),
-              type: "Arquitetura",
-              level: isLessonCompleted("course-1", "lesson-1-1") ? "Avançado" : (isCourseStarted("course-1") ? "Básico" : "Bloqueado"),
-              connections: ["docker"],
-            },
-            {
-              id: "docker",
-              label: "Docker Containers",
-              score: isLessonCompleted("course-1", "lesson-1-2") ? 71 : (isCourseStarted("course-1") ? 10 : 0),
-              type: "Infraestrutura",
-              level: isLessonCompleted("course-1", "lesson-1-2") ? "Intermédio" : (isCourseStarted("course-1") ? "Básico" : "Bloqueado"),
-              connections: ["cloud"],
-            },
-            {
-              id: "cloud",
-              label: "AWS & GCP Cloud",
-              score: isLessonCompleted("course-1", "lesson-1-2") ? 52 : (isCourseStarted("course-1") ? 5 : 0),
-              type: "Infraestrutura",
-              level: isLessonCompleted("course-1", "lesson-1-2") ? "Básico" : (isCourseStarted("course-1") ? "Iniciado" : "Bloqueado"),
-              connections: ["agents"],
-            },
-            {
-              id: "agents",
-              label: "AI Agents System",
-              score: isLessonCompleted("course-1", "lesson-1-3") ? 43 : (isCourseStarted("course-1") ? 5 : 0),
-              type: "IA & Orquestração",
-              level: isLessonCompleted("course-1", "lesson-1-3") ? "Básico" : (isCourseStarted("course-1") ? "Iniciado" : "Bloqueado"),
-              connections: ["rag"],
-            },
-            {
-              id: "rag",
-              label: "RAG & Search Atlas",
-              score: isLessonCompleted("course-1", "lesson-1-3") ? 58 : (isCourseStarted("course-1") ? 10 : 0),
-              type: "IA & Orquestração",
-              level: isLessonCompleted("course-1", "lesson-1-3") ? "Básico" : (isCourseStarted("course-1") ? "Iniciado" : "Bloqueado"),
-              connections: [],
-            },
-
-            // Curso 2 Nodes: Next.js 16
-            {
-              id: "nextjs",
-              label: "Next.js 16 RSC",
-              score: isLessonCompleted("course-2", "lesson-1-1") ? 88 : (isCourseStarted("course-2") ? 30 : 0),
-              type: "Framework",
-              level: isLessonCompleted("course-2", "lesson-1-1") ? "Avançado" : (isCourseStarted("course-2") ? "Básico" : "Bloqueado"),
-              connections: ["clerk_auth"],
-            },
-            {
-              id: "clerk_auth",
-              label: "Clerk & B2B SSO",
-              score: isLessonCompleted("course-2", "lesson-1-2") ? 75 : (isCourseStarted("course-2") ? 15 : 0),
-              type: "Identidade/Segurança",
-              level: isLessonCompleted("course-2", "lesson-1-2") ? "Intermédio" : (isCourseStarted("course-2") ? "Iniciado" : "Bloqueado"),
-              connections: ["sanity_cms"],
-            },
-            {
-              id: "sanity_cms",
-              label: "Sanity CMS & GROQ",
-              score: isLessonCompleted("course-2", "lesson-1-3") ? 67 : (isCourseStarted("course-2") ? 10 : 0),
-              type: "Arquitetura/Dados",
-              level: isLessonCompleted("course-2", "lesson-1-3") ? "Intermédio" : (isCourseStarted("course-2") ? "Iniciado" : "Bloqueado"),
-              connections: [],
-            },
-
-            // Curso 3 Nodes: Solidity
-            {
-              id: "solidity",
-              label: "Solidity Core",
-              score: isLessonCompleted("course-3", "lesson-1-1") ? 90 : (isCourseStarted("course-3") ? 20 : 0),
-              type: "Linguagem Web3",
-              level: isLessonCompleted("course-3", "lesson-1-1") ? "Avançado" : (isCourseStarted("course-3") ? "Básico" : "Bloqueado"),
-              connections: ["erc_tokens"],
-            },
-            {
-              id: "erc_tokens",
-              label: "ERC-20 & ERC-721 Standards",
-              score: isLessonCompleted("course-3", "lesson-1-2") ? 82 : (isCourseStarted("course-3") ? 10 : 0),
-              type: "Blockchain Protocol",
-              level: isLessonCompleted("course-3", "lesson-1-2") ? "Avançado" : (isCourseStarted("course-3") ? "Iniciado" : "Bloqueado"),
-              connections: ["smart_security"],
-            },
-            {
-              id: "smart_security",
-              label: "Smart Contract Audit",
-              score: isLessonCompleted("course-3", "lesson-1-3") ? 77 : (isCourseStarted("course-3") ? 5 : 0),
-              type: "Segurança/Auditoria",
-              level: isLessonCompleted("course-3", "lesson-1-3") ? "Intermédio" : (isCourseStarted("course-3") ? "Iniciado" : "Bloqueado"),
-              connections: ["bitcoin"],
-            },
-            // Curso 4 Nodes: Criptomoedas e Blockchain
-            {
-              id: "bitcoin",
-              label: "Bitcoin & Descentralização",
-              score: isLessonCompleted("course-criptomoedas-n1", "introducao-as-criptomoedas-e-satoshi-nakamoto") || isLessonCompleted("course-4", "lesson-1-1") ? 95 : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? 20 : 0),
-              type: "Protocolo",
-              level: isLessonCompleted("course-criptomoedas-n1", "introducao-as-criptomoedas-e-satoshi-nakamoto") || isLessonCompleted("course-4", "lesson-1-1") ? "Avançado" : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? "Básico" : "Bloqueado"),
-              connections: ["stablecoins"],
-            },
-            {
-              id: "stablecoins",
-              label: "Stablecoins & Altcoins",
-              score: isLessonCompleted("course-criptomoedas-n1", "stablecoins-e-altcoins") || isLessonCompleted("course-4", "lesson-1-2") ? 88 : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? 15 : 0),
-              type: "Ativos Digitais",
-              level: isLessonCompleted("course-criptomoedas-n1", "stablecoins-e-altcoins") || isLessonCompleted("course-4", "lesson-1-2") ? "Avançado" : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? "Básico" : "Bloqueado"),
-              connections: ["crypto_wallets"],
-            },
-            {
-              id: "crypto_wallets",
-              label: "Wallets & Segurança Segura",
-              score: isLessonCompleted("course-criptomoedas-n1", "wallets-e-armazenamento-seguro") || isLessonCompleted("course-4", "lesson-1-3") ? 91 : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? 10 : 0),
-              type: "Criptografia/Armazenamento",
-              level: isLessonCompleted("course-criptomoedas-n1", "wallets-e-armazenamento-seguro") || isLessonCompleted("course-4", "lesson-1-3") ? "Avançado" : (isCourseStarted("course-4") || isCourseStarted("course-criptomoedas-n1") ? "Básico" : "Bloqueado"),
-              connections: [],
-            },
-          ];
-
-          // Cobertura dinâmica: os nós acima são curados manualmente para os cursos-demo
-          // (granularidade fina, por conceito técnico). Qualquer OUTRO curso real — criado
-          // na Fábrica de Cursos (IA) ou carregado no Sanity — não tinha nenhum nó no grafo
-          // até aqui. Gera-se um nó (por curso) a partir do progresso real do aluno, para o
-          // Skills OS cobrir toda a plataforma e não só os cursos-demo.
-          const CURATED_COURSE_IDS = new Set(["course-1", "course-2", "course-3", "course-4", "course-criptomoedas-n1"]);
-          if (catalogRes.ok) {
-            const catalogData = await catalogRes.json();
-            const realCourses = (catalogData.courses || []).filter((c: any) => !CURATED_COURSE_IDS.has(c._id));
-
-            realCourses.forEach((course: any) => {
-              const completedCount = progressList.filter(
-                (p: any) => p.courseId === course._id && p.status === "completed"
-              ).length;
-              const denom = course.lessonsCount > 0 ? course.lessonsCount : 1;
-              const score = Math.min(Math.round((completedCount / denom) * 100), 100);
-              const level =
-                score === 0 ? "Bloqueado" : score < 40 ? "Iniciado" : score < 70 ? "Básico" : score < 90 ? "Intermédio" : "Avançado";
-
-              computedSkills.push({
-                id: course._id,
-                label: course.title,
-                score,
-                type: course.category || "Curso",
-                level,
-                connections: [],
-              });
-            });
-          }
-
-          setSkills(computedSkills);
-          // Pré-selecionar o primeiro nó ativo ou o primeiro da lista
-          setSelectedSkill(computedSkills[0]);
+          const nodes: SkillNode[] = data.nodes || [];
+          setSkills(nodes);
+          setSelectedSkill(nodes[0] || null);
           setRetentionPct(data.retentionPct || 0);
           setVelocityPct(data.velocityPct || 0);
         }
       } catch (error) {
-        console.error("Erro ao carregar competências:", error);
+        console.error("Erro ao carregar o Grafo de Competências:", error);
       } finally {
         setIsLoading(false);
       }
     }
 
-    loadProgressAndSkills();
+    loadSkills();
   }, []);
 
   return (
@@ -228,7 +51,7 @@ export default function SkillsOSPage() {
           AI Skills OS: Grafo de Competências
         </h1>
         <p className="text-sm text-slate-400">
-          A IA mede continuamente os seus conhecimentos, velocidade de resolução e retenção de conceitos ao longo de toda a plataforma.
+          A pontuação de cada competência deriva da média real dos seus quizzes, com decaimento se não praticar — não é um valor fixo.
         </p>
       </div>
 
@@ -250,6 +73,7 @@ export default function SkillsOSPage() {
               {skills.map((node) => {
                 const isSelected = selectedSkill?.id === node.id;
                 const isLocked = node.level === "Bloqueado" || node.score === 0;
+                const isDecaying = node.daysSinceActivity !== null && node.daysSinceActivity > 30;
 
                 return (
                   <div
@@ -271,8 +95,13 @@ export default function SkillsOSPage() {
                         {node.score}%
                       </div>
                       <div>
-                        <h4 className={`font-bold text-sm ${isLocked ? "text-slate-500" : "text-white"}`}>
+                        <h4 className={`font-bold text-sm flex items-center gap-1.5 ${isLocked ? "text-slate-500" : "text-white"}`}>
                           {node.label}
+                          {isDecaying && !isLocked && (
+                            <span title="Em decaimento por inatividade">
+                              <TrendingDown className="h-3.5 w-3.5 text-amber-400" />
+                            </span>
+                          )}
                         </h4>
                         <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
                           {node.type} &bull; {node.level}
@@ -341,6 +170,12 @@ export default function SkillsOSPage() {
                     <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
                       <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: `${selectedSkill.score}%` }} />
                     </div>
+                    {selectedSkill.daysSinceActivity !== null && selectedSkill.daysSinceActivity > 30 && (
+                      <p className="text-[10px] text-amber-400 flex items-center gap-1 pt-1">
+                        <TrendingDown className="h-3 w-3" />
+                        Sem prática há {selectedSkill.daysSinceActivity} dias — a fluência está a decair.
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -353,6 +188,8 @@ export default function SkillsOSPage() {
                   <p className="text-[11px] text-slate-450 leading-relaxed">
                     {selectedSkill.score === 0 ? (
                       `Esta competência encontra-se bloqueada. Inicie o curso e conclua as lições associadas para abrir esta ramificação do Grafo de Competências.`
+                    ) : selectedSkill.daysSinceActivity !== null && selectedSkill.daysSinceActivity > 30 ? (
+                      `Já não pratica "${selectedSkill.label}" há ${selectedSkill.daysSinceActivity} dias e a sua fluência está a decair. Refaça o quiz ou reveja a lição para recuperar a pontuação.`
                     ) : selectedSkill.score < 70 ? (
                       `A IA detetou fragilidades em ${selectedSkill.label}. Sugerimos concluir os exercícios práticos da aula correspondente para subir a sua proficiência.`
                     ) : (
