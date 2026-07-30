@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { triggerPluginEvent } from "@/lib/plugins";
 
 // GET — Lista os pedidos de mentoria relacionados com o utilizador autenticado: os que
 // enviou (como mentee) e os que recebeu (como mentor).
@@ -88,6 +89,8 @@ export async function POST(req: NextRequest) {
     });
 
     await logAuditEvent(userId, "MENTORSHIP_REQUESTED", { tenantId, mentorUserId, requestId: result.insertedId?.toString() });
+
+    after(() => triggerPluginEvent(tenantId, "mentorship.requested", { mentorName: mentorProfile.name, menteeName }));
 
     return NextResponse.json({ success: true, message: "Pedido de mentoria enviado com sucesso." });
   } catch (error: any) {

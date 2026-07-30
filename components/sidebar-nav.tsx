@@ -43,7 +43,8 @@ import {
   SlidersHorizontal,
   UserCog,
   Layers,
-  FolderKanban
+  FolderKanban,
+  Puzzle
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -221,6 +222,7 @@ export default function SidebarNav() {
     "/dashboard/admin/api-keys",
     "/dashboard/admin/chatbot",
     "/dashboard/admin/compliance",
+    "/dashboard/admin/plugins",
     "/dashboard/admin/menus",
     "/dashboard/admin/levels",
     "/dashboard/admin/roles"
@@ -758,6 +760,14 @@ export default function SidebarNav() {
                 <Link href="/dashboard/admin/compliance" className={linkClass("/dashboard/admin/compliance")}>
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
                   {t("nav_compliance", "Compliance (RGPD)")}
+                </Link>
+              </SecureRender>
+              )}
+              {isItemVisible("plugins") && (
+              <SecureRender requiredPermission="API_KEYS_MANAGE">
+                <Link href="/dashboard/admin/plugins" className={linkClass("/dashboard/admin/plugins")}>
+                  <Puzzle className="h-4 w-4 text-cyan-400" />
+                  {t("nav_plugins", "Plugins")}
                 </Link>
               </SecureRender>
               )}

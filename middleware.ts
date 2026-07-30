@@ -92,6 +92,11 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_EMPRESA");
         }
 
+        // Plugins (Marketplace): integrações via webhook, geridas pelo Gestor Empresa
+        if (path.startsWith("/dashboard/admin/plugins")) {
+          allowedRoles.push("GESTOR_EMPRESA");
+        }
+
         // Menus (Configuração > Menus): gestão de visibilidade é exclusiva de ADMIN/SUPORTE
 
         if (!allowedRoles.includes(activeRole)) {

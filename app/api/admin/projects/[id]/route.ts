@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { ObjectId } from "mongodb";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { triggerPluginEvent } from "@/lib/plugins";
 
 // Regra de negócio: só Admin e Professor podem avaliar projetos (não pares, não Suporte).
 const REVIEWER_ROLES = ["ADMIN", "PROFESSOR"];
@@ -70,6 +71,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       status,
       grade,
     });
+
+    if (status === "approved") {
+      after(() => triggerPluginEvent(tenantId, "project.approved", { studentName: submission.studentName, title: submission.title, grade }));
+    }
 
     return NextResponse.json({ success: true, message: "Avaliação do projeto registada com sucesso." });
   } catch (error: any) {

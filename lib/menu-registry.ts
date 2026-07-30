@@ -94,6 +94,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
+  { id: "plugins", groupId: "configuracao", label: "Plugins", path: "/dashboard/admin/plugins" },
   { id: "compliance", groupId: "configuracao", label: "Compliance (RGPD)", path: "/dashboard/admin/compliance" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
   { id: "levels", groupId: "configuracao", label: "Níveis", path: "/dashboard/admin/levels" },

@@ -43,7 +43,15 @@ class MockCollection {
             if (item[key] !== filterVal) return false;
           }
         } else {
-          if (item[key] !== filterVal) return false;
+          // Tal como o driver real: se o campo do documento for um array, um filtro
+          // escalar (ex: { events: "project.approved" }) verifica se o array CONTÉM esse
+          // valor, não uma igualdade estrita — sem isto, filtrar por um valor dentro de
+          // um campo array nunca encontrava nada assim que a app caía no mock.
+          if (Array.isArray(item[key])) {
+            if (!item[key].includes(filterVal)) return false;
+          } else if (item[key] !== filterVal) {
+            return false;
+          }
         }
       }
       return true;
