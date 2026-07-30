@@ -20,6 +20,10 @@ import {
   Upload,
   Trash2,
   FileArchive,
+  Bot,
+  MessageSquare,
+  Lock,
+  Globe,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -62,7 +66,7 @@ export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
-  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets">("courses");
+  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models">("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -357,6 +361,163 @@ export default function MarketplacePage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // --- MODELOS IA ---
+  interface AiModel {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    hasKnowledge: boolean;
+    isPublic: boolean;
+    usesCount: number;
+    ownerName: string;
+    isMine: boolean;
+  }
+
+  const [aiModels, setAiModels] = useState<AiModel[]>([]);
+  const [loadingAiModels, setLoadingAiModels] = useState(true);
+  const [aiModelSearch, setAiModelSearch] = useState("");
+  const [newModelName, setNewModelName] = useState("");
+  const [newModelDescription, setNewModelDescription] = useState("");
+  const [newModelCategory, setNewModelCategory] = useState("");
+  const [newModelSystemPrompt, setNewModelSystemPrompt] = useState("");
+  const [newModelKnowledge, setNewModelKnowledge] = useState("");
+  const [newModelIsPublic, setNewModelIsPublic] = useState(true);
+  const [publishingModel, setPublishingModel] = useState(false);
+
+  const [testingModel, setTestingModel] = useState<AiModel | null>(null);
+  const [testMessages, setTestMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [testInput, setTestInput] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+
+  const loadAiModels = async (query: string) => {
+    setLoadingAiModels(true);
+    try {
+      const res = await fetch(`/api/ai-models?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAiModels(data.models || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os Modelos IA.", "error");
+    } finally {
+      setLoadingAiModels(false);
+    }
+  };
+
+  const handlePublishModel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newModelName.trim() || !newModelDescription.trim() || !newModelSystemPrompt.trim()) {
+      showToast("Preencha o nome, a descrição e as instruções do assistente.", "error");
+      return;
+    }
+    setPublishingModel(true);
+    try {
+      const res = await fetch("/api/ai-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newModelName.trim(),
+          description: newModelDescription.trim(),
+          category: newModelCategory.trim(),
+          systemPrompt: newModelSystemPrompt.trim(),
+          knowledgeText: newModelKnowledge.trim(),
+          isPublic: newModelIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Modelo IA publicado com sucesso!", "success");
+        setNewModelName("");
+        setNewModelDescription("");
+        setNewModelCategory("");
+        setNewModelSystemPrompt("");
+        setNewModelKnowledge("");
+        loadAiModels(aiModelSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o Modelo IA.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o Modelo IA.", "error");
+    } finally {
+      setPublishingModel(false);
+    }
+  };
+
+  const handleToggleModelVisibility = async (model: AiModel) => {
+    try {
+      const res = await fetch(`/api/ai-models/${model.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !model.isPublic }),
+      });
+      if (res.ok) {
+        setAiModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, isPublic: !m.isPublic } : m)));
+      }
+    } catch {
+      showToast("Erro ao atualizar a visibilidade do Modelo IA.", "error");
+    }
+  };
+
+  const handleDeleteModel = async (model: AiModel) => {
+    try {
+      const res = await fetch(`/api/ai-models/${model.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Modelo IA eliminado.", "success");
+        setAiModels((prev) => prev.filter((m) => m.id !== model.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o Modelo IA.", "error");
+    }
+  };
+
+  const openTestModel = (model: AiModel) => {
+    setTestingModel(model);
+    setTestMessages([]);
+    setTestInput("");
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!testInput.trim() || !testingModel) return;
+    const userMessage = { role: "user" as const, content: testInput.trim() };
+    const nextMessages = [...testMessages, userMessage];
+    setTestMessages(nextMessages);
+    setTestInput("");
+    setTestLoading(true);
+    try {
+      const res = await fetch(`/api/ai-models/${testingModel.id}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: nextMessages }),
+      });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Erro ao conversar com este Modelo IA.", "error");
+        setTestLoading(false);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantText = "";
+      setTestMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        assistantText += decoder.decode(value, { stream: true });
+        setTestMessages((prev) => {
+          const copy = [...prev];
+          copy[copy.length - 1] = { role: "assistant", content: assistantText };
+          return copy;
+        });
+      }
+    } catch {
+      showToast("Erro de comunicação com este Modelo IA.", "error");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -368,6 +529,9 @@ export default function MarketplacePage() {
     }
     if (tab === "datasets") {
       loadDatasets("");
+    }
+    if (tab === "models") {
+      loadAiModels("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -498,6 +662,14 @@ export default function MarketplacePage() {
           }`}
         >
           <Database className="h-3.5 w-3.5" /> Datasets
+        </button>
+        <button
+          onClick={() => setTab("models")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "models" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Bot className="h-3.5 w-3.5" /> Modelos IA
         </button>
       </div>
 
@@ -844,7 +1016,7 @@ export default function MarketplacePage() {
           ))}
         </div>
         )
-      ) : (
+      ) : tab === "datasets" ? (
         <div className="space-y-6">
           {/* Publicar Dataset */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -954,6 +1126,194 @@ export default function MarketplacePage() {
               </div>
             )}
           </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Modelo IA */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Bot className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Modelo IA
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Um Modelo IA é um assistente especializado (persona) com instruções e, opcionalmente,
+              conhecimento próprio — executado pelo mesmo motor de IA do Tutor da plataforma. Não é
+              um treino de modelo do zero: reutiliza o motor real com um "guião" (system prompt)
+              e uma base de conhecimento própria opcional, indexada com o mesmo mecanismo de RAG usado
+              nas lições dos cursos.
+            </p>
+            <form onSubmit={handlePublishModel} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newModelName}
+                  onChange={(e) => setNewModelName(e.target.value)}
+                  placeholder="Nome do assistente (ex: Revisor de Código Python)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  value={newModelCategory}
+                  onChange={(e) => setNewModelCategory(e.target.value)}
+                  placeholder="Categoria (ex: Programação, Marketing, RH)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <textarea
+                value={newModelDescription}
+                onChange={(e) => setNewModelDescription(e.target.value)}
+                placeholder="Descrição curta: o que este assistente faz e para quem é útil..."
+                className="w-full h-16 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <textarea
+                value={newModelSystemPrompt}
+                onChange={(e) => setNewModelSystemPrompt(e.target.value)}
+                placeholder="Instruções do assistente (system prompt): define o comportamento, tom e regras que a IA deve seguir..."
+                className="w-full h-24 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <textarea
+                value={newModelKnowledge}
+                onChange={(e) => setNewModelKnowledge(e.target.value)}
+                placeholder="(Opcional) Conhecimento próprio: cole aqui texto de referência (FAQ, políticas, documentação) que o assistente deve consultar..."
+                className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={newModelIsPublic} onChange={(e) => setNewModelIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Publicar como público (visível para todos no Marketplace)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={publishingModel}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingModel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bot className="h-4 w-4" />}
+                {publishingModel ? "A publicar..." : "Publicar Modelo IA"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Modelos IA Disponíveis
+            </h3>
+            <input
+              value={aiModelSearch}
+              onChange={(e) => {
+                setAiModelSearch(e.target.value);
+                loadAiModels(e.target.value);
+              }}
+              placeholder="Pesquisar por nome ou categoria..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingAiModels ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : aiModels.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há Modelos IA publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {aiModels.map((model) => (
+                  <div key={model.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{model.category}</span>
+                        <h4 className="font-bold text-xs text-white truncate">{model.name}</h4>
+                      </div>
+                      {model.isMine && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleToggleModelVisibility(model)}
+                            title={model.isPublic ? "Tornar privado" : "Tornar público"}
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            {model.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModel(model)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed flex-1">{model.description}</p>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      {model.hasKnowledge && (
+                        <span className="flex items-center gap-1 text-emerald-400"><Database className="h-3 w-3" /> Com conhecimento próprio</span>
+                      )}
+                      <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {model.usesCount} usos</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600">Por {model.ownerName}</span>
+                    <button
+                      onClick={() => openTestModel(model)}
+                      className="h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Conversar (1 Crédito IA/msg)
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Painel de teste/conversa */}
+          {testingModel && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setTestingModel(null)}>
+              <div
+                className="w-full max-w-lg h-[70vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">{testingModel.name}</h4>
+                    <span className="text-[10px] text-slate-500">{testingModel.category}</span>
+                  </div>
+                  <button onClick={() => setTestingModel(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {testMessages.length === 0 && (
+                    <span className="text-xs text-slate-600 italic">Escreva uma mensagem para começar a conversar com este assistente.</span>
+                  )}
+                  {testMessages.map((m, i) => (
+                    <div
+                      key={i}
+                      className={`text-xs p-3 rounded-2xl max-w-[85%] leading-relaxed whitespace-pre-wrap ${
+                        m.role === "user" ? "bg-indigo-600 text-white ml-auto" : "bg-slate-900 text-slate-200"
+                      }`}
+                    >
+                      {m.content || (testLoading && i === testMessages.length - 1 ? "..." : "")}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t border-slate-900 flex gap-2 shrink-0">
+                  <input
+                    value={testInput}
+                    onChange={(e) => setTestInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !testLoading) handleSendTestMessage();
+                    }}
+                    placeholder="Escreva a sua mensagem..."
+                    className="flex-1 h-10 px-3 rounded-xl border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSendTestMessage}
+                    disabled={testLoading}
+                    className="h-10 w-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center cursor-pointer disabled:opacity-55 shrink-0"
+                  >
+                    {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
