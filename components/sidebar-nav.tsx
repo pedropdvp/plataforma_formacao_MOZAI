@@ -46,7 +46,8 @@ import {
   FolderKanban,
   Puzzle,
   FlaskConical,
-  Boxes
+  Boxes,
+  ShieldAlert
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -195,6 +196,7 @@ export default function SidebarNav() {
     "/dashboard/admin/auto-update",
     "/dashboard/ai-lab",
     "/dashboard/blockchain-lab",
+    "/dashboard/cyber-lab",
     "/dashboard/skills/coding-lab",
     "/dashboard/admin",
     "/dashboard/admin/content-factory",
@@ -568,6 +570,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/blockchain-lab" className={linkClass("/dashboard/blockchain-lab")}>
               <Boxes className="h-4 w-4 text-amber-400" />
               {t("nav_blockchain_lab", "Blockchain Lab")}
+            </Link>
+            )}
+            {isItemVisible("cyber-lab") && (
+            <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
+              <ShieldAlert className="h-4 w-4 text-rose-400" />
+              {t("nav_cyber_lab", "Cyber Lab")}
             </Link>
             )}
             {isItemVisible("career") && (
