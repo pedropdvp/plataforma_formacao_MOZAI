@@ -16,8 +16,13 @@ import {
   Mail,
   Building2,
   MapPin,
+  Database,
+  Upload,
+  Trash2,
+  FileArchive,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
+import { useAccess } from "@/hooks/use-access";
 
 interface MarketplaceListing {
   _id: string;
@@ -55,7 +60,9 @@ const STATUS_CONFIG: Record<MentorshipRequest["status"], { label: string; color:
 
 export default function MarketplacePage() {
   const { showToast } = useToast();
-  const [tab, setTab] = useState<"courses" | "mentors" | "companies">("courses");
+  const { userId, activeRole } = useAccess();
+  const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
+  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets">("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -232,6 +239,124 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- DATASETS ---
+  interface Dataset {
+    _id: string;
+    title: string;
+    description: string;
+    category: string;
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    uploaderName: string;
+    uploadedBy: string;
+    downloadsCount: number;
+  }
+
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [loadingDatasets, setLoadingDatasets] = useState(true);
+  const [datasetSearch, setDatasetSearch] = useState("");
+  const [newDatasetTitle, setNewDatasetTitle] = useState("");
+  const [newDatasetDescription, setNewDatasetDescription] = useState("");
+  const [newDatasetCategory, setNewDatasetCategory] = useState("");
+  const [pendingDatasetFile, setPendingDatasetFile] = useState<File | null>(null);
+  const [publishingDataset, setPublishingDataset] = useState(false);
+  const [downloadingDatasetId, setDownloadingDatasetId] = useState<string | null>(null);
+
+  const loadDatasets = async (query: string) => {
+    setLoadingDatasets(true);
+    try {
+      const res = await fetch(`/api/datasets?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDatasets(data.datasets || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os datasets.", "error");
+    } finally {
+      setLoadingDatasets(false);
+    }
+  };
+
+  const handlePublishDataset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDatasetTitle.trim() || !pendingDatasetFile) {
+      showToast("Indique um título e escolha um ficheiro.", "error");
+      return;
+    }
+    setPublishingDataset(true);
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(pendingDatasetFile.name, pendingDatasetFile, {
+        access: "public",
+        handleUploadUrl: "/api/datasets/upload-token",
+      });
+
+      const res = await fetch("/api/datasets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newDatasetTitle.trim(),
+          description: newDatasetDescription.trim(),
+          category: newDatasetCategory.trim(),
+          fileUrl: blob.url,
+          fileName: pendingDatasetFile.name,
+          fileSize: pendingDatasetFile.size,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Dataset publicado com sucesso!", "success");
+        setNewDatasetTitle("");
+        setNewDatasetDescription("");
+        setNewDatasetCategory("");
+        setPendingDatasetFile(null);
+        loadDatasets(datasetSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o dataset.", "error");
+      }
+    } catch (err: any) {
+      showToast(err?.message || "Erro ao carregar o ficheiro.", "error");
+    } finally {
+      setPublishingDataset(false);
+    }
+  };
+
+  const handleDownloadDataset = async (dataset: Dataset) => {
+    setDownloadingDatasetId(dataset._id);
+    try {
+      const res = await fetch(`/api/datasets/${dataset._id}/download`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        window.open(data.fileUrl, "_blank");
+        setDatasets((prev) => prev.map((d) => (d._id === dataset._id ? { ...d, downloadsCount: data.downloadsCount } : d)));
+      } else {
+        showToast(data.error || "Erro ao descarregar o dataset.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao descarregar o dataset.", "error");
+    } finally {
+      setDownloadingDatasetId(null);
+    }
+  };
+
+  const handleDeleteDataset = async (dataset: Dataset) => {
+    try {
+      const res = await fetch(`/api/datasets/${dataset._id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Dataset eliminado.", "success");
+        setDatasets((prev) => prev.filter((d) => d._id !== dataset._id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o dataset.", "error");
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -240,6 +365,9 @@ export default function MarketplacePage() {
     }
     if (tab === "companies") {
       loadCompanies();
+    }
+    if (tab === "datasets") {
+      loadDatasets("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -362,6 +490,14 @@ export default function MarketplacePage() {
           }`}
         >
           <Building2 className="h-3.5 w-3.5" /> Empresas
+        </button>
+        <button
+          onClick={() => setTab("datasets")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "datasets" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Database className="h-3.5 w-3.5" /> Datasets
         </button>
       </div>
 
@@ -614,7 +750,8 @@ export default function MarketplacePage() {
             </div>
           </div>
         </div>
-      ) : loadingCompanies ? (
+      ) : tab === "companies" ? (
+        loadingCompanies ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
         </div>
@@ -705,6 +842,118 @@ export default function MarketplacePage() {
               )}
             </div>
           ))}
+        </div>
+        )
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Dataset */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Upload className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Dataset
+            </h3>
+            <form onSubmit={handlePublishDataset} className="space-y-3">
+              <input
+                value={newDatasetTitle}
+                onChange={(e) => setNewDatasetTitle(e.target.value)}
+                placeholder="Título do dataset (ex: Vendas de Retalho 2024)"
+                className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <textarea
+                value={newDatasetDescription}
+                onChange={(e) => setNewDatasetDescription(e.target.value)}
+                placeholder="Descreva o conteúdo, colunas e possível utilização deste dataset..."
+                className="w-full h-16 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newDatasetCategory}
+                  onChange={(e) => setNewDatasetCategory(e.target.value)}
+                  placeholder="Categoria (ex: Finanças, NLP, Vendas)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  type="file"
+                  accept=".csv,.json,.zip,.xlsx,.parquet"
+                  onChange={(e) => setPendingDatasetFile(e.target.files?.[0] || null)}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-[11px] file:mr-3 file:h-full file:border-0 file:bg-slate-900 file:text-slate-300 file:px-3 file:text-xs file:rounded-l-xl file:cursor-pointer"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={publishingDataset}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingDataset ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {publishingDataset ? "A publicar..." : "Publicar Dataset"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Database className="h-4.5 w-4.5 text-indigo-400" />
+              Datasets Disponíveis
+            </h3>
+            <input
+              value={datasetSearch}
+              onChange={(e) => {
+                setDatasetSearch(e.target.value);
+                loadDatasets(e.target.value);
+              }}
+              placeholder="Pesquisar por título ou categoria..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingDatasets ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : datasets.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há datasets publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {datasets.map((dataset) => {
+                  const canDelete = dataset.uploadedBy === userId || isModerator;
+                  return (
+                    <div key={dataset._id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{dataset.category}</span>
+                          <h4 className="font-bold text-xs text-white truncate">{dataset.title}</h4>
+                        </div>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDeleteDataset(dataset)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed flex-1">{dataset.description}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1"><FileArchive className="h-3 w-3" /> {formatFileSize(dataset.fileSize)}</span>
+                        <span className="flex items-center gap-1"><Download className="h-3 w-3" /> {dataset.downloadsCount}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-600">Por {dataset.uploaderName}</span>
+                      <button
+                        onClick={() => handleDownloadDataset(dataset)}
+                        disabled={downloadingDatasetId === dataset._id}
+                        className="h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+                      >
+                        {downloadingDatasetId === dataset._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        Descarregar
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
