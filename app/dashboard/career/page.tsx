@@ -431,14 +431,14 @@ Repositórios com mais destaque: ${topRepos.map((r: any) => `${r.name} (${r.star
                   </button>
                   <button
                     onClick={async () => {
-                      const headers = ["Tipo de Informação", "Detalhe / Competência / Empresa", "Importância / Localização / Valor", "Vagas"];
+                      const headers = ["Tipo de Informação", "Detalhe / Competência / Vaga", "Importância / Localização", "Empresa / Link"];
                       const rows = [
                         ["Cargo Sugerido", result.targetJob, "", ""],
-                        ["Média Salarial", result.marketSalary, "", ""],
+                        ["Média Salarial (estimativa da IA)", result.marketSalary, "", ""],
                         ["Tempo Recomendado", result.studyTimeNeeded, "", ""],
                         ["Gap de Competências", `${result.gapPercentage}%`, "", ""],
                         ...result.missingSkills.map((s: any) => ["Competência em Falta", s.name, s.importance, ""]),
-                        ...result.hiringCompanies.map((c: any) => ["Empresa Contratante", c.name, c.location, `${c.openRoles} vagas`])
+                        ...result.hiringJobs.map((j: any) => ["Vaga Real (Remotive)", j.title, j.location, `${j.companyName} — ${j.url}`])
                       ];
                       await exportToXLSX(headers, rows, `orientacao_carreira_${new Date().toISOString().split("T")[0]}`);
                     }}
@@ -478,12 +478,15 @@ Repositórios com mais destaque: ${topRepos.map((r: any) => `${r.name} (${r.star
                   </div>
                   <div className="flex items-center gap-2.5 text-xs text-slate-400">
                     <Landmark className="h-4 w-4 text-emerald-400" />
-                    <span>Média Salarial: <strong className="text-white">{result.marketSalary}</strong></span>
+                    <span>Média Salarial <em className="text-slate-600 not-italic">(estimativa da IA)</em>: <strong className="text-white">{result.marketSalary}</strong></span>
                   </div>
                   <div className="flex items-center gap-2.5 text-xs text-slate-400">
                     <ClockIcon className="h-4 w-4 text-cyan-400" />
                     <span>Tempo Recomendado: <strong className="text-white">{result.studyTimeNeeded}</strong></span>
                   </div>
+                  <p className="text-[9px] text-slate-600 leading-relaxed">
+                    O salário e o tempo de estudo são opiniões geradas pela IA a partir do seu perfil — não provêm de uma base de dados de mercado verificada.
+                  </p>
                 </div>
 
                 {/* Circular / Radial Progress Gap Indicator */}
@@ -526,45 +529,59 @@ Repositórios com mais destaque: ${topRepos.map((r: any) => `${r.name} (${r.star
                             {skill.importance}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-500">Mapeado com curso interno da MOZAI.</p>
+                        <p className="text-[10px] text-slate-500">
+                          {skill.courseId ? "Mapeado com curso real disponível na MOZAI." : "Sem curso correspondente no catálogo atual."}
+                        </p>
                       </div>
 
-                      <button
-                        onClick={() => (window.location.href = `/dashboard`)}
-                        className="inline-flex items-center justify-center gap-1.5 h-8 px-4 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-xs font-semibold text-indigo-400 transition-colors"
-                      >
-                        Estudar no MOZAI
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </button>
+                      {skill.courseId ? (
+                        <button
+                          onClick={() => (window.location.href = `/dashboard/catalog`)}
+                          className="inline-flex items-center justify-center gap-1.5 h-8 px-4 rounded-xl bg-indigo-600/10 hover:bg-indigo-600/20 text-xs font-semibold text-indigo-400 transition-colors shrink-0"
+                        >
+                          Estudar no MOZAI
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-600 italic shrink-0">Sem curso associado</span>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Recruitment Opportunities */}
+              {/* Recruitment Opportunities — vagas REAIS via API pública da Remotive */}
               <div className="border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-4">
                 <h3 className="font-bold text-sm text-white flex items-center gap-2">
                   <Building className="h-4.5 w-4.5 text-indigo-400" />
-                  Quem Está a Contratar?
+                  Quem Está a Contratar? <span className="text-[10px] font-normal text-slate-500">(vagas reais, via Remotive)</span>
                 </h3>
 
-                <div className="grid sm:grid-cols-3 gap-6">
-                  {result.hiringCompanies.map((company: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-2xl bg-slate-950 border border-slate-900 space-y-3 flex flex-col justify-between"
-                    >
-                      <div>
-                        <h4 className="font-bold text-xs text-white">{company.name}</h4>
-                        <span className="text-[10px] text-slate-500">{company.location}</span>
+                {result.hiringJobs.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    Sem vagas reais encontradas neste momento para "{result.targetJob}". Tente pesquisar diretamente em{" "}
+                    <a href="https://remotive.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">remotive.com</a>.
+                  </p>
+                ) : (
+                  <div className="grid sm:grid-cols-3 gap-6">
+                    {result.hiringJobs.map((job: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="p-4 rounded-2xl bg-slate-950 border border-slate-900 space-y-3 flex flex-col justify-between"
+                      >
+                        <div>
+                          <h4 className="font-bold text-xs text-white leading-snug">{job.title}</h4>
+                          <span className="text-[10px] text-slate-500">{job.companyName} · {job.location}</span>
+                        </div>
+                        <div className="pt-2 border-t border-slate-900/60 flex items-center justify-end text-[11px]">
+                          <a href={job.url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 font-semibold hover:underline">
+                            Ver Vaga Real →
+                          </a>
+                        </div>
                       </div>
-                      <div className="pt-2 border-t border-slate-900/60 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">{company.openRoles} vagas abertas</span>
-                        <span className="text-indigo-400 font-semibold hover:underline cursor-pointer">Ver Vagas</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
