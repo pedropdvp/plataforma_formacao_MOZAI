@@ -46,6 +46,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // A LinkedIn bloqueia scraping automático de perfis (Termos de Serviço + proteção
+    // técnica ativa) — não há forma de ir buscar o conteúdo real a partir de um link.
+    // Analisar só o URL faria o modelo INVENTAR uma análise a partir de nada, o que
+    // violaria o princípio de nunca fabricar resultados sem dados reais. Em vez disso,
+    // se o texto for essencialmente só um link, pedimos ao aluno o PDF real do perfil
+    // (exportável nativamente pela própria LinkedIn) — reaproveitando o mesmo extrator
+    // já usado para o CV.
+    const trimmed = cvText.trim();
+    const isBareUrl = /^https?:\/\/\S+$/i.test(trimmed);
+    const isShortLinkedInLink = /linkedin\.com\/in\//i.test(trimmed) && trimmed.length < 300;
+    if (isBareUrl || isShortLinkedInLink) {
+      return NextResponse.json(
+        {
+          error:
+            "Não é possível analisar apenas um link da LinkedIn — a LinkedIn bloqueia o acesso automático a perfis. No seu perfil, abra \"Mais\" → \"Guardar como PDF\" e carregue esse ficheiro com o botão \"Carregar PDF/DOCX\" acima.",
+        },
+        { status: 422 }
+      );
+    }
+
     // 2. Chamar o modelo GPT para extrair as métricas reais em JSON estruturado
     const { object } = await generateObject({
       model: openai("gpt-4o-mini"),

@@ -154,7 +154,7 @@ export default function CareerOSPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <label className="text-xs text-slate-400 font-medium">
-                    Cole o seu CV, Resumo ou Link do LinkedIn aqui:
+                    Cole o texto do seu CV ou Resumo aqui:
                   </label>
                   <button
                     type="button"
@@ -180,6 +180,10 @@ export default function CareerOSPage() {
                   className="w-full h-48 p-4 rounded-2xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none transition-colors resize-none"
                   required
                 />
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                  💡 Quer analisar o seu perfil da LinkedIn? A LinkedIn não permite leitura automática por link.
+                  No seu perfil, abra <strong>"Mais" → "Guardar como PDF"</strong> e carregue esse ficheiro acima.
+                </p>
               </div>
 
               <button
