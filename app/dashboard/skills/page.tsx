@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2, TrendingDown } from "lucide-react";
+import { Network, Award, Zap, ChevronRight, HelpCircle, Loader2, TrendingDown, GitBranch, List } from "lucide-react";
+import { SkillsGraphCanvas } from "@/components/skills-graph-canvas";
 
 interface SkillNode {
   id: string;
@@ -19,6 +20,7 @@ export default function SkillsOSPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [retentionPct, setRetentionPct] = useState(0);
   const [velocityPct, setVelocityPct] = useState(0);
+  const [viewMode, setViewMode] = useState<"graph" | "list">("graph");
 
   useEffect(() => {
     async function loadSkills() {
@@ -64,11 +66,38 @@ export default function SkillsOSPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Grafo / Lista de Nós interativos */}
           <div className="lg:col-span-2 border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-6">
-            <h3 className="font-bold text-sm text-white flex items-center gap-2">
-              <Zap className="h-4.5 w-4.5 text-yellow-400" />
-              Estrutura de Fluência (Mapeamento Dinâmico)
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Zap className="h-4.5 w-4.5 text-yellow-400" />
+                Estrutura de Fluência (Mapeamento Dinâmico)
+              </h3>
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-950 border border-slate-900">
+                <button
+                  onClick={() => setViewMode("graph")}
+                  className={`h-7 px-3 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    viewMode === "graph" ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  <GitBranch className="h-3.5 w-3.5" /> Grafo
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`h-7 px-3 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                    viewMode === "list" ? "bg-indigo-600 text-white" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  <List className="h-3.5 w-3.5" /> Lista
+                </button>
+              </div>
+            </div>
 
+            {viewMode === "graph" ? (
+              <SkillsGraphCanvas
+                nodes={skills}
+                selectedId={selectedSkill?.id || null}
+                onSelect={(id) => setSelectedSkill(skills.find((s) => s.id === id) || null)}
+              />
+            ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
               {skills.map((node) => {
                 const isSelected = selectedSkill?.id === node.id;
@@ -127,6 +156,7 @@ export default function SkillsOSPage() {
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Painel Lateral de Detalhes da Habilidade Selecionada */}
