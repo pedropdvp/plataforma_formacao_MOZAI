@@ -98,6 +98,16 @@ export default function MarketplacePage() {
     | "apis"
   >("courses");
 
+  // Permite abrir diretamente numa aba específica via URL (ex: /dashboard/marketplace?tab=mentors),
+  // usado pelo link "Mentorias" na Comunidade — evita duplicar o sistema de mentoria.
+  useEffect(() => {
+    const tabParam = new URLSearchParams(window.location.search).get("tab");
+    const validTabs = ["courses", "mentors", "companies", "datasets", "models", "prompts", "templates", "projects", "labs", "agents", "apis"];
+    if (tabParam && validTabs.includes(tabParam)) {
+      setTab(tabParam as typeof tab);
+    }
+  }, []);
+
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [loading, setLoading] = useState(true);

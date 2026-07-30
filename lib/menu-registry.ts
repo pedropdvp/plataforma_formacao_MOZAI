@@ -48,6 +48,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "events", groupId: "comunicacao", label: "Eventos", path: "/dashboard/events" },
   { id: "hackathons", groupId: "comunicacao", label: "Hackathons", path: "/dashboard/hackathons" },
   { id: "meetups", groupId: "comunicacao", label: "Meetups", path: "/dashboard/meetups" },
+  { id: "community-mentorships", groupId: "comunicacao", label: "Mentorias", path: "/dashboard/marketplace?tab=mentors" },
+  { id: "networking", groupId: "comunicacao", label: "Networking", path: "/dashboard/networking" },
   { id: "forum", groupId: "comunicacao", label: "Fórum", path: "/dashboard/forum" },
   { id: "notifications", groupId: "comunicacao", label: "Notificações", path: "/dashboard/notifications" },
   { id: "training-rooms", groupId: "comunicacao", label: "Salas de Treino", path: "/dashboard/training-rooms" },
