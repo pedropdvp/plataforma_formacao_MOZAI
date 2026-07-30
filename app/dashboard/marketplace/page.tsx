@@ -14,6 +14,8 @@ import {
   Clock,
   XCircle,
   Mail,
+  Building2,
+  MapPin,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
@@ -53,7 +55,7 @@ const STATUS_CONFIG: Record<MentorshipRequest["status"], { label: string; color:
 
 export default function MarketplacePage() {
   const { showToast } = useToast();
-  const [tab, setTab] = useState<"courses" | "mentors">("courses");
+  const [tab, setTab] = useState<"courses" | "mentors" | "companies">("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -162,11 +164,82 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- EMPRESAS ---
+  interface CompanyJob {
+    id: string;
+    title: string;
+    description: string;
+    location: string;
+    workMode: string;
+  }
+  interface Company {
+    tenantId: string;
+    companyName: string;
+    logoUrl: string;
+    description: string;
+    industry: string;
+    website: string;
+    jobs: CompanyJob[];
+  }
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [applyMessage, setApplyMessage] = useState("");
+  const [sendingApplication, setSendingApplication] = useState(false);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
+
+  const loadCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      const res = await fetch("/api/marketplace/companies");
+      if (res.ok) {
+        const data = await res.json();
+        setCompanies(data.companies || []);
+      }
+    } catch {
+      showToast("Erro ao carregar as empresas do marketplace.", "error");
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
+
+  const handleApplyJob = async (job: CompanyJob) => {
+    if (!applyMessage.trim()) {
+      showToast("Escreva uma breve mensagem de candidatura.", "error");
+      return;
+    }
+    setSendingApplication(true);
+    try {
+      const res = await fetch(`/api/marketplace/jobs/${job.id}/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: applyMessage.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Candidatura enviada com sucesso!", "success");
+        setAppliedJobIds((prev) => new Set(prev).add(job.id));
+        setApplyingJobId(null);
+        setApplyMessage("");
+      } else {
+        showToast(data.error || "Erro ao enviar a candidatura.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao enviar a candidatura.", "error");
+    } finally {
+      setSendingApplication(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
       loadOwnProfile();
       loadRequests();
+    }
+    if (tab === "companies") {
+      loadCompanies();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -282,6 +355,14 @@ export default function MarketplacePage() {
         >
           <Users className="h-3.5 w-3.5" /> Mentores
         </button>
+        <button
+          onClick={() => setTab("companies")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "companies" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Building2 className="h-3.5 w-3.5" /> Empresas
+        </button>
       </div>
 
       {tab === "courses" ? (
@@ -330,7 +411,7 @@ export default function MarketplacePage() {
             })}
           </div>
         )
-      ) : (
+      ) : tab === "mentors" ? (
         <div className="space-y-8">
           {/* Torna-te Mentor */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -532,6 +613,98 @@ export default function MarketplacePage() {
               )}
             </div>
           </div>
+        </div>
+      ) : loadingCompanies ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
+        </div>
+      ) : companies.length === 0 ? (
+        <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-12 text-center">
+          <span className="text-sm text-slate-500 italic">Ainda não há empresas com vagas publicadas no marketplace.</span>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {companies.map((company) => (
+            <div key={company.tenantId} className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                {company.logoUrl ? (
+                  <img src={company.logoUrl} alt={company.companyName} className="h-10 w-10 rounded-xl border border-slate-800 object-contain bg-white" />
+                ) : (
+                  <div className="h-10 w-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-sm text-white">{company.companyName}</h3>
+                  <span className="text-[10px] text-slate-500">{company.industry}</span>
+                  <p className="text-xs text-slate-400 leading-relaxed mt-1">{company.description}</p>
+                </div>
+              </div>
+
+              {company.jobs.length === 0 ? (
+                <span className="text-[11px] text-slate-600 italic">Sem vagas em aberto neste momento.</span>
+              ) : (
+                <div className="space-y-3 pt-3 border-t border-slate-900">
+                  {company.jobs.map((job) => {
+                    const applied = appliedJobIds.has(job.id);
+                    return (
+                      <div key={job.id} className="p-4 rounded-2xl bg-slate-950/60 border border-slate-900 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-bold text-xs text-white">{job.title}</h4>
+                          <span className="text-[10px] text-slate-500 flex items-center gap-1 shrink-0">
+                            <MapPin className="h-3 w-3" /> {job.location} · {job.workMode}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{job.description}</p>
+
+                        {applied ? (
+                          <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Candidatura enviada
+                          </span>
+                        ) : applyingJobId === job.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={applyMessage}
+                              onChange={(e) => setApplyMessage(e.target.value)}
+                              placeholder="Escreva uma breve mensagem de candidatura..."
+                              className="w-full h-16 p-2.5 rounded-lg border border-slate-800 bg-slate-950 text-white text-[11px] focus:border-indigo-500 focus:outline-none resize-none"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setApplyingJobId(null)}
+                                className="h-8 px-3 rounded-lg border border-slate-800 text-[11px] font-semibold text-slate-400 hover:bg-slate-900 cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => handleApplyJob(job)}
+                                disabled={sendingApplication}
+                                className="flex-1 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] font-semibold text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+                              >
+                                {sendingApplication ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                Enviar Candidatura
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setApplyingJobId(job.id);
+                              setApplyMessage("");
+                            }}
+                            className="h-8 px-3.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Candidatar-me
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

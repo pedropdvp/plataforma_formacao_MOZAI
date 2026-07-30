@@ -196,6 +196,7 @@ export default function SidebarNav() {
     "/dashboard/admin/hr",
     "/dashboard/admin/projects",
     "/dashboard/admin/academy",
+    "/dashboard/admin/company-profile",
     "/dashboard/career",
     "/dashboard/skills"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
@@ -568,6 +569,14 @@ export default function SidebarNav() {
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
                 <Settings className="h-4 w-4 text-slate-400" />
                 {t("nav_config_company", "Configurar Empresa")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("company-marketplace-profile") && (
+            <SecureRender requiredPermission="COMPANY_INFO_UPDATE">
+              <Link href="/dashboard/admin/company-profile" className={linkClass("/dashboard/admin/company-profile")}>
+                <Building className="h-4 w-4 text-cyan-400" />
+                {t("nav_company_marketplace", "Perfil de Empresa & Vagas")}
               </Link>
             </SecureRender>
             )}

@@ -72,6 +72,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
+  { id: "company-marketplace-profile", groupId: "workspace", label: "Perfil de Empresa & Vagas", path: "/dashboard/admin/company-profile" },
   { id: "content-factory", groupId: "workspace", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
   { id: "hr-console", groupId: "workspace", label: "Gestão de RH", path: "/dashboard/admin/hr" },
   { id: "skills-os", groupId: "workspace", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
