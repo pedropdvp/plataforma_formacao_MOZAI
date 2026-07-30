@@ -45,6 +45,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   // Comunicação
   { id: "live-classes", groupId: "comunicacao", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
   { id: "community", groupId: "comunicacao", label: "Comunidade", path: "/dashboard/community" },
+  { id: "events", groupId: "comunicacao", label: "Eventos", path: "/dashboard/events" },
   { id: "forum", groupId: "comunicacao", label: "Fórum", path: "/dashboard/forum" },
   { id: "notifications", groupId: "comunicacao", label: "Notificações", path: "/dashboard/notifications" },
   { id: "training-rooms", groupId: "comunicacao", label: "Salas de Treino", path: "/dashboard/training-rooms" },
@@ -98,6 +99,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "api-keys", groupId: "configuracao", label: "API's", path: "/dashboard/admin/api-keys" },
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
+  { id: "discord", groupId: "configuracao", label: "Discord", path: "/dashboard/admin/discord" },
   { id: "plugins", groupId: "configuracao", label: "Plugins", path: "/dashboard/admin/plugins" },
   { id: "compliance", groupId: "configuracao", label: "Compliance (RGPD)", path: "/dashboard/admin/compliance" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },

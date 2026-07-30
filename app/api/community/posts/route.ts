@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { sendDiscordNotification } from "@/lib/discord";
 
 // GET — Feed da Comunidade: posts recentes de todo o tenant (não filtrados por curso —
 // essa é a diferença de propósito face ao Fórum, que é discussão técnica por curso).
@@ -75,6 +76,8 @@ export async function POST(req: NextRequest) {
 
     const result = await db.collection("community_posts").insertOne(post);
     await logAuditEvent(userId, "COMMUNITY_POST_CREATED", { tenantId, postId: result.insertedId?.toString() });
+
+    after(() => sendDiscordNotification(tenantId, `Nova publicação de ${authorName}`, post.content.slice(0, 500)));
 
     return NextResponse.json({
       success: true,

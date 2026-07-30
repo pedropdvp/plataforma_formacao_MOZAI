@@ -77,7 +77,8 @@ export default clerkMiddleware(async (auth, req) => {
         if (
           path.startsWith("/dashboard/admin/backups") ||
           path.startsWith("/dashboard/admin/api-keys") ||
-          path.startsWith("/dashboard/admin/chatbot")
+          path.startsWith("/dashboard/admin/chatbot") ||
+          path.startsWith("/dashboard/admin/discord")
         ) {
           allowedRoles.push("GESTOR_EMPRESA");
         }

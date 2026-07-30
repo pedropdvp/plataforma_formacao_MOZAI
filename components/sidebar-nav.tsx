@@ -48,7 +48,9 @@ import {
   FlaskConical,
   Boxes,
   ShieldAlert,
-  Cloud
+  Cloud,
+  CalendarDays,
+  MessageSquareText
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -170,6 +172,7 @@ export default function SidebarNav() {
   const isComunicacaoActive = [
     "/dashboard/live-classes",
     "/dashboard/community",
+    "/dashboard/events",
     "/dashboard/forum",
     "/dashboard/notifications",
     "/dashboard/training-rooms",
@@ -229,6 +232,7 @@ export default function SidebarNav() {
     "/dashboard/admin/backups",
     "/dashboard/admin/api-keys",
     "/dashboard/admin/chatbot",
+    "/dashboard/admin/discord",
     "/dashboard/admin/compliance",
     "/dashboard/admin/plugins",
     "/dashboard/admin/menus",
@@ -364,6 +368,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/community" className={linkClass("/dashboard/community")}>
               <Users className="h-4 w-4 text-emerald-400" />
               {t("nav_community", "Comunidade")}
+            </Link>
+            )}
+            {isItemVisible("events") && (
+            <Link href="/dashboard/events" className={linkClass("/dashboard/events")}>
+              <CalendarDays className="h-4 w-4 text-emerald-400" />
+              {t("nav_events", "Eventos")}
             </Link>
             )}
             {isItemVisible("forum") && (
@@ -808,6 +818,14 @@ export default function SidebarNav() {
                 <Link href="/dashboard/admin/chatbot" className={linkClass("/dashboard/admin/chatbot")}>
                   <Bot className="h-4 w-4 text-orange-400" />
                   {t("nav_chatbot", "ChatBot")}
+                </Link>
+              </SecureRender>
+              )}
+              {isItemVisible("discord") && (
+              <SecureRender requiredPermission="CHATBOT_MANAGE">
+                <Link href="/dashboard/admin/discord" className={linkClass("/dashboard/admin/discord")}>
+                  <MessageSquareText className="h-4 w-4 text-orange-400" />
+                  {t("nav_discord", "Discord")}
                 </Link>
               </SecureRender>
               )}
