@@ -36,6 +36,12 @@ import {
   FlaskConical,
   Play,
   Terminal,
+  Workflow,
+  ArrowRight,
+  Code2,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -79,7 +85,17 @@ export default function MarketplacePage() {
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
   const [tab, setTab] = useState<
-    "courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates" | "projects" | "labs"
+    | "courses"
+    | "mentors"
+    | "companies"
+    | "datasets"
+    | "models"
+    | "prompts"
+    | "templates"
+    | "projects"
+    | "labs"
+    | "agents"
+    | "apis"
   >("courses");
 
   // --- CURSOS ---
@@ -1193,6 +1209,226 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- AGENTES IA (PIPELINES MULTI-PASSO) ---
+  interface AgentStep {
+    title: string;
+    instruction: string;
+  }
+  interface AiAgent {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    steps: AgentStep[];
+    isPublic: boolean;
+    usesCount: number;
+    ownerName: string;
+    isMine: boolean;
+  }
+
+  const [agents, setAgents] = useState<AiAgent[]>([]);
+  const [loadingAgents, setLoadingAgents] = useState(true);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentDescription, setNewAgentDescription] = useState("");
+  const [newAgentCategory, setNewAgentCategory] = useState("");
+  const [newAgentSteps, setNewAgentSteps] = useState<AgentStep[]>([
+    { title: "", instruction: "" },
+    { title: "", instruction: "" },
+  ]);
+  const [newAgentIsPublic, setNewAgentIsPublic] = useState(true);
+  const [publishingAgent, setPublishingAgent] = useState(false);
+
+  const [runningAgentPanel, setRunningAgentPanel] = useState<AiAgent | null>(null);
+  const [agentGoal, setAgentGoal] = useState("");
+  const [agentResults, setAgentResults] = useState<{ title: string; output: string }[] | null>(null);
+  const [agentRunning, setAgentRunning] = useState(false);
+
+  const loadAgents = async (query: string) => {
+    setLoadingAgents(true);
+    try {
+      const res = await fetch(`/api/ai-agents?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAgents(data.agents || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os Agentes IA.", "error");
+    } finally {
+      setLoadingAgents(false);
+    }
+  };
+
+  const handlePublishAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAgentName.trim() || !newAgentDescription.trim()) {
+      showToast("Preencha o nome e a descrição do Agente.", "error");
+      return;
+    }
+    setPublishingAgent(true);
+    try {
+      const res = await fetch("/api/ai-agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newAgentName.trim(),
+          description: newAgentDescription.trim(),
+          category: newAgentCategory.trim(),
+          steps: newAgentSteps,
+          isPublic: newAgentIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Agente IA publicado com sucesso!", "success");
+        setNewAgentName("");
+        setNewAgentDescription("");
+        setNewAgentCategory("");
+        setNewAgentSteps([{ title: "", instruction: "" }, { title: "", instruction: "" }]);
+        loadAgents(agentSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o Agente IA.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o Agente IA.", "error");
+    } finally {
+      setPublishingAgent(false);
+    }
+  };
+
+  const handleToggleAgentVisibility = async (agent: AiAgent) => {
+    try {
+      const res = await fetch(`/api/ai-agents/${agent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !agent.isPublic }),
+      });
+      if (res.ok) {
+        setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, isPublic: !a.isPublic } : a)));
+      }
+    } catch {
+      showToast("Erro ao atualizar a visibilidade do Agente IA.", "error");
+    }
+  };
+
+  const handleDeleteAgent = async (agent: AiAgent) => {
+    try {
+      const res = await fetch(`/api/ai-agents/${agent.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Agente IA eliminado.", "success");
+        setAgents((prev) => prev.filter((a) => a.id !== agent.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o Agente IA.", "error");
+    }
+  };
+
+  const openAgentPanel = (agent: AiAgent) => {
+    setRunningAgentPanel(agent);
+    setAgentGoal("");
+    setAgentResults(null);
+  };
+
+  const handleRunAgent = async () => {
+    if (!runningAgentPanel || !agentGoal.trim()) {
+      showToast("Descreva o objetivo para o Agente.", "error");
+      return;
+    }
+    setAgentRunning(true);
+    setAgentResults(null);
+    try {
+      const res = await fetch(`/api/ai-agents/${runningAgentPanel.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal: agentGoal.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAgentResults(data.results);
+      } else {
+        showToast(data.error || "Erro ao executar o Agente IA.", "error");
+        if (data.partialResults) setAgentResults(data.partialResults);
+      }
+    } catch {
+      showToast("Erro de comunicação ao executar o Agente IA.", "error");
+    } finally {
+      setAgentRunning(false);
+    }
+  };
+
+  // --- APIs (CHAVES DE DEVELOPER) ---
+  interface DeveloperApiKey {
+    id: string;
+    name: string;
+    prefix: string;
+    revoked: boolean;
+    createdAt: string;
+    lastUsedAt: string | null;
+  }
+
+  const [apiKeysList, setApiKeysList] = useState<DeveloperApiKey[]>([]);
+  const [loadingApiKeys, setLoadingApiKeys] = useState(true);
+  const [newApiKeyName, setNewApiKeyName] = useState("");
+  const [creatingApiKey, setCreatingApiKey] = useState(false);
+  const [justCreatedKey, setJustCreatedKey] = useState<string | null>(null);
+  const [showFullKey, setShowFullKey] = useState(false);
+
+  const loadApiKeys = async () => {
+    setLoadingApiKeys(true);
+    try {
+      const res = await fetch("/api/developer/keys");
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeysList(data.keys || []);
+      }
+    } catch {
+      showToast("Erro ao carregar as chaves de API.", "error");
+    } finally {
+      setLoadingApiKeys(false);
+    }
+  };
+
+  const handleCreateApiKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newApiKeyName.trim()) {
+      showToast("Dê um nome à chave.", "error");
+      return;
+    }
+    setCreatingApiKey(true);
+    try {
+      const res = await fetch("/api/developer/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newApiKeyName.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setJustCreatedKey(data.apiKey);
+        setShowFullKey(true);
+        setNewApiKeyName("");
+        loadApiKeys();
+      } else {
+        showToast(data.error || "Erro ao criar a chave de API.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao criar a chave de API.", "error");
+    } finally {
+      setCreatingApiKey(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (key: DeveloperApiKey) => {
+    try {
+      const res = await fetch(`/api/developer/keys/${key.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Chave revogada.", "success");
+        loadApiKeys();
+      }
+    } catch {
+      showToast("Erro ao revogar a chave.", "error");
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -1219,6 +1455,12 @@ export default function MarketplacePage() {
     }
     if (tab === "labs") {
       loadLabs("");
+    }
+    if (tab === "agents") {
+      loadAgents("");
+    }
+    if (tab === "apis") {
+      loadApiKeys();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -1389,6 +1631,22 @@ export default function MarketplacePage() {
           }`}
         >
           <FlaskConical className="h-3.5 w-3.5" /> Laboratórios
+        </button>
+        <button
+          onClick={() => setTab("agents")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "agents" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Workflow className="h-3.5 w-3.5" /> Agentes IA
+        </button>
+        <button
+          onClick={() => setTab("apis")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "apis" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Code2 className="h-3.5 w-3.5" /> APIs
         </button>
       </div>
 
@@ -2674,7 +2932,7 @@ export default function MarketplacePage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "labs" ? (
         <div className="space-y-6">
           {/* Publicar Laboratório */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -2881,6 +3139,325 @@ export default function MarketplacePage() {
               </div>
             </div>
           )}
+        </div>
+      ) : tab === "agents" ? (
+        <div className="space-y-6">
+          {/* Publicar Agente IA */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Workflow className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Agente IA
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Um Agente IA é uma sequência real de passos de IA (não é execução autónoma com
+              ferramentas/navegação — isso exigiria infraestrutura fora desta stack). Cada passo é
+              uma chamada real ao motor de IA, e o resultado de cada passo alimenta o seguinte. Use{" "}
+              <code className="text-indigo-400">{"{{objetivo}}"}</code> para o objetivo inicial do
+              utilizador e <code className="text-indigo-400">{"{{anterior}}"}</code> para o resultado do passo anterior.
+            </p>
+            <form onSubmit={handlePublishAgent} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newAgentName}
+                  onChange={(e) => setNewAgentName(e.target.value)}
+                  placeholder="Nome (ex: Gerador de Plano de Aula)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  value={newAgentCategory}
+                  onChange={(e) => setNewAgentCategory(e.target.value)}
+                  placeholder="Categoria (ex: Educação, Marketing)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <textarea
+                value={newAgentDescription}
+                onChange={(e) => setNewAgentDescription(e.target.value)}
+                placeholder="Descrição curta: o que este Agente faz..."
+                className="w-full h-14 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+
+              <div className="space-y-2">
+                {newAgentSteps.map((step, i) => (
+                  <div key={i} className="p-3 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Passo {i + 1}</span>
+                      {newAgentSteps.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setNewAgentSteps((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-rose-400 hover:text-rose-300 cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      value={step.title}
+                      onChange={(e) =>
+                        setNewAgentSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, title: e.target.value } : s)))
+                      }
+                      placeholder="Título do passo (ex: Gerar esboço)"
+                      className="w-full h-9 px-3 rounded-lg border border-slate-800 bg-black text-white text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                    <textarea
+                      value={step.instruction}
+                      onChange={(e) =>
+                        setNewAgentSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, instruction: e.target.value } : s)))
+                      }
+                      placeholder={"Instrução deste passo, ex: \"Cria um esboço de aula sobre {{objetivo}}.\""}
+                      className="w-full h-16 p-2.5 rounded-lg border border-slate-800 bg-black text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewAgentSteps((prev) => [...prev, { title: "", instruction: "" }])}
+                  className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                >
+                  + Adicionar passo
+                </button>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={newAgentIsPublic} onChange={(e) => setNewAgentIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Publicar como público (visível para todos no Marketplace)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={publishingAgent}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingAgent ? <Loader2 className="h-4 w-4 animate-spin" /> : <Workflow className="h-4 w-4" />}
+                {publishingAgent ? "A publicar..." : "Publicar Agente IA"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Agentes IA Disponíveis
+            </h3>
+            <input
+              value={agentSearch}
+              onChange={(e) => {
+                setAgentSearch(e.target.value);
+                loadAgents(e.target.value);
+              }}
+              placeholder="Pesquisar por nome ou categoria..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingAgents ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : agents.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há Agentes IA publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{agent.category}</span>
+                        <h4 className="font-bold text-xs text-white truncate">{agent.name}</h4>
+                      </div>
+                      {agent.isMine && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleToggleAgentVisibility(agent)}
+                            title={agent.isPublic ? "Tornar privado" : "Tornar público"}
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            {agent.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAgent(agent)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed flex-1">{agent.description}</p>
+                    <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-500">
+                      {agent.steps.map((s, i) => (
+                        <React.Fragment key={i}>
+                          <span className="bg-slate-900 border border-slate-800 rounded-full px-2 py-0.5">{s.title}</span>
+                          {i < agent.steps.length - 1 && <ArrowRight className="h-3 w-3" />}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-slate-600">Por {agent.ownerName} · {agent.usesCount} execuções</span>
+                    <button
+                      onClick={() => openAgentPanel(agent)}
+                      className="h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      Executar ({agent.steps.length} Créditos IA)
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Painel de execução do Agente */}
+          {runningAgentPanel && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setRunningAgentPanel(null)}>
+              <div
+                className="w-full max-w-xl max-h-[85vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <h4 className="font-bold text-sm text-white">{runningAgentPanel.name}</h4>
+                  <button onClick={() => setRunningAgentPanel(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <textarea
+                    value={agentGoal}
+                    onChange={(e) => setAgentGoal(e.target.value)}
+                    placeholder="Descreva o objetivo para este Agente..."
+                    className="w-full h-16 p-3 rounded-xl border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                  />
+                  {agentResults && (
+                    <div className="space-y-3 pt-2">
+                      {agentResults.map((r, i) => (
+                        <div key={i} className="p-3 rounded-xl bg-slate-900/60 border border-slate-900 space-y-1.5">
+                          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Passo {i + 1}: {r.title}</span>
+                          <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">{r.output}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 border-t border-slate-900 shrink-0">
+                  <button
+                    onClick={handleRunAgent}
+                    disabled={agentRunning}
+                    className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
+                  >
+                    {agentRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    {agentRunning ? "A executar passos..." : "Executar Agente"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Documentação */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-3">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Code2 className="h-4.5 w-4.5 text-indigo-400" />
+              APIs para Developers
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Gere uma chave de API real para chamar os seus Prompts do Marketplace a partir de
+              qualquer sistema externo (Zapier, um script próprio, etc.), sem sessão de utilizador —
+              só com o cabeçalho <code className="text-indigo-400">Authorization: Bearer</code>.
+              Hoje só o endpoint de Prompts está exposto publicamente; a chave é válida em toda a conta.
+            </p>
+            <pre className="text-[10px] text-slate-400 bg-black rounded-xl p-3 overflow-x-auto font-mono">
+{`curl -X POST https://plataforma-formacao-mozai.vercel.app/api/public/v1/prompts/PROMPT_ID/run \\
+  -H "Authorization: Bearer mozai_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"variables": {"tema": "..."}}'`}
+            </pre>
+          </div>
+
+          {/* Criar nova chave */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <KeyRound className="h-4.5 w-4.5 text-indigo-400" />
+              Gerar Nova Chave
+            </h3>
+            {justCreatedKey && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
+                <span className="text-[11px] font-bold text-emerald-400">
+                  Guarde esta chave agora — só é mostrada uma vez e nunca é possível recuperá-la depois.
+                </span>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-[11px] text-white bg-black rounded-lg p-2 overflow-x-auto font-mono">
+                    {showFullKey ? justCreatedKey : `${justCreatedKey.slice(0, 12)}${"•".repeat(20)}`}
+                  </code>
+                  <button onClick={() => setShowFullKey((v) => !v)} className="text-slate-400 hover:text-slate-200 cursor-pointer shrink-0">
+                    {showFullKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(justCreatedKey);
+                      showToast("Chave copiada.", "success");
+                    }}
+                    className="text-slate-400 hover:text-slate-200 cursor-pointer shrink-0"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <form onSubmit={handleCreateApiKey} className="flex gap-2">
+              <input
+                value={newApiKeyName}
+                onChange={(e) => setNewApiKeyName(e.target.value)}
+                placeholder="Nome da chave (ex: Integração Zapier)"
+                className="flex-1 h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={creatingApiKey}
+                className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55 shrink-0"
+              >
+                {creatingApiKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Gerar
+              </button>
+            </form>
+          </div>
+
+          {/* Lista de chaves */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white">As Minhas Chaves</h3>
+            {loadingApiKeys ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : apiKeysList.length === 0 ? (
+              <span className="text-xs text-slate-500">Ainda não gerou nenhuma chave de API.</span>
+            ) : (
+              <div className="space-y-2">
+                {apiKeysList.map((key) => (
+                  <div key={key.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-900">
+                    <div>
+                      <span className="text-xs font-bold text-white">{key.name}</span>
+                      <div className="text-[10px] text-slate-500 font-mono">{key.prefix}••••••••••••</div>
+                      <span className="text-[10px] text-slate-600">
+                        {key.lastUsedAt ? `Último uso: ${new Date(key.lastUsedAt).toLocaleString("pt-PT")}` : "Nunca usada"}
+                      </span>
+                    </div>
+                    {key.revoked ? (
+                      <span className="text-[9px] font-bold text-slate-500 bg-slate-500/10 border border-slate-500/20 px-2 py-0.5 rounded-full">Revogada</span>
+                    ) : (
+                      <button
+                        onClick={() => handleRevokeApiKey(key)}
+                        className="h-7 px-3 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-[10px] font-semibold text-rose-400 cursor-pointer"
+                      >
+                        Revogar
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
