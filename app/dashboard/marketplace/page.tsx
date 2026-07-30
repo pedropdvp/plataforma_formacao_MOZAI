@@ -28,6 +28,11 @@ import {
   Copy,
   Wand2,
   LayoutTemplate,
+  Briefcase,
+  Calendar,
+  Coins,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -70,7 +75,9 @@ export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
-  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates">("courses");
+  const [tab, setTab] = useState<
+    "courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates" | "projects"
+  >("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -812,6 +819,214 @@ export default function MarketplacePage() {
     URL.revokeObjectURL(url);
   };
 
+  // --- PROJETOS (BOLSA DE FREELANCE) ---
+  interface MarketplaceProject {
+    id: string;
+    title: string;
+    description: string;
+    skills: string[];
+    budget: string;
+    budgetType: "fixo" | "portefolio";
+    deadline: string | null;
+    status: "open" | "in_progress" | "completed";
+    posterName: string;
+    isMine: boolean;
+    proposalsCount: number;
+  }
+  interface ProjectProposal {
+    _id: string;
+    applicantId: string;
+    applicantName: string;
+    message: string;
+    proposedBudget: string;
+    portfolioLink: string;
+    status: "pending" | "accepted" | "rejected";
+    submittedAt: string;
+  }
+
+  const PROJECT_STATUS_CONFIG: Record<MarketplaceProject["status"], { label: string; color: string }> = {
+    open: { label: "Em Aberto", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
+    in_progress: { label: "Em Curso", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+    completed: { label: "Concluído", color: "text-slate-400 bg-slate-500/10 border-slate-500/20" },
+  };
+
+  const [marketplaceProjects, setMarketplaceProjects] = useState<MarketplaceProject[]>([]);
+  const [loadingMarketplaceProjects, setLoadingMarketplaceProjects] = useState(true);
+  const [projectSearch, setProjectSearch] = useState("");
+  const [newProjectTitle, setNewProjectTitle] = useState("");
+  const [newProjectDescription, setNewProjectDescription] = useState("");
+  const [newProjectSkills, setNewProjectSkills] = useState("");
+  const [newProjectBudget, setNewProjectBudget] = useState("");
+  const [newProjectBudgetType, setNewProjectBudgetType] = useState<"fixo" | "portefolio">("fixo");
+  const [newProjectDeadline, setNewProjectDeadline] = useState("");
+  const [publishingProject, setPublishingProject] = useState(false);
+
+  const [viewingProject, setViewingProject] = useState<MarketplaceProject | null>(null);
+  const [projectProposals, setProjectProposals] = useState<ProjectProposal[]>([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [isProjectOwnerView, setIsProjectOwnerView] = useState(false);
+  const [proposalMessage, setProposalMessage] = useState("");
+  const [proposalBudget, setProposalBudget] = useState("");
+  const [proposalPortfolio, setProposalPortfolio] = useState("");
+  const [sendingProposal, setSendingProposal] = useState(false);
+  const [respondingProposalId, setRespondingProposalId] = useState<string | null>(null);
+
+  const loadMarketplaceProjects = async (query: string) => {
+    setLoadingMarketplaceProjects(true);
+    try {
+      const res = await fetch(`/api/marketplace/projects?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMarketplaceProjects(data.projects || []);
+      }
+    } catch {
+      showToast("Erro ao carregar a bolsa de projetos.", "error");
+    } finally {
+      setLoadingMarketplaceProjects(false);
+    }
+  };
+
+  const handlePublishProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectTitle.trim() || !newProjectDescription.trim()) {
+      showToast("Preencha o título e a descrição do projeto.", "error");
+      return;
+    }
+    setPublishingProject(true);
+    try {
+      const res = await fetch("/api/marketplace/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newProjectTitle.trim(),
+          description: newProjectDescription.trim(),
+          skills: newProjectSkills,
+          budget: newProjectBudget.trim(),
+          budgetType: newProjectBudgetType,
+          deadline: newProjectDeadline || null,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Projeto publicado na bolsa!", "success");
+        setNewProjectTitle("");
+        setNewProjectDescription("");
+        setNewProjectSkills("");
+        setNewProjectBudget("");
+        setNewProjectDeadline("");
+        loadMarketplaceProjects(projectSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o projeto.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o projeto.", "error");
+    } finally {
+      setPublishingProject(false);
+    }
+  };
+
+  const handleUpdateProjectStatus = async (project: MarketplaceProject, status: MarketplaceProject["status"]) => {
+    try {
+      const res = await fetch(`/api/marketplace/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setMarketplaceProjects((prev) => prev.map((p) => (p.id === project.id ? { ...p, status } : p)));
+        showToast("Estado do projeto atualizado.", "success");
+      }
+    } catch {
+      showToast("Erro ao atualizar o estado do projeto.", "error");
+    }
+  };
+
+  const handleDeleteProject = async (project: MarketplaceProject) => {
+    try {
+      const res = await fetch(`/api/marketplace/projects/${project.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Projeto eliminado.", "success");
+        setMarketplaceProjects((prev) => prev.filter((p) => p.id !== project.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o projeto.", "error");
+    }
+  };
+
+  const openProjectDetails = async (project: MarketplaceProject) => {
+    setViewingProject(project);
+    setProposalMessage("");
+    setProposalBudget("");
+    setProposalPortfolio("");
+    setLoadingProposals(true);
+    try {
+      const res = await fetch(`/api/marketplace/projects/${project.id}/proposals`);
+      if (res.ok) {
+        const data = await res.json();
+        setProjectProposals(data.proposals || []);
+        setIsProjectOwnerView(data.isOwner);
+      }
+    } catch {
+      showToast("Erro ao carregar as propostas.", "error");
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
+  const handleSendProposal = async () => {
+    if (!viewingProject || !proposalMessage.trim()) {
+      showToast("Escreva a sua proposta.", "error");
+      return;
+    }
+    setSendingProposal(true);
+    try {
+      const res = await fetch(`/api/marketplace/projects/${viewingProject.id}/proposals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: proposalMessage.trim(),
+          proposedBudget: proposalBudget.trim(),
+          portfolioLink: proposalPortfolio.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Proposta enviada com sucesso!", "success");
+        openProjectDetails(viewingProject);
+      } else {
+        showToast(data.error || "Erro ao enviar a proposta.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao enviar a proposta.", "error");
+    } finally {
+      setSendingProposal(false);
+    }
+  };
+
+  const handleRespondProposal = async (proposal: ProjectProposal, action: "accept" | "reject") => {
+    if (!viewingProject) return;
+    setRespondingProposalId(proposal._id);
+    try {
+      const res = await fetch(`/api/marketplace/projects/${viewingProject.id}/proposals/${proposal._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message, "success");
+        openProjectDetails(viewingProject);
+        loadMarketplaceProjects(projectSearch);
+      } else {
+        showToast(data.error || "Erro ao responder à proposta.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao responder à proposta.", "error");
+    } finally {
+      setRespondingProposalId(null);
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -832,6 +1047,9 @@ export default function MarketplacePage() {
     }
     if (tab === "templates") {
       loadTemplates("");
+    }
+    if (tab === "projects") {
+      loadMarketplaceProjects("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -986,6 +1204,14 @@ export default function MarketplacePage() {
           }`}
         >
           <LayoutTemplate className="h-3.5 w-3.5" /> Templates
+        </button>
+        <button
+          onClick={() => setTab("projects")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "projects" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Briefcase className="h-3.5 w-3.5" /> Projetos
         </button>
       </div>
 
@@ -1829,7 +2055,7 @@ export default function MarketplacePage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "templates" ? (
         <div className="space-y-6">
           {/* Publicar Template */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -1984,6 +2210,288 @@ export default function MarketplacePage() {
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
                   <pre className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap font-mono">{previewingTemplate.content}</pre>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Projeto */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Briefcase className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Projeto
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              A Bolsa de Projetos é para trabalhos pontuais/freelance (não é uma vaga de emprego —
+              isso está em "Empresas" — nem uma entrega de curso). Qualquer pessoa ou empresa pode
+              publicar um projeto; outros utilizadores submetem propostas e o autor escolhe uma.
+            </p>
+            <form onSubmit={handlePublishProject} className="space-y-3">
+              <input
+                value={newProjectTitle}
+                onChange={(e) => setNewProjectTitle(e.target.value)}
+                placeholder="Título (ex: Landing page para lançamento de produto)"
+                className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <textarea
+                value={newProjectDescription}
+                onChange={(e) => setNewProjectDescription(e.target.value)}
+                placeholder="Descreva o âmbito e os objetivos do projeto..."
+                className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <input
+                value={newProjectSkills}
+                onChange={(e) => setNewProjectSkills(e.target.value)}
+                placeholder="Competências necessárias, separadas por vírgula (ex: React, Design, Copywriting)"
+                className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <div className="grid sm:grid-cols-3 gap-3">
+                <select
+                  value={newProjectBudgetType}
+                  onChange={(e) => setNewProjectBudgetType(e.target.value as "fixo" | "portefolio")}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="fixo">Orçamento fixo</option>
+                  <option value="portefolio">Para portefólio (sem pagamento)</option>
+                </select>
+                <input
+                  value={newProjectBudget}
+                  onChange={(e) => setNewProjectBudget(e.target.value)}
+                  placeholder={newProjectBudgetType === "fixo" ? "Valor (ex: 500€)" : "Contrapartida (opcional)"}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  type="date"
+                  value={newProjectDeadline}
+                  onChange={(e) => setNewProjectDeadline(e.target.value)}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={publishingProject}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingProject ? <Loader2 className="h-4 w-4 animate-spin" /> : <Briefcase className="h-4 w-4" />}
+                {publishingProject ? "A publicar..." : "Publicar Projeto"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Projetos em Aberto
+            </h3>
+            <input
+              value={projectSearch}
+              onChange={(e) => {
+                setProjectSearch(e.target.value);
+                loadMarketplaceProjects(e.target.value);
+              }}
+              placeholder="Pesquisar por título ou competência..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingMarketplaceProjects ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : marketplaceProjects.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há projetos publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {marketplaceProjects.map((project) => {
+                  const cfg = PROJECT_STATUS_CONFIG[project.status];
+                  return (
+                    <div key={project.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-bold text-xs text-white">{project.title}</h4>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${cfg.color}`}>{cfg.label}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-relaxed flex-1">{project.description}</p>
+                      {project.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {project.skills.map((s) => (
+                            <span key={s} className="text-[9px] font-mono font-bold text-indigo-400 bg-indigo-500/5 border border-indigo-500/10 px-2 py-0.5 rounded-full">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span className="flex items-center gap-1"><Coins className="h-3 w-3" /> {project.budgetType === "fixo" ? project.budget || "A combinar" : "Portefólio"}</span>
+                        {project.deadline && (
+                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(project.deadline).toLocaleDateString("pt-PT")}</span>
+                        )}
+                        <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {project.proposalsCount} propostas</span>
+                      </div>
+                      <span className="text-[10px] text-slate-600">Por {project.posterName}</span>
+                      <div className="flex gap-2">
+                        {project.isMine && (
+                          <button
+                            onClick={() => handleDeleteProject(project)}
+                            className="h-8 w-8 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openProjectDetails(project)}
+                          className="flex-1 h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {project.isMine ? "Ver Propostas" : "Ver Detalhes / Propor"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Painel de detalhes / propostas */}
+          {viewingProject && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setViewingProject(null)}>
+              <div
+                className="w-full max-w-xl max-h-[85vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">{viewingProject.title}</h4>
+                    <span className="text-[10px] text-slate-500">Por {viewingProject.posterName}</span>
+                  </div>
+                  <button onClick={() => setViewingProject(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <p className="text-xs text-slate-300 leading-relaxed">{viewingProject.description}</p>
+
+                  {loadingProposals ? (
+                    <div className="flex items-center justify-center py-6">
+                      <Loader2 className="h-5 w-5 text-indigo-500 animate-spin" />
+                    </div>
+                  ) : isProjectOwnerView ? (
+                    <div className="space-y-3 pt-3 border-t border-slate-900">
+                      <h5 className="font-bold text-xs text-white">Propostas Recebidas</h5>
+                      {projectProposals.length === 0 ? (
+                        <span className="text-xs text-slate-500">Ainda não recebeu propostas.</span>
+                      ) : (
+                        projectProposals.map((p) => (
+                          <div key={p._id} className="p-3 rounded-xl bg-slate-900/60 border border-slate-900 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white">{p.applicantName}</span>
+                              {p.proposedBudget && <span className="text-[10px] text-emerald-400">{p.proposedBudget}</span>}
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">{p.message}</p>
+                            {p.portfolioLink && (
+                              <a href={p.portfolioLink} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-400 underline block">
+                                {p.portfolioLink}
+                              </a>
+                            )}
+                            {p.status === "pending" ? (
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() => handleRespondProposal(p, "reject")}
+                                  disabled={respondingProposalId === p._id}
+                                  className="h-7 px-3 rounded-lg border border-slate-800 text-[10px] font-semibold text-slate-400 hover:bg-slate-900 cursor-pointer disabled:opacity-55 flex items-center gap-1"
+                                >
+                                  <ThumbsDown className="h-3 w-3" /> Recusar
+                                </button>
+                                <button
+                                  onClick={() => handleRespondProposal(p, "accept")}
+                                  disabled={respondingProposalId === p._id}
+                                  className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[10px] font-semibold text-white cursor-pointer disabled:opacity-55 flex items-center gap-1"
+                                >
+                                  <ThumbsUp className="h-3 w-3" /> Aceitar
+                                </button>
+                              </div>
+                            ) : (
+                              <span
+                                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border inline-block ${
+                                  p.status === "accepted"
+                                    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                    : "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                                }`}
+                              >
+                                {p.status === "accepted" ? "Aceite" : "Recusada"}
+                              </span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pt-3 border-t border-slate-900">
+                      {projectProposals.length > 0 ? (
+                        <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-900 space-y-1.5">
+                          <span className="text-xs font-bold text-white">A sua proposta</span>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">{projectProposals[0].message}</p>
+                          <span
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border inline-block ${
+                              projectProposals[0].status === "accepted"
+                                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                                : projectProposals[0].status === "rejected"
+                                  ? "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                                  : "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                            }`}
+                          >
+                            {projectProposals[0].status === "accepted" ? "Aceite" : projectProposals[0].status === "rejected" ? "Recusada" : "Pendente"}
+                          </span>
+                        </div>
+                      ) : viewingProject.status === "open" ? (
+                        <>
+                          <h5 className="font-bold text-xs text-white">Enviar Proposta</h5>
+                          <textarea
+                            value={proposalMessage}
+                            onChange={(e) => setProposalMessage(e.target.value)}
+                            placeholder="Explique a sua abordagem e experiência relevante..."
+                            className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                          />
+                          <div className="grid sm:grid-cols-2 gap-3">
+                            <input
+                              value={proposalBudget}
+                              onChange={(e) => setProposalBudget(e.target.value)}
+                              placeholder="Valor proposto (opcional)"
+                              className="h-9 px-3 rounded-lg border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                            />
+                            <input
+                              value={proposalPortfolio}
+                              onChange={(e) => setProposalPortfolio(e.target.value)}
+                              placeholder="Link de portefólio (opcional)"
+                              className="h-9 px-3 rounded-lg border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                          <button
+                            onClick={handleSendProposal}
+                            disabled={sendingProposal}
+                            className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
+                          >
+                            {sendingProposal ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            {sendingProposal ? "A enviar..." : "Enviar Proposta"}
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">Este projeto já não está a aceitar propostas.</span>
+                      )}
+                    </div>
+                  )}
+
+                  {isProjectOwnerView && viewingProject.status !== "completed" && (
+                    <button
+                      onClick={() => handleUpdateProjectStatus(viewingProject, "completed")}
+                      className="w-full h-9 rounded-xl border border-slate-800 hover:bg-slate-900 text-xs font-semibold text-slate-300 cursor-pointer"
+                    >
+                      Marcar Projeto como Concluído
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
