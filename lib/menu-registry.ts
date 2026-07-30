@@ -46,6 +46,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "live-classes", groupId: "comunicacao", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
   { id: "community", groupId: "comunicacao", label: "Comunidade", path: "/dashboard/community" },
   { id: "events", groupId: "comunicacao", label: "Eventos", path: "/dashboard/events" },
+  { id: "hackathons", groupId: "comunicacao", label: "Hackathons", path: "/dashboard/hackathons" },
+  { id: "meetups", groupId: "comunicacao", label: "Meetups", path: "/dashboard/meetups" },
   { id: "forum", groupId: "comunicacao", label: "Fórum", path: "/dashboard/forum" },
   { id: "notifications", groupId: "comunicacao", label: "Notificações", path: "/dashboard/notifications" },
   { id: "training-rooms", groupId: "comunicacao", label: "Salas de Treino", path: "/dashboard/training-rooms" },

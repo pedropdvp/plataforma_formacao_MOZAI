@@ -50,7 +50,8 @@ import {
   ShieldAlert,
   Cloud,
   CalendarDays,
-  MessageSquareText
+  MessageSquareText,
+  Users2
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -173,6 +174,8 @@ export default function SidebarNav() {
     "/dashboard/live-classes",
     "/dashboard/community",
     "/dashboard/events",
+    "/dashboard/hackathons",
+    "/dashboard/meetups",
     "/dashboard/forum",
     "/dashboard/notifications",
     "/dashboard/training-rooms",
@@ -374,6 +377,18 @@ export default function SidebarNav() {
             <Link href="/dashboard/events" className={linkClass("/dashboard/events")}>
               <CalendarDays className="h-4 w-4 text-emerald-400" />
               {t("nav_events", "Eventos")}
+            </Link>
+            )}
+            {isItemVisible("hackathons") && (
+            <Link href="/dashboard/hackathons" className={linkClass("/dashboard/hackathons")}>
+              <Trophy className="h-4 w-4 text-amber-400" />
+              {t("nav_hackathons", "Hackathons")}
+            </Link>
+            )}
+            {isItemVisible("meetups") && (
+            <Link href="/dashboard/meetups" className={linkClass("/dashboard/meetups")}>
+              <Users2 className="h-4 w-4 text-emerald-400" />
+              {t("nav_meetups", "Meetups")}
             </Link>
             )}
             {isItemVisible("forum") && (
