@@ -77,6 +77,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "academy", groupId: "workspace", label: "Academia Corporativa", path: "/dashboard/admin/academy" },
   { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
   { id: "project-review", groupId: "workspace", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
+  { id: "ai-agents-catalog", groupId: "workspace", label: "AI Agents (Personas Especializadas)", path: "/dashboard/ai-agents" },
   { id: "ai-lab", groupId: "workspace", label: "AI Lab (Multi-Modelo)", path: "/dashboard/ai-lab" },
   { id: "blockchain-lab", groupId: "workspace", label: "Blockchain Lab", path: "/dashboard/blockchain-lab" },
   { id: "cyber-lab", groupId: "workspace", label: "Cyber Lab", path: "/dashboard/cyber-lab" },

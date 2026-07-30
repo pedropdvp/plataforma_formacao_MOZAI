@@ -210,6 +210,7 @@ export default function SidebarNav() {
   const isWorkspaceActive = [
     "/dashboard/marketing-agency",
     "/dashboard/admin/auto-update",
+    "/dashboard/ai-agents",
     "/dashboard/ai-lab",
     "/dashboard/blockchain-lab",
     "/dashboard/cyber-lab",
@@ -625,6 +626,12 @@ export default function SidebarNav() {
                 {t("nav_project_review", "Avaliação de Projetos")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("ai-agents-catalog") && (
+            <Link href="/dashboard/ai-agents" className={linkClass("/dashboard/ai-agents")}>
+              <Bot className="h-4 w-4 text-cyan-400" />
+              {t("nav_ai_agents_catalog", "AI Agents")}
+            </Link>
             )}
             {isItemVisible("ai-lab") && (
             <Link href="/dashboard/ai-lab" className={linkClass("/dashboard/ai-lab")}>
