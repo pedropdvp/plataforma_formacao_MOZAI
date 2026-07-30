@@ -33,6 +33,9 @@ import {
   Coins,
   ThumbsUp,
   ThumbsDown,
+  FlaskConical,
+  Play,
+  Terminal,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -76,7 +79,7 @@ export default function MarketplacePage() {
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
   const [tab, setTab] = useState<
-    "courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates" | "projects"
+    "courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates" | "projects" | "labs"
   >("courses");
 
   // --- CURSOS ---
@@ -1027,6 +1030,169 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- LABORATÓRIOS (EXERCÍCIOS DE CÓDIGO) ---
+  interface MarketplaceLab {
+    id: string;
+    title: string;
+    description: string;
+    language: string;
+    difficulty: string;
+    starterCode: string;
+    stdin: string;
+    expectedOutput: string;
+    isPublic: boolean;
+    usesCount: number;
+    ownerName: string;
+    isMine: boolean;
+  }
+
+  const LAB_LANGUAGES = ["python", "javascript", "typescript", "java", "c", "cpp", "csharp", "php", "ruby", "go"];
+
+  const [labs, setLabs] = useState<MarketplaceLab[]>([]);
+  const [loadingLabs, setLoadingLabs] = useState(true);
+  const [labSearch, setLabSearch] = useState("");
+  const [newLabTitle, setNewLabTitle] = useState("");
+  const [newLabDescription, setNewLabDescription] = useState("");
+  const [newLabLanguage, setNewLabLanguage] = useState("python");
+  const [newLabDifficulty, setNewLabDifficulty] = useState("Iniciante");
+  const [newLabStarterCode, setNewLabStarterCode] = useState("");
+  const [newLabStdin, setNewLabStdin] = useState("");
+  const [newLabExpectedOutput, setNewLabExpectedOutput] = useState("");
+  const [newLabIsPublic, setNewLabIsPublic] = useState(true);
+  const [publishingLab, setPublishingLab] = useState(false);
+
+  const [openLab, setOpenLab] = useState<MarketplaceLab | null>(null);
+  const [labCode, setLabCode] = useState("");
+  const [labOutput, setLabOutput] = useState<{ stdout: string; stderr: string; passed?: boolean } | null>(null);
+  const [runningLab, setRunningLab] = useState(false);
+
+  const loadLabs = async (query: string) => {
+    setLoadingLabs(true);
+    try {
+      const res = await fetch(`/api/marketplace/labs?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLabs(data.labs || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os Laboratórios.", "error");
+    } finally {
+      setLoadingLabs(false);
+    }
+  };
+
+  const handlePublishLab = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLabTitle.trim() || !newLabDescription.trim()) {
+      showToast("Preencha o título e o enunciado do laboratório.", "error");
+      return;
+    }
+    setPublishingLab(true);
+    try {
+      const res = await fetch("/api/marketplace/labs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newLabTitle.trim(),
+          description: newLabDescription.trim(),
+          language: newLabLanguage,
+          difficulty: newLabDifficulty,
+          starterCode: newLabStarterCode,
+          stdin: newLabStdin,
+          expectedOutput: newLabExpectedOutput,
+          isPublic: newLabIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Laboratório publicado com sucesso!", "success");
+        setNewLabTitle("");
+        setNewLabDescription("");
+        setNewLabStarterCode("");
+        setNewLabStdin("");
+        setNewLabExpectedOutput("");
+        loadLabs(labSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o Laboratório.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o Laboratório.", "error");
+    } finally {
+      setPublishingLab(false);
+    }
+  };
+
+  const handleToggleLabVisibility = async (lab: MarketplaceLab) => {
+    try {
+      const res = await fetch(`/api/marketplace/labs/${lab.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !lab.isPublic }),
+      });
+      if (res.ok) {
+        setLabs((prev) => prev.map((l) => (l.id === lab.id ? { ...l, isPublic: !l.isPublic } : l)));
+      }
+    } catch {
+      showToast("Erro ao atualizar a visibilidade do Laboratório.", "error");
+    }
+  };
+
+  const handleDeleteLab = async (lab: MarketplaceLab) => {
+    try {
+      const res = await fetch(`/api/marketplace/labs/${lab.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Laboratório eliminado.", "success");
+        setLabs((prev) => prev.filter((l) => l.id !== lab.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o Laboratório.", "error");
+    }
+  };
+
+  const openLabEditor = async (lab: MarketplaceLab) => {
+    setOpenLab(lab);
+    setLabCode(lab.starterCode || "");
+    setLabOutput(null);
+    try {
+      const res = await fetch(`/api/marketplace/labs/${lab.id}/use`, { method: "POST" });
+      if (res.ok) {
+        setLabs((prev) => prev.map((l) => (l.id === lab.id ? { ...l, usesCount: l.usesCount + 1 } : l)));
+      }
+    } catch {
+      // silencioso — não bloqueia a abertura do editor
+    }
+  };
+
+  const handleRunLab = async () => {
+    if (!openLab) return;
+    setRunningLab(true);
+    setLabOutput(null);
+    try {
+      const res = await fetch("/api/coding-lab/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          language: openLab.language,
+          code: labCode,
+          stdin: openLab.stdin,
+          expectedOutput: openLab.expectedOutput,
+          exerciseId: `marketplace-lab-${openLab.id}`,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLabOutput({ stdout: data.stdout, stderr: data.stderr, passed: data.passed });
+        if (data.passed) showToast("Resultado correto!", "success");
+      } else {
+        showToast(data.error || "Erro ao executar o código.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao executar o código.", "error");
+    } finally {
+      setRunningLab(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -1050,6 +1216,9 @@ export default function MarketplacePage() {
     }
     if (tab === "projects") {
       loadMarketplaceProjects("");
+    }
+    if (tab === "labs") {
+      loadLabs("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -1212,6 +1381,14 @@ export default function MarketplacePage() {
           }`}
         >
           <Briefcase className="h-3.5 w-3.5" /> Projetos
+        </button>
+        <button
+          onClick={() => setTab("labs")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "labs" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <FlaskConical className="h-3.5 w-3.5" /> Laboratórios
         </button>
       </div>
 
@@ -2215,7 +2392,7 @@ export default function MarketplacePage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "projects" ? (
         <div className="space-y-6">
           {/* Publicar Projeto */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -2492,6 +2669,214 @@ export default function MarketplacePage() {
                       Marcar Projeto como Concluído
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Laboratório */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <FlaskConical className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Laboratório
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Um Laboratório é um exercício de código independente de qualquer curso — enunciado,
+              código inicial e, opcionalmente, um resultado esperado. É executado no mesmo motor real
+              (Piston) do Coding Lab das aulas, com o código a correr de verdade, não simulado.
+            </p>
+            <form onSubmit={handlePublishLab} className="space-y-3">
+              <div className="grid sm:grid-cols-3 gap-3">
+                <input
+                  value={newLabTitle}
+                  onChange={(e) => setNewLabTitle(e.target.value)}
+                  placeholder="Título (ex: Inversão de String)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none sm:col-span-1"
+                />
+                <select
+                  value={newLabLanguage}
+                  onChange={(e) => setNewLabLanguage(e.target.value)}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                >
+                  {LAB_LANGUAGES.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <select
+                  value={newLabDifficulty}
+                  onChange={(e) => setNewLabDifficulty(e.target.value)}
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                >
+                  <option>Iniciante</option>
+                  <option>Intermédio</option>
+                  <option>Avançado</option>
+                </select>
+              </div>
+              <textarea
+                value={newLabDescription}
+                onChange={(e) => setNewLabDescription(e.target.value)}
+                placeholder="Enunciado do exercício: o que o código deve fazer..."
+                className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <textarea
+                value={newLabStarterCode}
+                onChange={(e) => setNewLabStarterCode(e.target.value)}
+                placeholder="Código inicial (opcional)..."
+                className="w-full h-24 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none font-mono"
+              />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newLabStdin}
+                  onChange={(e) => setNewLabStdin(e.target.value)}
+                  placeholder="Entrada padrão / stdin (opcional)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none font-mono"
+                />
+                <input
+                  value={newLabExpectedOutput}
+                  onChange={(e) => setNewLabExpectedOutput(e.target.value)}
+                  placeholder="Resultado esperado (opcional — valida automaticamente)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none font-mono"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={newLabIsPublic} onChange={(e) => setNewLabIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Publicar como público (visível para todos no Marketplace)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={publishingLab}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingLab ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
+                {publishingLab ? "A publicar..." : "Publicar Laboratório"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Laboratórios Disponíveis
+            </h3>
+            <input
+              value={labSearch}
+              onChange={(e) => {
+                setLabSearch(e.target.value);
+                loadLabs(e.target.value);
+              }}
+              placeholder="Pesquisar por título ou linguagem..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingLabs ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : labs.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há Laboratórios publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {labs.map((lab) => (
+                  <div key={lab.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{lab.language} · {lab.difficulty}</span>
+                        <h4 className="font-bold text-xs text-white truncate">{lab.title}</h4>
+                      </div>
+                      {lab.isMine && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleToggleLabVisibility(lab)}
+                            title={lab.isPublic ? "Tornar privado" : "Tornar público"}
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            {lab.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteLab(lab)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed flex-1">{lab.description}</p>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {lab.usesCount} execuções</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600">Por {lab.ownerName}</span>
+                    <button
+                      onClick={() => openLabEditor(lab)}
+                      className="h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Terminal className="h-3.5 w-3.5" />
+                      Abrir no Editor
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Editor / execução real (Piston) */}
+          {openLab && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setOpenLab(null)}>
+              <div
+                className="w-full max-w-2xl max-h-[85vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">{openLab.title}</h4>
+                    <span className="text-[10px] text-slate-500">{openLab.language} · {openLab.difficulty}</span>
+                  </div>
+                  <button onClick={() => setOpenLab(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <p className="text-xs text-slate-300 leading-relaxed">{openLab.description}</p>
+                  <textarea
+                    value={labCode}
+                    onChange={(e) => setLabCode(e.target.value)}
+                    spellCheck={false}
+                    className="w-full h-52 p-3 rounded-xl border border-slate-800 bg-black text-emerald-400 text-xs focus:border-indigo-500 focus:outline-none resize-none font-mono"
+                  />
+                  {labOutput && (
+                    <div className="space-y-2">
+                      {labOutput.passed !== undefined && labOutput.passed !== null && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-block ${
+                            labOutput.passed
+                              ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                              : "text-rose-400 bg-rose-500/10 border-rose-500/20"
+                          }`}
+                        >
+                          {labOutput.passed ? "Resultado correto" : "Resultado incorreto"}
+                        </span>
+                      )}
+                      <pre className="text-[11px] text-slate-300 bg-black rounded-lg p-3 whitespace-pre-wrap font-mono">{labOutput.stdout || "(sem output)"}</pre>
+                      {labOutput.stderr && (
+                        <pre className="text-[11px] text-rose-400 bg-black rounded-lg p-3 whitespace-pre-wrap font-mono">{labOutput.stderr}</pre>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 border-t border-slate-900 shrink-0">
+                  <button
+                    onClick={handleRunLab}
+                    disabled={runningLab}
+                    className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
+                  >
+                    {runningLab ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                    {runningLab ? "A executar..." : "Executar Código"}
+                  </button>
                 </div>
               </div>
             </div>
