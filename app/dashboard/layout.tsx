@@ -6,6 +6,7 @@ import UserProfileButton from "@/components/user-profile-button";
 import SidebarNav from "@/components/sidebar-nav";
 import UIControls from "@/components/ui-controls";
 import ChatbotWidget from "@/components/chatbot-widget";
+import OnboardingModal from "@/components/onboarding-modal";
 import { getActiveTenantBranding } from "@/lib/tenant";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
@@ -251,6 +252,7 @@ export default async function DashboardLayout({
       </div>
 
       <ChatbotWidget />
+      {!userRecord.onboardingCompletedAt && <OnboardingModal activeRole={activeRole} />}
     </div>
   );
 }
