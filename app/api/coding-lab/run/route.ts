@@ -32,9 +32,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const { language, code, stdin, expectedOutput, exerciseId, courseId, lessonKey } = await req.json();
+    const { language, code, stdin, expectedOutput, exerciseId, courseId, lessonKey, testCases } = await req.json();
     if (!language || !code) {
       return NextResponse.json({ error: "Os campos 'language' e 'code' são obrigatórios." }, { status: 400 });
+    }
+    if (testCases !== undefined && (!Array.isArray(testCases) || testCases.length === 0 || testCases.length > 10)) {
+      return NextResponse.json({ error: "'testCases' deve ser uma lista com 1 a 10 casos." }, { status: 400 });
     }
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
@@ -58,11 +61,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = await executeCode(language, code, stdin || "");
+    // Modo "suite de testes": corre o MESMO código uma vez por cada caso (stdin/expectedOutput
+    // próprios), sequencialmente — tal como um pipeline de CI real correria vários testes contra
+    // um único build. Cada caso é uma execução Piston genuína, nunca simulada.
+    let testResults: { label?: string; stdin: string; expectedOutput: string; stdout: string; stderr: string; passed: boolean }[] | undefined;
+    let result: { stdout: string; stderr: string; exitCode: number };
+    let passed: boolean | undefined;
 
-    const passed = expectedOutput !== undefined && expectedOutput !== null && expectedOutput !== ""
-      ? result.stdout.trim() === String(expectedOutput).trim()
-      : undefined;
+    if (Array.isArray(testCases)) {
+      testResults = [];
+      for (const tc of testCases) {
+        const r = await executeCode(language, code, tc.stdin || "");
+        testResults.push({
+          label: tc.label,
+          stdin: tc.stdin || "",
+          expectedOutput: tc.expectedOutput ?? "",
+          stdout: r.stdout,
+          stderr: r.stderr,
+          passed: r.stdout.trim() === String(tc.expectedOutput ?? "").trim(),
+        });
+      }
+      passed = testResults.every((t) => t.passed);
+      const last = testResults[testResults.length - 1];
+      result = { stdout: last.stdout, stderr: last.stderr, exitCode: 0 };
+    } else {
+      result = await executeCode(language, code, stdin || "");
+      passed = expectedOutput !== undefined && expectedOutput !== null && expectedOutput !== ""
+        ? result.stdout.trim() === String(expectedOutput).trim()
+        : undefined;
+    }
 
     // Gravação do histórico + gamificação nunca pode impedir a devolução do resultado real
     // da execução ao aluno — se a base de dados falhar aqui, o código já correu com sucesso
@@ -81,6 +108,7 @@ export async function POST(req: NextRequest) {
         stderr: result.stderr,
         exitCode: result.exitCode,
         passed: passed ?? null,
+        testResults: testResults || null,
         timestamp: new Date(),
       });
 
@@ -135,6 +163,7 @@ export async function POST(req: NextRequest) {
       stderr: result.stderr,
       exitCode: result.exitCode,
       passed,
+      testResults,
       xpAwarded,
       badgeUnlocked,
     });

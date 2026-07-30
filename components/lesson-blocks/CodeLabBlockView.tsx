@@ -14,10 +14,25 @@ const LANGUAGE_EXTENSIONS: Record<string, any> = {
   node: javascript(),
 };
 
+interface TestCase {
+  label?: string;
+  stdin: string;
+  expectedOutput: string;
+}
+
+interface TestResult extends TestCase {
+  stdout: string;
+  stderr: string;
+  passed: boolean;
+}
+
 interface CodeLabBlockViewProps {
   language: string;
   starterCode: string;
   expectedOutput?: string;
+  /** Quando definido, corre uma suite de testes (uma execução Piston real por caso) em vez de
+   * uma única execução com "expectedOutput" — tipo pipeline de CI/testes automáticos. */
+  testCases?: TestCase[];
   instructions?: string;
   /** Identificador estável do exercício (ex: "<courseId>:<lessonKey>:<blockId>"), usado
    * para histórico de tentativas e para XP de gamificação contar só na primeira aprovação. */
@@ -27,6 +42,9 @@ interface CodeLabBlockViewProps {
   /** Chamado depois de cada execução (com sucesso ou erro), para quem estiver a mostrar
    * um histórico de tentativas o poder recarregar sem sondar em intervalos. */
   onRunComplete?: () => void;
+  /** Chamado sempre que o código no editor muda — permite ao ecrã pai (ex: Coding Lab) usar
+   * o código atual para outras ações (Code Review IA, exportar para GitHub). */
+  onCodeChange?: (code: string) => void;
 }
 
 /**
@@ -34,10 +52,10 @@ interface CodeLabBlockViewProps {
  * Jupyter": execução real e isolada via Piston, mas sem kernels persistentes nem
  * estado partilhado entre blocos (isso seria um Jupyter real, fora de âmbito).
  */
-export function CodeLabBlockView({ language, starterCode, expectedOutput, instructions, exerciseId, courseId, lessonKey, onRunComplete }: CodeLabBlockViewProps) {
+export function CodeLabBlockView({ language, starterCode, expectedOutput, testCases, instructions, exerciseId, courseId, lessonKey, onRunComplete, onCodeChange }: CodeLabBlockViewProps) {
   const [code, setCode] = useState(starterCode);
   const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState<{ stdout: string; stderr: string; passed?: boolean; xpAwarded?: number; badgeUnlocked?: boolean } | null>(null);
+  const [output, setOutput] = useState<{ stdout: string; stderr: string; passed?: boolean; testResults?: TestResult[]; xpAwarded?: number; badgeUnlocked?: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleRun = async () => {
@@ -47,11 +65,18 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
       const res = await fetch("/api/coding-lab/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, code, expectedOutput, exerciseId, courseId, lessonKey }),
+        body: JSON.stringify({ language, code, expectedOutput, testCases, exerciseId, courseId, lessonKey }),
       });
       const data = await res.json();
       if (res.ok) {
-        setOutput({ stdout: data.stdout, stderr: data.stderr, passed: data.passed, xpAwarded: data.xpAwarded, badgeUnlocked: data.badgeUnlocked });
+        setOutput({
+          stdout: data.stdout,
+          stderr: data.stderr,
+          passed: data.passed,
+          testResults: data.testResults,
+          xpAwarded: data.xpAwarded,
+          badgeUnlocked: data.badgeUnlocked,
+        });
       } else {
         setError(data.error || "Erro ao executar o código.");
       }
@@ -87,7 +112,10 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
         height="220px"
         theme="dark"
         extensions={[extension]}
-        onChange={(value) => setCode(value)}
+        onChange={(value) => {
+          setCode(value);
+          onCodeChange?.(value);
+        }}
         basicSetup={{ lineNumbers: true, foldGutter: true }}
       />
 
@@ -95,6 +123,24 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
         <div className="border-t border-slate-800 p-3 space-y-2 bg-black/40">
           {error ? (
             <p className="text-xs text-rose-400 font-mono">{error}</p>
+          ) : output?.testResults ? (
+            <>
+              <div className={`flex items-center gap-1.5 text-xs font-bold ${output.passed ? "text-emerald-400" : "text-rose-400"}`}>
+                {output.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                {output.testResults.filter((t) => t.passed).length} / {output.testResults.length} testes passaram
+              </div>
+              <div className="space-y-1.5">
+                {output.testResults.map((t, i) => (
+                  <div key={i} className={`text-[11px] font-mono px-2.5 py-1.5 rounded-lg flex items-center justify-between gap-2 ${t.passed ? "bg-emerald-500/5 text-emerald-400" : "bg-rose-500/5 text-rose-400"}`}>
+                    <span className="flex items-center gap-1.5 truncate">
+                      {t.passed ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <XCircle className="h-3 w-3 shrink-0" />}
+                      {t.label || `Teste ${i + 1}`}
+                    </span>
+                    {!t.passed && <span className="text-slate-500 truncate">obtido: {t.stdout.trim() || "(vazio)"}</span>}
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
             <>
               {output?.passed !== undefined && (
@@ -105,12 +151,12 @@ export function CodeLabBlockView({ language, starterCode, expectedOutput, instru
               )}
               {output?.stdout && <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap">{output.stdout}</pre>}
               {output?.stderr && <pre className="text-xs text-rose-400 font-mono whitespace-pre-wrap">{output.stderr}</pre>}
-              {!!output?.xpAwarded && (
-                <div className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
-                  +{output.xpAwarded} XP{output.badgeUnlocked ? " · Distintivo \"Code Runner\" desbloqueado!" : ""}
-                </div>
-              )}
             </>
+          )}
+          {!!output?.xpAwarded && (
+            <div className="text-[11px] font-bold text-amber-400 flex items-center gap-1.5">
+              +{output.xpAwarded} XP{output.badgeUnlocked ? " · Distintivo \"Code Runner\" desbloqueado!" : ""}
+            </div>
           )}
         </div>
       )}
