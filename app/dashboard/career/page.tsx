@@ -17,8 +17,12 @@ export default function CareerOSPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    if (file.type !== "application/pdf") {
-      showToast("Só é possível carregar ficheiros PDF.", "error");
+
+    // Valida pela extensão, não pelo MIME-type reportado pelo browser — pouco fiável
+    // para .docx (mesma lição já aprendida na Fábrica de Cursos com .pptx/.pdf no Windows).
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".docx")) {
+      showToast("Só é possível carregar ficheiros PDF ou Word (.docx).", "error");
       return;
     }
 
@@ -34,17 +38,17 @@ export default function CareerOSPage() {
       const res = await fetch("/api/career/extract-cv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: base64 }),
+        body: JSON.stringify({ data: base64, filename: file.name }),
       });
       const data = await res.json();
       if (res.ok) {
         setCvText(data.text);
         showToast("Texto do CV extraído com sucesso. Reveja antes de analisar.", "success");
       } else {
-        showToast(data.error || "Erro ao extrair o PDF.", "error");
+        showToast(data.error || "Erro ao extrair o ficheiro.", "error");
       }
     } catch (err) {
-      showToast("Erro de comunicação ao extrair o PDF.", "error");
+      showToast("Erro de comunicação ao extrair o ficheiro.", "error");
     } finally {
       setExtractingPdf(false);
     }
@@ -159,12 +163,12 @@ export default function CareerOSPage() {
                     className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 disabled:opacity-50 cursor-pointer shrink-0"
                   >
                     {extractingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                    Carregar PDF
+                    {extractingPdf ? "A extrair..." : "Carregar PDF/DOCX"}
                   </button>
                   <input
                     ref={cvFileInputRef}
                     type="file"
-                    accept="application/pdf"
+                    accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     onChange={handleCvFileSelected}
                     className="hidden"
                   />
