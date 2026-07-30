@@ -27,6 +27,7 @@ import {
   ScrollText,
   Copy,
   Wand2,
+  LayoutTemplate,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -69,7 +70,7 @@ export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
-  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models" | "prompts">("courses");
+  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models" | "prompts" | "templates">("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -669,6 +670,148 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- TEMPLATES ---
+  interface ContentTemplate {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    content: string;
+    isPublic: boolean;
+    usesCount: number;
+    ownerName: string;
+    isMine: boolean;
+  }
+
+  const [templates, setTemplates] = useState<ContentTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [newTemplateTitle, setNewTemplateTitle] = useState("");
+  const [newTemplateDescription, setNewTemplateDescription] = useState("");
+  const [newTemplateCategory, setNewTemplateCategory] = useState("");
+  const [newTemplateContent, setNewTemplateContent] = useState("");
+  const [newTemplateIsPublic, setNewTemplateIsPublic] = useState(true);
+  const [publishingTemplate, setPublishingTemplate] = useState(false);
+  const [previewingTemplate, setPreviewingTemplate] = useState<ContentTemplate | null>(null);
+
+  const loadTemplates = async (query: string) => {
+    setLoadingTemplates(true);
+    try {
+      const res = await fetch(`/api/templates?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTemplates(data.templates || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os Templates.", "error");
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handlePublishTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTemplateTitle.trim() || !newTemplateContent.trim()) {
+      showToast("Preencha o título e o conteúdo do template.", "error");
+      return;
+    }
+    setPublishingTemplate(true);
+    try {
+      const res = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTemplateTitle.trim(),
+          description: newTemplateDescription.trim(),
+          category: newTemplateCategory.trim(),
+          content: newTemplateContent.trim(),
+          isPublic: newTemplateIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Template publicado com sucesso!", "success");
+        setNewTemplateTitle("");
+        setNewTemplateDescription("");
+        setNewTemplateCategory("");
+        setNewTemplateContent("");
+        loadTemplates(templateSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o Template.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o Template.", "error");
+    } finally {
+      setPublishingTemplate(false);
+    }
+  };
+
+  const handleToggleTemplateVisibility = async (template: ContentTemplate) => {
+    try {
+      const res = await fetch(`/api/templates/${template.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !template.isPublic }),
+      });
+      if (res.ok) {
+        setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, isPublic: !t.isPublic } : t)));
+      }
+    } catch {
+      showToast("Erro ao atualizar a visibilidade do Template.", "error");
+    }
+  };
+
+  const handleDeleteTemplate = async (template: ContentTemplate) => {
+    try {
+      const res = await fetch(`/api/templates/${template.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Template eliminado.", "success");
+        setTemplates((prev) => prev.filter((t) => t.id !== template.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o Template.", "error");
+    }
+  };
+
+  const registerTemplateUse = async (template: ContentTemplate): Promise<string | null> => {
+    try {
+      const res = await fetch(`/api/templates/${template.id}/use`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setTemplates((prev) => prev.map((t) => (t.id === template.id ? { ...t, usesCount: t.usesCount + 1 } : t)));
+        return data.content as string;
+      }
+      showToast(data.error || "Erro ao usar o Template.", "error");
+      return null;
+    } catch {
+      showToast("Erro de comunicação ao usar o Template.", "error");
+      return null;
+    }
+  };
+
+  const handleCopyTemplate = async (template: ContentTemplate) => {
+    const content = await registerTemplateUse(template);
+    if (content === null) return;
+    try {
+      await navigator.clipboard.writeText(content);
+      showToast("Template copiado para a área de transferência.", "success");
+    } catch {
+      showToast("Não foi possível copiar o template.", "error");
+    }
+  };
+
+  const handleDownloadTemplate = async (template: ContentTemplate) => {
+    const content = await registerTemplateUse(template);
+    if (content === null) return;
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${template.title.replace(/[^\w\-]+/g, "_")}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -686,6 +829,9 @@ export default function MarketplacePage() {
     }
     if (tab === "prompts") {
       loadPrompts("");
+    }
+    if (tab === "templates") {
+      loadTemplates("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -832,6 +978,14 @@ export default function MarketplacePage() {
           }`}
         >
           <ScrollText className="h-3.5 w-3.5" /> Prompts
+        </button>
+        <button
+          onClick={() => setTab("templates")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "templates" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <LayoutTemplate className="h-3.5 w-3.5" /> Templates
         </button>
       </div>
 
@@ -1477,7 +1631,7 @@ export default function MarketplacePage() {
             </div>
           )}
         </div>
-      ) : (
+      ) : tab === "prompts" ? (
         <div className="space-y-6">
           {/* Publicar Prompt */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -1670,6 +1824,166 @@ export default function MarketplacePage() {
                     {runLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                     {runLoading ? "A executar..." : "Executar Prompt"}
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Template */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <LayoutTemplate className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Template
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Um Template é uma estrutura de documento pronta a reutilizar (contrato, checklist, briefing
+              de projeto, plano de aula, etc.), escrita diretamente em texto/Markdown — diferente de um
+              Prompt (instruções para a IA), aqui o conteúdo é o próprio documento final que se copia ou
+              descarrega tal como está.
+            </p>
+            <form onSubmit={handlePublishTemplate} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newTemplateTitle}
+                  onChange={(e) => setNewTemplateTitle(e.target.value)}
+                  placeholder="Título (ex: Checklist de Onboarding)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  value={newTemplateCategory}
+                  onChange={(e) => setNewTemplateCategory(e.target.value)}
+                  placeholder="Categoria (ex: RH, Jurídico, Projetos)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <textarea
+                value={newTemplateDescription}
+                onChange={(e) => setNewTemplateDescription(e.target.value)}
+                placeholder="Descrição curta: para que serve este template..."
+                className="w-full h-14 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <textarea
+                value={newTemplateContent}
+                onChange={(e) => setNewTemplateContent(e.target.value)}
+                placeholder={"Conteúdo do template em Markdown, ex:\n# Checklist de Onboarding\n1. ...\n2. ..."}
+                className="w-full h-32 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none font-mono"
+              />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={newTemplateIsPublic} onChange={(e) => setNewTemplateIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Publicar como público (visível para todos no Marketplace)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={publishingTemplate}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutTemplate className="h-4 w-4" />}
+                {publishingTemplate ? "A publicar..." : "Publicar Template"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Templates Disponíveis
+            </h3>
+            <input
+              value={templateSearch}
+              onChange={(e) => {
+                setTemplateSearch(e.target.value);
+                loadTemplates(e.target.value);
+              }}
+              placeholder="Pesquisar por título ou categoria..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingTemplates ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há Templates publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {templates.map((template) => (
+                  <div key={template.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{template.category}</span>
+                        <h4 className="font-bold text-xs text-white truncate">{template.title}</h4>
+                      </div>
+                      {template.isMine && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleToggleTemplateVisibility(template)}
+                            title={template.isPublic ? "Tornar privado" : "Tornar público"}
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            {template.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTemplate(template)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {template.description && <p className="text-[11px] text-slate-400 leading-relaxed">{template.description}</p>}
+                    <button
+                      onClick={() => setPreviewingTemplate(template)}
+                      className="text-left text-[10px] text-slate-500 bg-slate-950/60 rounded-lg p-2 leading-relaxed line-clamp-3 flex-1 font-mono cursor-pointer hover:bg-slate-950"
+                    >
+                      {template.content}
+                    </button>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1"><Download className="h-3 w-3" /> {template.usesCount} usos</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600">Por {template.ownerName}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCopyTemplate(template)}
+                        className="flex-1 h-8 px-3 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-slate-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </button>
+                      <button
+                        onClick={() => handleDownloadTemplate(template)}
+                        className="flex-1 h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Descarregar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pré-visualização */}
+          {previewingTemplate && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setPreviewingTemplate(null)}>
+              <div
+                className="w-full max-w-lg max-h-[80vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <h4 className="font-bold text-sm text-white">{previewingTemplate.title}</h4>
+                  <button onClick={() => setPreviewingTemplate(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4">
+                  <pre className="text-[11px] text-slate-300 leading-relaxed whitespace-pre-wrap font-mono">{previewingTemplate.content}</pre>
                 </div>
               </div>
             </div>
