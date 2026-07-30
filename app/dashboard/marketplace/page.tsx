@@ -24,6 +24,9 @@ import {
   MessageSquare,
   Lock,
   Globe,
+  ScrollText,
+  Copy,
+  Wand2,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
@@ -66,7 +69,7 @@ export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
-  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models">("courses");
+  const [tab, setTab] = useState<"courses" | "mentors" | "companies" | "datasets" | "models" | "prompts">("courses");
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -518,6 +521,154 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- PROMPTS ---
+  interface AiPrompt {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    template: string;
+    variables: string[];
+    isPublic: boolean;
+    usesCount: number;
+    ownerName: string;
+    isMine: boolean;
+  }
+
+  const [prompts, setPrompts] = useState<AiPrompt[]>([]);
+  const [loadingPrompts, setLoadingPrompts] = useState(true);
+  const [promptSearch, setPromptSearch] = useState("");
+  const [newPromptTitle, setNewPromptTitle] = useState("");
+  const [newPromptDescription, setNewPromptDescription] = useState("");
+  const [newPromptCategory, setNewPromptCategory] = useState("");
+  const [newPromptTemplate, setNewPromptTemplate] = useState("");
+  const [newPromptIsPublic, setNewPromptIsPublic] = useState(true);
+  const [publishingPrompt, setPublishingPrompt] = useState(false);
+
+  const [runningPrompt, setRunningPrompt] = useState<AiPrompt | null>(null);
+  const [runVariables, setRunVariables] = useState<Record<string, string>>({});
+  const [runResult, setRunResult] = useState<string | null>(null);
+  const [runLoading, setRunLoading] = useState(false);
+
+  const loadPrompts = async (query: string) => {
+    setLoadingPrompts(true);
+    try {
+      const res = await fetch(`/api/prompts?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPrompts(data.prompts || []);
+      }
+    } catch {
+      showToast("Erro ao carregar os Prompts.", "error");
+    } finally {
+      setLoadingPrompts(false);
+    }
+  };
+
+  const handlePublishPrompt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromptTitle.trim() || !newPromptTemplate.trim()) {
+      showToast("Preencha o título e o template do prompt.", "error");
+      return;
+    }
+    setPublishingPrompt(true);
+    try {
+      const res = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newPromptTitle.trim(),
+          description: newPromptDescription.trim(),
+          category: newPromptCategory.trim(),
+          template: newPromptTemplate.trim(),
+          isPublic: newPromptIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Prompt publicado com sucesso!", "success");
+        setNewPromptTitle("");
+        setNewPromptDescription("");
+        setNewPromptCategory("");
+        setNewPromptTemplate("");
+        loadPrompts(promptSearch);
+      } else {
+        showToast(data.error || "Erro ao publicar o Prompt.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar o Prompt.", "error");
+    } finally {
+      setPublishingPrompt(false);
+    }
+  };
+
+  const handleTogglePromptVisibility = async (prompt: AiPrompt) => {
+    try {
+      const res = await fetch(`/api/prompts/${prompt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPublic: !prompt.isPublic }),
+      });
+      if (res.ok) {
+        setPrompts((prev) => prev.map((p) => (p.id === prompt.id ? { ...p, isPublic: !p.isPublic } : p)));
+      }
+    } catch {
+      showToast("Erro ao atualizar a visibilidade do Prompt.", "error");
+    }
+  };
+
+  const handleDeletePrompt = async (prompt: AiPrompt) => {
+    try {
+      const res = await fetch(`/api/prompts/${prompt.id}`, { method: "DELETE" });
+      if (res.ok) {
+        showToast("Prompt eliminado.", "success");
+        setPrompts((prev) => prev.filter((p) => p.id !== prompt.id));
+      }
+    } catch {
+      showToast("Erro ao eliminar o Prompt.", "error");
+    }
+  };
+
+  const handleCopyPrompt = async (prompt: AiPrompt) => {
+    try {
+      await navigator.clipboard.writeText(prompt.template);
+      showToast("Template copiado para a área de transferência.", "success");
+    } catch {
+      showToast("Não foi possível copiar o template.", "error");
+    }
+  };
+
+  const openRunPrompt = (prompt: AiPrompt) => {
+    setRunningPrompt(prompt);
+    const initial: Record<string, string> = {};
+    prompt.variables.forEach((v) => (initial[v] = ""));
+    setRunVariables(initial);
+    setRunResult(null);
+  };
+
+  const handleRunPrompt = async () => {
+    if (!runningPrompt) return;
+    setRunLoading(true);
+    setRunResult(null);
+    try {
+      const res = await fetch(`/api/prompts/${runningPrompt.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ variables: runVariables }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRunResult(data.result);
+      } else {
+        showToast(data.error || "Erro ao executar o Prompt.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao executar o Prompt.", "error");
+    } finally {
+      setRunLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tab === "mentors") {
       loadMentors("");
@@ -532,6 +683,9 @@ export default function MarketplacePage() {
     }
     if (tab === "models") {
       loadAiModels("");
+    }
+    if (tab === "prompts") {
+      loadPrompts("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -670,6 +824,14 @@ export default function MarketplacePage() {
           }`}
         >
           <Bot className="h-3.5 w-3.5" /> Modelos IA
+        </button>
+        <button
+          onClick={() => setTab("prompts")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "prompts" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <ScrollText className="h-3.5 w-3.5" /> Prompts
         </button>
       </div>
 
@@ -1127,7 +1289,7 @@ export default function MarketplacePage() {
             )}
           </div>
         </div>
-      ) : (
+      ) : tab === "models" ? (
         <div className="space-y-6">
           {/* Publicar Modelo IA */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
@@ -1309,6 +1471,204 @@ export default function MarketplacePage() {
                     className="h-10 w-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center cursor-pointer disabled:opacity-55 shrink-0"
                   >
                     {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Publicar Prompt */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <ScrollText className="h-4.5 w-4.5 text-indigo-400" />
+              Publicar Prompt
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Um Prompt é um template de instrução reutilizável. Use <code className="text-indigo-400">{"{{variavel}}"}</code> para
+              marcar partes que devem ser preenchidas antes de usar — por exemplo, <code className="text-indigo-400">{"{{tema}}"}</code>{" "}
+              ou <code className="text-indigo-400">{"{{publico_alvo}}"}</code>. Qualquer pessoa pode depois preencher essas variáveis
+              e executar o prompt diretamente com o motor real de IA, ou simplesmente copiar o template para usar noutro lugar.
+            </p>
+            <form onSubmit={handlePublishPrompt} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  value={newPromptTitle}
+                  onChange={(e) => setNewPromptTitle(e.target.value)}
+                  placeholder="Título (ex: Gerador de Anúncio de Vaga)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  value={newPromptCategory}
+                  onChange={(e) => setNewPromptCategory(e.target.value)}
+                  placeholder="Categoria (ex: RH, Marketing, Programação)"
+                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <textarea
+                value={newPromptDescription}
+                onChange={(e) => setNewPromptDescription(e.target.value)}
+                placeholder="Descrição curta: para que serve este prompt..."
+                className="w-full h-14 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <textarea
+                value={newPromptTemplate}
+                onChange={(e) => setNewPromptTemplate(e.target.value)}
+                placeholder={"Template do prompt, ex: \"Escreve um anúncio de vaga para {{cargo}} na área de {{area}}, com tom {{tom}}.\""}
+                className="w-full h-24 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none font-mono"
+              />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={newPromptIsPublic} onChange={(e) => setNewPromptIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Publicar como público (visível para todos no Marketplace)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={publishingPrompt}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {publishingPrompt ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScrollText className="h-4 w-4" />}
+                {publishingPrompt ? "A publicar..." : "Publicar Prompt"}
+              </button>
+            </form>
+          </div>
+
+          {/* Pesquisa e Lista */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Prompts Disponíveis
+            </h3>
+            <input
+              value={promptSearch}
+              onChange={(e) => {
+                setPromptSearch(e.target.value);
+                loadPrompts(e.target.value);
+              }}
+              placeholder="Pesquisar por título ou categoria..."
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingPrompts ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              </div>
+            ) : prompts.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Ainda não há Prompts publicados para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {prompts.map((prompt) => (
+                  <div key={prompt.id} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3 flex flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{prompt.category}</span>
+                        <h4 className="font-bold text-xs text-white truncate">{prompt.title}</h4>
+                      </div>
+                      {prompt.isMine && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleTogglePromptVisibility(prompt)}
+                            title={prompt.isPublic ? "Tornar privado" : "Tornar público"}
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            {prompt.isPublic ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePrompt(prompt)}
+                            className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {prompt.description && <p className="text-[11px] text-slate-400 leading-relaxed">{prompt.description}</p>}
+                    <code className="text-[10px] text-slate-500 bg-slate-950/60 rounded-lg p-2 block leading-relaxed line-clamp-3 flex-1">
+                      {prompt.template}
+                    </code>
+                    {prompt.variables.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {prompt.variables.map((v) => (
+                          <span key={v} className="text-[9px] font-mono font-bold text-indigo-400 bg-indigo-500/5 border border-indigo-500/10 px-2 py-0.5 rounded-full">
+                            {"{{"}{v}{"}}"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1"><Wand2 className="h-3 w-3" /> {prompt.usesCount} usos</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600">Por {prompt.ownerName}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleCopyPrompt(prompt)}
+                        className="h-8 px-3 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-slate-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </button>
+                      <button
+                        onClick={() => openRunPrompt(prompt)}
+                        className="flex-1 h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Wand2 className="h-3.5 w-3.5" />
+                        Executar (1 Crédito IA)
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Painel de execução */}
+          {runningPrompt && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setRunningPrompt(null)}>
+              <div
+                className="w-full max-w-lg max-h-[80vh] bg-slate-950 border border-slate-800 rounded-3xl flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-4 border-b border-slate-900 flex items-center justify-between shrink-0">
+                  <div>
+                    <h4 className="font-bold text-sm text-white">{runningPrompt.title}</h4>
+                    <span className="text-[10px] text-slate-500">{runningPrompt.category}</span>
+                  </div>
+                  <button onClick={() => setRunningPrompt(null)} className="text-slate-500 hover:text-slate-300 cursor-pointer text-xs">
+                    Fechar
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {runningPrompt.variables.length === 0 ? (
+                    <span className="text-xs text-slate-600 italic">Este prompt não tem variáveis — pode executá-lo diretamente.</span>
+                  ) : (
+                    runningPrompt.variables.map((v) => (
+                      <div key={v} className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{v}</label>
+                        <input
+                          value={runVariables[v] || ""}
+                          onChange={(e) => setRunVariables((prev) => ({ ...prev, [v]: e.target.value }))}
+                          className="w-full h-9 px-3 rounded-lg border border-slate-800 bg-slate-900 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    ))
+                  )}
+                  {runResult && (
+                    <div className="pt-3 border-t border-slate-900 space-y-1.5">
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Resultado</span>
+                      <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap bg-slate-900/60 rounded-xl p-3">{runResult}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="p-3 border-t border-slate-900 shrink-0">
+                  <button
+                    onClick={handleRunPrompt}
+                    disabled={runLoading}
+                    className="w-full h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
+                  >
+                    {runLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                    {runLoading ? "A executar..." : "Executar Prompt"}
                   </button>
                 </div>
               </div>
