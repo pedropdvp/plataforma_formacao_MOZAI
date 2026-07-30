@@ -194,6 +194,7 @@ export default function SidebarNav() {
     "/dashboard/admin/content-factory",
     "/dashboard/admin/hr",
     "/dashboard/admin/projects",
+    "/dashboard/admin/academy",
     "/dashboard/career",
     "/dashboard/skills"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
@@ -517,6 +518,14 @@ export default function SidebarNav() {
               <Megaphone className="h-4 w-4 text-indigo-400" />
               {t("nav_marketing", "Agência de Marketing")}
             </Link>
+            )}
+            {isItemVisible("academy") && (
+            <SecureRender requiredPermission="COURSES_SCHEDULE">
+              <Link href="/dashboard/admin/academy" className={linkClass("/dashboard/admin/academy")}>
+                <GraduationCap className="h-4 w-4 text-emerald-400" />
+                {t("nav_academy_corp", "Academia Corporativa")}
+              </Link>
+            </SecureRender>
             )}
             {isItemVisible("auto-update") && (
             <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">

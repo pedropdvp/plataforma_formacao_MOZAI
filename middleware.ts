@@ -82,6 +82,11 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_EMPRESA");
         }
 
+        // Academia Corporativa: currículo próprio da empresa, gerido pelo Gestor Empresa
+        if (path.startsWith("/dashboard/admin/academy")) {
+          allowedRoles.push("GESTOR_EMPRESA");
+        }
+
         // Menus (Configuração > Menus): gestão de visibilidade é exclusiva de ADMIN/SUPORTE
 
         if (!allowedRoles.includes(activeRole)) {
