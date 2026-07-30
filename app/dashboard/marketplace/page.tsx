@@ -1,7 +1,20 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Store, Layers, Loader2, Download, CheckCircle2 } from "lucide-react";
+import {
+  Store,
+  Layers,
+  Loader2,
+  Download,
+  CheckCircle2,
+  Users,
+  Search,
+  Send,
+  Sparkles,
+  Clock,
+  XCircle,
+  Mail,
+} from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 interface MarketplaceListing {
@@ -12,8 +25,37 @@ interface MarketplaceListing {
   lessonsCount: number;
 }
 
+interface Mentor {
+  userId: string;
+  name: string;
+  bio: string;
+  expertiseAreas: string[];
+  availability: string;
+}
+
+interface MentorshipRequest {
+  _id: string;
+  menteeId: string;
+  menteeName: string;
+  mentorId: string;
+  mentorName: string;
+  message: string;
+  status: "pending" | "accepted" | "declined";
+  requestedAt: string;
+  otherPartyEmail: string | null;
+}
+
+const STATUS_CONFIG: Record<MentorshipRequest["status"], { label: string; color: string; icon: React.ElementType }> = {
+  pending: { label: "Pendente", color: "text-amber-400 bg-amber-500/10 border-amber-500/20", icon: Clock },
+  accepted: { label: "Aceite", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: CheckCircle2 },
+  declined: { label: "Recusado", color: "text-slate-400 bg-slate-500/10 border-slate-500/20", icon: XCircle },
+};
+
 export default function MarketplacePage() {
   const { showToast } = useToast();
+  const [tab, setTab] = useState<"courses" | "mentors">("courses");
+
+  // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [acquiringId, setAcquiringId] = useState<string | null>(null);
@@ -57,61 +99,439 @@ export default function MarketplacePage() {
     }
   };
 
+  // --- MENTORES ---
+  const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [mentorSearch, setMentorSearch] = useState("");
+  const [loadingMentors, setLoadingMentors] = useState(true);
+  const [requestingMentorId, setRequestingMentorId] = useState<string | null>(null);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [sendingRequest, setSendingRequest] = useState(false);
+
+  const [ownBio, setOwnBio] = useState("");
+  const [ownExpertise, setOwnExpertise] = useState("");
+  const [ownAvailability, setOwnAvailability] = useState("");
+  const [ownIsActive, setOwnIsActive] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  const [sentRequests, setSentRequests] = useState<MentorshipRequest[]>([]);
+  const [receivedRequests, setReceivedRequests] = useState<MentorshipRequest[]>([]);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+
+  const loadMentors = async (query: string) => {
+    setLoadingMentors(true);
+    try {
+      const res = await fetch(`/api/mentors?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMentors(data.mentors || []);
+      }
+    } catch {
+      // silencioso — pesquisa opcional
+    } finally {
+      setLoadingMentors(false);
+    }
+  };
+
+  const loadOwnProfile = async () => {
+    try {
+      const res = await fetch("/api/mentors/profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setOwnBio(data.profile.bio || "");
+          setOwnExpertise((data.profile.expertiseAreas || []).join(", "));
+          setOwnAvailability(data.profile.availability || "");
+          setOwnIsActive(data.profile.isActive !== false);
+        }
+      }
+    } catch {
+      // silencioso
+    }
+  };
+
+  const loadRequests = async () => {
+    try {
+      const res = await fetch("/api/mentors/requests");
+      if (res.ok) {
+        const data = await res.json();
+        setSentRequests(data.sent || []);
+        setReceivedRequests(data.received || []);
+      }
+    } catch {
+      // silencioso
+    }
+  };
+
+  useEffect(() => {
+    if (tab === "mentors") {
+      loadMentors("");
+      loadOwnProfile();
+      loadRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ownBio.trim() || !ownExpertise.trim()) {
+      showToast("Preencha a biografia e pelo menos uma área de especialidade.", "error");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await fetch("/api/mentors/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bio: ownBio.trim(),
+          expertiseAreas: ownExpertise.split(",").map((a) => a.trim()).filter(Boolean),
+          availability: ownAvailability.trim(),
+          isActive: ownIsActive,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Perfil de mentor guardado.", "success");
+        loadMentors(mentorSearch);
+      } else {
+        showToast(data.error || "Erro ao guardar o perfil.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao guardar o perfil.", "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSendRequest = async (mentor: Mentor) => {
+    if (!requestMessage.trim()) {
+      showToast("Escreva uma mensagem para o mentor.", "error");
+      return;
+    }
+    setSendingRequest(true);
+    try {
+      const res = await fetch("/api/mentors/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mentorUserId: mentor.userId, message: requestMessage.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Pedido de mentoria enviado!", "success");
+        setRequestingMentorId(null);
+        setRequestMessage("");
+        loadRequests();
+      } else {
+        showToast(data.error || "Erro ao enviar o pedido.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao enviar o pedido.", "error");
+    } finally {
+      setSendingRequest(false);
+    }
+  };
+
+  const handleRespondRequest = async (request: MentorshipRequest, action: "accept" | "decline") => {
+    setProcessingRequestId(request._id);
+    try {
+      const res = await fetch(`/api/mentors/requests/${request._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(data.message, "success");
+        loadRequests();
+      } else {
+        showToast(data.error || "Erro ao responder ao pedido.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao responder ao pedido.", "error");
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
   return (
     <div className="space-y-8 workspace-page-container">
       <div>
         <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
           <Store className="h-6 w-6 text-indigo-400" />
-          Marketplace de Cursos
+          AI Marketplace
         </h1>
         <p className="text-sm text-slate-400">
-          Cursos publicados por outras organizações na plataforma. Adicionar um curso cria uma cópia independente no seu catálogo.
+          Cursos publicados por outras organizações e mentores disponíveis para apoiar o seu percurso.
         </p>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
-        </div>
-      ) : listings.length === 0 ? (
-        <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-12 text-center">
-          <span className="text-sm text-slate-500 italic">Ainda não há cursos publicados no marketplace.</span>
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map((listing) => {
-            const acquired = acquiredIds.has(listing._id);
-            return (
-              <div key={listing._id} className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4 flex flex-col">
-                <div className="space-y-2 flex-1">
-                  <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{listing.sourceTenantName}</span>
-                  <h3 className="text-sm font-bold text-white leading-snug">{listing.title}</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{listing.description}</p>
-                  <span className="text-[10px] text-slate-500 flex items-center gap-1">
-                    <Layers className="h-3 w-3" /> {listing.lessonsCount} lições
-                  </span>
+      <div className="flex gap-2 p-1 rounded-2xl bg-slate-900 border border-slate-800 w-fit">
+        <button
+          onClick={() => setTab("courses")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "courses" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Store className="h-3.5 w-3.5" /> Cursos
+        </button>
+        <button
+          onClick={() => setTab("mentors")}
+          className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
+            tab === "mentors" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Users className="h-3.5 w-3.5" /> Mentores
+        </button>
+      </div>
+
+      {tab === "courses" ? (
+        loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
+          </div>
+        ) : listings.length === 0 ? (
+          <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-12 text-center">
+            <span className="text-sm text-slate-500 italic">Ainda não há cursos publicados no marketplace.</span>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((listing) => {
+              const acquired = acquiredIds.has(listing._id);
+              return (
+                <div key={listing._id} className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4 flex flex-col">
+                  <div className="space-y-2 flex-1">
+                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{listing.sourceTenantName}</span>
+                    <h3 className="text-sm font-bold text-white leading-snug">{listing.title}</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{listing.description}</p>
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                      <Layers className="h-3 w-3" /> {listing.lessonsCount} lições
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleAcquire(listing)}
+                    disabled={acquiringId === listing._id || acquired}
+                    className={`h-9 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-default ${
+                      acquired
+                        ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                        : "bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
+                    }`}
+                  >
+                    {acquiringId === listing._id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : acquired ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
+                    {acquired ? "Adicionado ao Catálogo" : "Adicionar ao Meu Catálogo"}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleAcquire(listing)}
-                  disabled={acquiringId === listing._id || acquired}
-                  className={`h-9 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-default ${
-                    acquired
-                      ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
-                      : "bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
-                  }`}
-                >
-                  {acquiringId === listing._id ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : acquired ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  ) : (
-                    <Download className="h-3.5 w-3.5" />
-                  )}
-                  {acquired ? "Adicionado ao Catálogo" : "Adicionar ao Meu Catálogo"}
-                </button>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <div className="space-y-8">
+          {/* Torna-te Mentor */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Sparkles className="h-4.5 w-4.5 text-indigo-400" />
+              Torna-te Mentor
+            </h3>
+            <form onSubmit={handleSaveProfile} className="space-y-3">
+              <textarea
+                value={ownBio}
+                onChange={(e) => setOwnBio(e.target.value)}
+                placeholder="Fale um pouco sobre si e como pode ajudar outros formandos..."
+                className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <input
+                value={ownExpertise}
+                onChange={(e) => setOwnExpertise(e.target.value)}
+                placeholder="Áreas de especialidade, separadas por vírgula (ex: Python, RAG, Carreira)"
+                className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <input
+                value={ownAvailability}
+                onChange={(e) => setOwnAvailability(e.target.value)}
+                placeholder="Disponibilidade (ex: Terças e quintas à noite)"
+                className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={ownIsActive} onChange={(e) => setOwnIsActive(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                <span className="text-xs text-slate-300">Perfil ativo (visível na pesquisa de mentores)</span>
+              </label>
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+              >
+                {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Guardar Perfil de Mentor
+              </button>
+            </form>
+          </div>
+
+          {/* Encontrar um Mentor */}
+          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Search className="h-4.5 w-4.5 text-indigo-400" />
+              Encontrar um Mentor
+            </h3>
+            <input
+              value={mentorSearch}
+              onChange={(e) => {
+                setMentorSearch(e.target.value);
+                loadMentors(e.target.value);
+              }}
+              placeholder="Pesquisar por nome ou especialidade (ex: Python)"
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+
+            {loadingMentors ? (
+              <div className="flex items-center justify-center py-8 text-slate-500 gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
               </div>
-            );
-          })}
+            ) : mentors.length === 0 ? (
+              <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+                <span className="text-xs text-slate-500">Nenhum mentor disponível para esta pesquisa.</span>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {mentors.map((mentor) => (
+                  <div key={mentor.userId} className="border border-slate-900 bg-slate-950/60 rounded-2xl p-4 space-y-3">
+                    <div>
+                      <h4 className="font-bold text-xs text-white">{mentor.name}</h4>
+                      <p className="text-[11px] text-slate-400 leading-relaxed mt-1">{mentor.bio}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {mentor.expertiseAreas.map((area) => (
+                        <span key={area} className="text-[9px] font-mono font-bold text-indigo-400 bg-indigo-500/5 border border-indigo-500/10 px-2 py-0.5 rounded-full">
+                          {area}
+                        </span>
+                      ))}
+                    </div>
+                    {mentor.availability && <span className="text-[10px] text-slate-500 block">Disponibilidade: {mentor.availability}</span>}
+
+                    {requestingMentorId === mentor.userId ? (
+                      <div className="space-y-2 pt-2 border-t border-slate-900">
+                        <textarea
+                          value={requestMessage}
+                          onChange={(e) => setRequestMessage(e.target.value)}
+                          placeholder="Escreva a sua mensagem para este mentor..."
+                          className="w-full h-16 p-2.5 rounded-lg border border-slate-800 bg-slate-950 text-white text-[11px] focus:border-indigo-500 focus:outline-none resize-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setRequestingMentorId(null)}
+                            className="h-8 px-3 rounded-lg border border-slate-800 text-[11px] font-semibold text-slate-400 hover:bg-slate-900 cursor-pointer"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={() => handleSendRequest(mentor)}
+                            disabled={sendingRequest}
+                            className="flex-1 h-8 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] font-semibold text-white flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-55"
+                          >
+                            {sendingRequest ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            Enviar Pedido
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setRequestingMentorId(mentor.userId);
+                          setRequestMessage("");
+                        }}
+                        className="w-full h-8 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        Pedir Mentoria
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Os Meus Pedidos */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-3">
+              <h3 className="font-bold text-sm text-white">Pedidos Enviados</h3>
+              {sentRequests.length === 0 ? (
+                <span className="text-xs text-slate-500">Ainda não pediu mentoria a ninguém.</span>
+              ) : (
+                sentRequests.map((r) => {
+                  const cfg = STATUS_CONFIG[r.status];
+                  const StatusIcon = cfg.icon;
+                  return (
+                    <div key={r._id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">{r.mentorName}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${cfg.color}`}>
+                          <StatusIcon className="h-3 w-3" /> {cfg.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">{r.message}</p>
+                      {r.status === "accepted" && r.otherPartyEmail && (
+                        <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {r.otherPartyEmail}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-3">
+              <h3 className="font-bold text-sm text-white">Pedidos Recebidos (como Mentor)</h3>
+              {receivedRequests.length === 0 ? (
+                <span className="text-xs text-slate-500">Ainda não recebeu pedidos de mentoria.</span>
+              ) : (
+                receivedRequests.map((r) => {
+                  const cfg = STATUS_CONFIG[r.status];
+                  const StatusIcon = cfg.icon;
+                  return (
+                    <div key={r._id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white">{r.menteeName}</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${cfg.color}`}>
+                          <StatusIcon className="h-3 w-3" /> {cfg.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">{r.message}</p>
+                      {r.status === "accepted" && r.otherPartyEmail && (
+                        <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                          <Mail className="h-3 w-3" /> {r.otherPartyEmail}
+                        </span>
+                      )}
+                      {r.status === "pending" && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => handleRespondRequest(r, "decline")}
+                            disabled={processingRequestId === r._id}
+                            className="h-7 px-3 rounded-lg border border-slate-800 text-[10px] font-semibold text-slate-400 hover:bg-slate-900 cursor-pointer disabled:opacity-55"
+                          >
+                            Recusar
+                          </button>
+                          <button
+                            onClick={() => handleRespondRequest(r, "accept")}
+                            disabled={processingRequestId === r._id}
+                            className="h-7 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[10px] font-semibold text-white cursor-pointer disabled:opacity-55"
+                          >
+                            Aceitar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
