@@ -72,6 +72,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "ai-lab", groupId: "workspace", label: "AI Lab (Multi-Modelo)", path: "/dashboard/ai-lab" },
   { id: "blockchain-lab", groupId: "workspace", label: "Blockchain Lab", path: "/dashboard/blockchain-lab" },
   { id: "cyber-lab", groupId: "workspace", label: "Cyber Lab", path: "/dashboard/cyber-lab" },
+  { id: "cloud-lab", groupId: "workspace", label: "Cloud Lab", path: "/dashboard/cloud-lab" },
   { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
   { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },

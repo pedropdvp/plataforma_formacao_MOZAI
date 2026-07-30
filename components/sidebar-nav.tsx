@@ -47,7 +47,8 @@ import {
   Puzzle,
   FlaskConical,
   Boxes,
-  ShieldAlert
+  ShieldAlert,
+  Cloud
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -197,6 +198,7 @@ export default function SidebarNav() {
     "/dashboard/ai-lab",
     "/dashboard/blockchain-lab",
     "/dashboard/cyber-lab",
+    "/dashboard/cloud-lab",
     "/dashboard/skills/coding-lab",
     "/dashboard/admin",
     "/dashboard/admin/content-factory",
@@ -576,6 +578,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
               <ShieldAlert className="h-4 w-4 text-rose-400" />
               {t("nav_cyber_lab", "Cyber Lab")}
+            </Link>
+            )}
+            {isItemVisible("cloud-lab") && (
+            <Link href="/dashboard/cloud-lab" className={linkClass("/dashboard/cloud-lab")}>
+              <Cloud className="h-4 w-4 text-sky-400" />
+              {t("nav_cloud_lab", "Cloud Lab")}
             </Link>
             )}
             {isItemVisible("career") && (
