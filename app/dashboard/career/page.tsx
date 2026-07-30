@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Brain, FileText, Loader2, ArrowRight, Building, Award, Landmark, AlertTriangle, Search, Download, Sparkles } from "lucide-react";
+import { Brain, FileText, Loader2, ArrowRight, Building, Award, Landmark, AlertTriangle, Search, Download, Sparkles, Code2, Star, Users, BookMarked } from "lucide-react";
 import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
 import { useToast } from "@/components/ui/toast-provider";
 
@@ -12,6 +12,51 @@ export default function CareerOSPage() {
   const [extractingPdf, setExtractingPdf] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- ANÁLISE DE GITHUB (perfil público real, via api.github.com) ---
+  const [githubUsername, setCode2Username] = useState("");
+  const [analyzingCode2, setAnalyzingCode2] = useState(false);
+  const [githubResult, setCode2Result] = useState<any>(null);
+
+  const handleAnalyzeCode2 = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!githubUsername.trim()) return;
+
+    setAnalyzingCode2(true);
+    setCode2Result(null);
+    try {
+      const res = await fetch("/api/career/github-analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: githubUsername.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCode2Result(data);
+      } else {
+        showToast(data.error || "Erro ao analisar o perfil de GitHub.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação com o GitHub.", "error");
+    } finally {
+      setAnalyzingCode2(false);
+    }
+  };
+
+  const handleIncludeCode2InAnalysis = () => {
+    if (!githubResult) return;
+    const { profile, topLanguages, topRepos, totalStars } = githubResult;
+    const summary = `
+Perfil de GitHub: ${profile.htmlUrl}
+${profile.bio ? `Bio: ${profile.bio}` : ""}
+Repositórios públicos: ${profile.publicRepos} · Seguidores: ${profile.followers} · Estrelas totais recebidas: ${totalStars}
+Linguagens mais usadas (por nº de repositórios): ${topLanguages.map((l: any) => `${l.name} (${l.count})`).join(", ") || "não indicadas"}
+Repositórios com mais destaque: ${topRepos.map((r: any) => `${r.name} (${r.stars} estrelas${r.language ? `, ${r.language}` : ""})`).join("; ") || "nenhum"}
+`.trim();
+
+    setCvText((prev) => (prev.trim() ? `${prev.trim()}\n\n${summary}` : summary));
+    showToast("Resumo real do GitHub adicionado à Análise de Perfil.", "success");
+  };
 
   const handleCvFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -206,7 +251,88 @@ export default function CareerOSPage() {
             </form>
           </div>
 
-          {/* Card 2: Cursos à Medida (AI Custom Course Path) */}
+          {/* Card 2: Análise de GitHub (perfil público real) */}
+          <div className="border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-4">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Code2 className="h-4.5 w-4.5 text-indigo-400" />
+              Análise de GitHub
+            </h3>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Indique o seu nome de utilizador — vamos ler o seu perfil público real (repositórios, linguagens e estrelas) diretamente da API do GitHub.
+            </p>
+
+            <form onSubmit={handleAnalyzeCode2} className="flex gap-2">
+              <input
+                type="text"
+                value={githubUsername}
+                onChange={(e) => setCode2Username(e.target.value)}
+                placeholder="ex: octocat"
+                className="flex-1 h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={analyzingCode2 || !githubUsername.trim()}
+                className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all disabled:opacity-50 flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                {analyzingCode2 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                Analisar
+              </button>
+            </form>
+
+            {githubResult && (
+              <div className="pt-3 border-t border-slate-900/60 space-y-3">
+                <div className="flex items-center gap-3">
+                  {githubResult.profile.avatarUrl && (
+                    <img src={githubResult.profile.avatarUrl} alt={githubResult.profile.login} className="h-9 w-9 rounded-xl border border-slate-800" />
+                  )}
+                  <div className="min-w-0">
+                    <a href={githubResult.profile.htmlUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-xs text-white hover:text-indigo-400 truncate block">
+                      {githubResult.profile.name || githubResult.profile.login}
+                    </a>
+                    <span className="text-[10px] text-slate-500">@{githubResult.profile.login}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 rounded-lg bg-slate-950/60 border border-slate-900">
+                    <BookMarked className="h-3.5 w-3.5 text-indigo-400 mx-auto mb-1" />
+                    <span className="block text-xs font-bold text-white">{githubResult.profile.publicRepos}</span>
+                    <span className="text-[9px] text-slate-500">Repos</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950/60 border border-slate-900">
+                    <Star className="h-3.5 w-3.5 text-amber-400 mx-auto mb-1" />
+                    <span className="block text-xs font-bold text-white">{githubResult.totalStars}</span>
+                    <span className="text-[9px] text-slate-500">Estrelas</span>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-950/60 border border-slate-900">
+                    <Users className="h-3.5 w-3.5 text-emerald-400 mx-auto mb-1" />
+                    <span className="block text-xs font-bold text-white">{githubResult.profile.followers}</span>
+                    <span className="text-[9px] text-slate-500">Seguidores</span>
+                  </div>
+                </div>
+
+                {githubResult.topLanguages.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {githubResult.topLanguages.map((l: any) => (
+                      <span key={l.name} className="text-[9px] font-mono font-bold text-indigo-400 bg-indigo-500/5 border border-indigo-500/10 px-2 py-0.5 rounded-full">
+                        {l.name} ({l.count})
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleIncludeCode2InAnalysis}
+                  className="w-full h-8 rounded-lg border border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-[11px] font-semibold text-indigo-400 transition-colors cursor-pointer"
+                >
+                  Incluir na Análise de Perfil acima
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Card 3: Cursos à Medida (AI Custom Course Path) */}
           <div className="border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-4">
             <h3 className="font-bold text-sm text-white flex items-center gap-2">
               <Sparkles className="h-4.5 w-4.5 text-indigo-400" />
