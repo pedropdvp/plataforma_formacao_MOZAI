@@ -53,7 +53,10 @@ import {
   MessageSquareText,
   Users2,
   Network,
-  Handshake
+  Handshake,
+  UsersRound,
+  UserSquare2,
+  Sparkles
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -179,6 +182,9 @@ export default function SidebarNav() {
     "/dashboard/hackathons",
     "/dashboard/meetups",
     "/dashboard/networking",
+    "/dashboard/groups",
+    "/dashboard/teams",
+    "/dashboard/project-showcase",
     "/dashboard/forum",
     "/dashboard/notifications",
     "/dashboard/training-rooms",
@@ -404,6 +410,24 @@ export default function SidebarNav() {
             <Link href="/dashboard/networking" className={linkClass("/dashboard/networking")}>
               <Network className="h-4 w-4 text-indigo-400" />
               {t("nav_networking", "Networking")}
+            </Link>
+            )}
+            {isItemVisible("groups") && (
+            <Link href="/dashboard/groups" className={linkClass("/dashboard/groups")}>
+              <UsersRound className="h-4 w-4 text-emerald-400" />
+              {t("nav_groups", "Grupos")}
+            </Link>
+            )}
+            {isItemVisible("teams") && (
+            <Link href="/dashboard/teams" className={linkClass("/dashboard/teams")}>
+              <UserSquare2 className="h-4 w-4 text-indigo-400" />
+              {t("nav_teams", "Equipas")}
+            </Link>
+            )}
+            {isItemVisible("project-showcase") && (
+            <Link href="/dashboard/project-showcase" className={linkClass("/dashboard/project-showcase")}>
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              {t("nav_project_showcase", "Projetos (Showcase)")}
             </Link>
             )}
             {isItemVisible("forum") && (
