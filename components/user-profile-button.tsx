@@ -13,7 +13,7 @@ export default function UserProfileButton() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { signOut } = useClerk();
+  const { signOut, openUserProfile } = useClerk();
   const { userName, userEmail } = useAccess();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -55,8 +55,8 @@ export default function UserProfileButton() {
   };
 
   const handleChangePassword = () => {
-    showToast("A redirecionar para a página de alteração de password do Clerk...", "info");
     setIsOpen(false);
+    openUserProfile();
   };
 
   const handleSignOut = () => {

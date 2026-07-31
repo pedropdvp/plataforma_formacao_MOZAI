@@ -1,13 +1,12 @@
 "use client";
 
-import { useToast } from "@/components/ui/toast-provider";
-
 import React from "react";
-import { User, ShieldCheck } from "lucide-react";
+import { User, ShieldCheck, Pencil } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
+import { useClerk } from "@clerk/nextjs";
 
 export default function ProfilePage() {
-  const { showToast } = useToast();
+  const { openUserProfile } = useClerk();
   const { activeRole, userName, userEmail } = useAccess();
 
   const displayName = userName || "Utilizador MOZAI";
@@ -88,10 +87,11 @@ export default function ProfilePage() {
 
         <div className="pt-4 border-t border-slate-900 flex justify-end">
           <button
-            onClick={() => showToast("As alterações de perfil são geridas através do Clerk Auth. A redirecionar...", "info")}
-            className="h-10 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white transition-colors cursor-pointer"
+            onClick={() => openUserProfile()}
+            className="h-10 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-white transition-colors cursor-pointer inline-flex items-center gap-1.5"
           >
-            Editar no Clerk
+            <Pencil className="h-3.5 w-3.5" />
+            Editar Perfil
           </button>
         </div>
       </div>
