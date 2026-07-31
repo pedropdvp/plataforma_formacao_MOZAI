@@ -3,13 +3,13 @@
 import React, { useState } from "react";
 import {
   Wand2, Loader2, Presentation, Briefcase, GraduationCap, FileText, Layers,
-  Mic, FileAudio, Languages, Image as ImageIcon, Download, Info,
+  Mic, FileAudio, Languages, Image as ImageIcon, Download, Info, Video, FlaskConical, CheckCircle2, XCircle,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 type Tool =
   | "slides" | "project-brief" | "exam" | "summary" | "flashcards"
-  | "podcast" | "transcribe" | "translate" | "infographic";
+  | "podcast" | "transcribe" | "translate" | "infographic" | "video-script" | "lab-exercise";
 
 const TOOLS: { id: Tool; label: string; icon: React.ElementType; credits: number }[] = [
   { id: "slides", label: "Slides", icon: Presentation, credits: 1 },
@@ -21,6 +21,8 @@ const TOOLS: { id: Tool; label: string; icon: React.ElementType; credits: number
   { id: "transcribe", label: "Transcrições & Legendas", icon: FileAudio, credits: 2 },
   { id: "translate", label: "Traduções", icon: Languages, credits: 1 },
   { id: "infographic", label: "Infográficos", icon: ImageIcon, credits: 3 },
+  { id: "video-script", label: "Vídeos (roteiro + narração)", icon: Video, credits: 3 },
+  { id: "lab-exercise", label: "Laboratórios (executável)", icon: FlaskConical, credits: 2 },
 ];
 
 export default function ContentFactoryToolsPage() {
@@ -71,6 +73,9 @@ export default function ContentFactoryToolsPage() {
       if (res.ok) {
         setResult(data);
         showToast("Gerado com sucesso — pendente de revisão humana.", "success");
+      } else if (res.status === 422 && data.validation) {
+        showToast(data.error, "error");
+        setResult({ rejected: true, validation: data.validation });
       } else {
         showToast(data.error || "Erro ao gerar.", "error");
       }
@@ -142,7 +147,18 @@ export default function ContentFactoryToolsPage() {
         </button>
       </div>
 
-      {result && (
+      {result?.rejected && (
+        <div className="border border-rose-500/20 bg-rose-500/5 rounded-3xl p-6 space-y-2">
+          <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">Laboratório rejeitado — a solução gerada falhou nos seus próprios testes</span>
+          {result.validation.map((v: any, i: number) => (
+            <div key={i} className={`text-[11px] flex items-center gap-1.5 ${v.passed ? "text-emerald-400" : "text-rose-400"}`}>
+              {v.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />} {v.label}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result && !result.rejected && (
         <div className="border border-emerald-500/20 bg-emerald-500/5 rounded-3xl p-6 space-y-3">
           <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5"><Info className="h-3.5 w-3.5" /> Resultado (pendente de revisão)</span>
 
@@ -197,6 +213,28 @@ export default function ContentFactoryToolsPage() {
             <div className="space-y-2">
               <img src={result.imageUrl} alt="Infográfico gerado" className="rounded-xl max-w-sm" />
               <a href={result.imageUrl} download className="text-[11px] text-indigo-400 underline flex items-center gap-1 w-fit"><Download className="h-3 w-3" /> Descarregar</a>
+            </div>
+          )}
+
+          {tool === "video-script" && result.scenes.map((s: any, i: number) => (
+            <div key={i} className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 space-y-1.5">
+              <span className="text-[10px] font-bold text-indigo-400">Cena {i + 1}</span>
+              <p className="text-[11px] text-slate-400 italic">{s.visualDescription}</p>
+              <p className="text-xs text-slate-300">{s.narration}</p>
+              <audio controls src={s.audioUrl} className="w-full h-8" />
+            </div>
+          ))}
+
+          {tool === "lab-exercise" && (
+            <div className="space-y-2 text-xs text-slate-300">
+              <p className="font-bold">{result.lab.title} ({result.lab.language})</p>
+              <p className="text-slate-400">{result.lab.instructions}</p>
+              <pre className="text-[10px] text-slate-400 bg-black rounded-lg p-2.5 overflow-x-auto">{result.lab.starterCode}</pre>
+              <div className="space-y-1">
+                {result.validation.map((v: any, i: number) => (
+                  <div key={i} className="text-[11px] text-emerald-400 flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> {v.label} — validado no motor real (Piston)</div>
+                ))}
+              </div>
             </div>
           )}
         </div>
