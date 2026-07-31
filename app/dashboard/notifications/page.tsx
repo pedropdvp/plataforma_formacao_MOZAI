@@ -2,62 +2,75 @@
 
 import { useToast } from "@/components/ui/toast-provider";
 
-import React, { useState } from "react";
-import { Bell, BellRing, CheckCheck, Award, MessageSquare, AlertCircle } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { Bell, Award, MessageSquare, AlertCircle, Video, Loader2 } from "lucide-react";
 
 interface NotificationItem {
   id: string;
-  type: "achievement" | "forum" | "alert";
+  type: string;
   title: string;
   body: string;
-  time: string;
+  link: string | null;
   isRead: boolean;
+  createdAt: string;
 }
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: "notif-1",
-    type: "achievement",
-    title: "Parabéns!",
-    body: "Pedro Varela Pinto: Subiu para o nível 2 - Parabéns",
-    time: "Há 10 minutos",
-    isRead: false,
-  },
-  {
-    id: "notif-2",
-    type: "forum",
-    title: "Nova resposta no Fórum",
-    body: "O formador Dr. Valter Silva respondeu à sua dúvida sobre embeddings na aula 1.3.",
-    time: "Há 2 horas",
-    isRead: false,
-  },
-  {
-    id: "notif-3",
-    type: "alert",
-    title: "Atualização de Curso",
-    body: "Nova lição adicionada no curso Engenharia de IA e RAG Avançado: 'Orquestração com LangGraph'.",
-    time: "Ontem",
-    isRead: true,
-  },
-];
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Agora mesmo";
+  if (minutes < 60) return `Há ${minutes} minuto${minutes === 1 ? "" : "s"}`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Há ${hours} hora${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Ontem";
+  return `Há ${days} dias`;
+}
+
+function iconFor(type: string) {
+  switch (type) {
+    case "achievement":
+      return { Icon: Award, cls: "bg-amber-500/10 border-amber-500/20 text-amber-400" };
+    case "forum":
+      return { Icon: MessageSquare, cls: "bg-indigo-500/10 border-indigo-500/20 text-indigo-400" };
+    case "live_class_reservation":
+      return { Icon: Video, cls: "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" };
+    default:
+      return { Icon: AlertCircle, cls: "bg-cyan-500/10 border-cyan-500/20 text-cyan-400" };
+  }
+}
 
 export default function NotificationsPage() {
   const { showToast } = useToast();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [activeMode, setActiveMode] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleToggleNotifications = () => {
-    setActiveMode((prev) => !prev);
-    showToast(activeMode ? "Notificações do sistema desativadas." : "Notificações ativadas! Receberá alertas em tempo real.", "success");
+  const loadNotifications = () => {
+    setLoading(true);
+    fetch("/api/notifications")
+      .then((res) => res.json())
+      .then((data) => setNotifications(data.notifications || []))
+      .catch(() => showToast("Erro ao carregar notificações.", "error"))
+      .finally(() => setLoading(false));
   };
 
-  const handleMarkAllRead = () => {
+  useEffect(() => {
+    loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleMarkAllRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    try {
+      await fetch("/api/notifications", { method: "PATCH" });
+    } catch {
+      showToast("Erro ao marcar notificações como lidas.", "error");
+    }
   };
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2.5">
@@ -65,76 +78,63 @@ export default function NotificationsPage() {
             Notificações
           </h1>
           <p className="text-sm text-slate-400">
-            As tuas notificações e alertas.
+            As tuas notificações e alertas reais da plataforma.
           </p>
         </div>
 
-        {/* Action button */}
-        <div className="flex items-center gap-3">
+        {notifications.some((n) => !n.isRead) && (
           <button
-            onClick={handleToggleNotifications}
-            className={`h-10 px-5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              activeMode
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-900 hover:bg-slate-800 text-indigo-400"
-            }`}
+            onClick={handleMarkAllRead}
+            className="h-10 px-4 rounded-xl bg-slate-950 border border-slate-900 text-xs font-semibold text-slate-400 hover:text-white hover:border-slate-800 transition-colors cursor-pointer"
           >
-            <BellRing className="h-4 w-4" />
-            {activeMode ? "Notificações Ativas" : "Activar notificações"}
+            Marcar como lidas
           </button>
-
-          {notifications.some((n) => !n.isRead) && (
-            <button
-              onClick={handleMarkAllRead}
-              className="h-10 px-4 rounded-xl bg-slate-950 border border-slate-900 text-xs font-semibold text-slate-400 hover:text-white hover:border-slate-800 transition-colors"
-            >
-              Marcar como lidas
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Notifications List */}
       <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-4">
-        {notifications.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-500">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : notifications.length === 0 ? (
           <div className="text-center text-slate-500 text-xs py-8">
             Sem notificações de momento.
           </div>
         ) : (
           <div className="space-y-3">
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${
-                  notif.isRead
-                    ? "bg-[#070b13]/40 border-slate-900/60 text-slate-400"
-                    : "bg-[#070b13] border-indigo-500/10 text-slate-200 shadow-lg"
-                }`}
-              >
-                {/* Icon wrapper based on notification type */}
-                <div className={`p-2.5 rounded-xl border flex-shrink-0 mt-0.5 ${
-                  notif.type === "achievement"
-                    ? "bg-amber-500/10 border-amber-500/20 text-amber-400"
-                    : notif.type === "forum"
-                    ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
-                    : "bg-cyan-500/10 border-cyan-500/20 text-cyan-400"
-                }`}>
-                  {notif.type === "achievement" && <Award className="h-4.5 w-4.5" />}
-                  {notif.type === "forum" && <MessageSquare className="h-4.5 w-4.5" />}
-                  {notif.type === "alert" && <AlertCircle className="h-4.5 w-4.5" />}
-                </div>
-
-                <div className="space-y-1 min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className={`text-xs font-bold ${notif.isRead ? "text-slate-400" : "text-white"}`}>
-                      {notif.title}
-                    </h4>
-                    <span className="text-[9px] text-slate-600 font-mono whitespace-nowrap">{notif.time}</span>
+            {notifications.map((notif) => {
+              const { Icon, cls } = iconFor(notif.type);
+              const content = (
+                <div
+                  className={`p-4 rounded-2xl border flex items-start gap-4 transition-all ${
+                    notif.isRead
+                      ? "bg-[#070b13]/40 border-slate-900/60 text-slate-400"
+                      : "bg-[#070b13] border-indigo-500/10 text-slate-200 shadow-lg"
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl border flex-shrink-0 mt-0.5 ${cls}`}>
+                    <Icon className="h-4.5 w-4.5" />
                   </div>
-                  <p className="text-xs leading-relaxed text-slate-400 max-w-2xl">{notif.body}</p>
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className={`text-xs font-bold ${notif.isRead ? "text-slate-400" : "text-white"}`}>
+                        {notif.title}
+                      </h4>
+                      <span className="text-[9px] text-slate-600 font-mono whitespace-nowrap">{formatRelativeTime(notif.createdAt)}</span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-slate-400 max-w-2xl">{notif.body}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+              return notif.link ? (
+                <Link key={notif.id} href={notif.link} className="block">
+                  {content}
+                </Link>
+              ) : (
+                <div key={notif.id}>{content}</div>
+              );
+            })}
           </div>
         )}
       </div>
