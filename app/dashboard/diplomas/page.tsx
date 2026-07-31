@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Award, Download, ExternalLink, Calendar, Loader2, X, Eye, ShieldCheck } from "lucide-react";
+import { Award, Download, ExternalLink, Loader2, X, ShieldCheck, Plus, Trash2, Route } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast-provider";
 
 interface Diploma {
   id: string;
@@ -12,34 +14,45 @@ interface Diploma {
   verificationCode: string;
   grade: string;
   hours: number;
+  courseCount: number;
 }
 
-// Fallback estático dos cursos demos
-const ALL_COURSES = [
-  {
-    _id: "course-1",
-    title: "Especialista em Engenharia de IA e RAG Avançado",
-    lessonsCount: 18,
-    hours: 24,
-  },
-  {
-    _id: "course-2",
-    title: "Especialista em Next.js 16 e Composable SaaS",
-    lessonsCount: 14,
-    hours: 18,
-  },
-  {
-    _id: "course-3",
-    title: "Especialista em Smart Contracts e Criptografia com Solidity",
-    lessonsCount: 22,
-    hours: 30,
-  },
+interface CatalogCourse {
+  id: string;
+  title: string;
+  lessonsCount: number;
+  hours: number;
+}
+
+interface Track {
+  id: string;
+  name: string;
+  courseIds: string[];
+  createdByName: string;
+}
+
+// Fallback estático dos cursos demos (usado só se o catálogo real ainda não tiver cursos)
+const FALLBACK_COURSES: CatalogCourse[] = [
+  { id: "course-1", title: "Engenharia de IA e RAG Avançado", lessonsCount: 18, hours: 24 },
+  { id: "course-2", title: "Next.js 16 e Composable SaaS", lessonsCount: 14, hours: 18 },
+  { id: "course-3", title: "Smart Contracts e Criptografia com Solidity", lessonsCount: 22, hours: 30 },
 ];
 
 export default function DiplomasPage() {
-  const { userName } = useAccess();
+  const { userName, activeRole } = useAccess();
+  const confirmDialog = useConfirm();
+  const { showToast } = useToast();
+  const canManage = activeRole === "ADMIN" || activeRole === "GESTOR_ACADEMICO" || activeRole === "FORMADOR";
+
   const [diplomas, setDiplomas] = useState<Diploma[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [catalogCourses, setCatalogCourses] = useState<CatalogCourse[]>([]);
+  const [showTrackForm, setShowTrackForm] = useState(false);
+  const [trackName, setTrackName] = useState("");
+  const [trackCourseIds, setTrackCourseIds] = useState<string[]>([]);
+  const [creatingTrack, setCreatingTrack] = useState(false);
 
   // Estados de visualização e download
   const [previewDiploma, setPreviewDiploma] = useState<Diploma | null>(null);
@@ -48,86 +61,143 @@ export default function DiplomasPage() {
 
   const studentName = userName || "Estudante MOZAI";
 
-  useEffect(() => {
-    async function loadDiplomasData() {
-      try {
-        const [catalogRes, progressRes] = await Promise.all([
-          fetch("/api/catalog"),
-          fetch("/api/progress"),
-        ]);
+  const loadDiplomasData = async () => {
+    setIsLoading(true);
+    try {
+      const [catalogRes, progressRes, tracksRes] = await Promise.all([
+        fetch("/api/catalog"),
+        fetch("/api/progress"),
+        fetch("/api/course-tracks"),
+      ]);
 
-        let allAvailableCourses: any[] = ALL_COURSES;
-        if (catalogRes.ok) {
-          const data = await catalogRes.json();
-          const real = (data.courses || []).map((c: any) => {
-            const mins = typeof c.minutes === "number" ? c.minutes : 0;
-            const hours = mins >= 60 ? Math.round(mins / 60) : 12; // Carga horária
-            return {
-              _id: c._id,
-              title: `Especialista em ${c.title}`,
-              lessonsCount: c.lessonsCount || 0,
-              hours,
-            };
-          });
-          if (real.length > 0) {
-            const realIds = new Set(real.map((c: any) => c._id));
-            allAvailableCourses = [...real, ...ALL_COURSES.filter((c) => !realIds.has(c._id))];
-          }
-        }
-
-        let progressList: any[] = [];
-        if (progressRes.ok) {
-          const pdata = await progressRes.json();
-          progressList = pdata.progress || [];
-        }
-
-        // Mapear apenas cursos concluídos a 100% como diplomas reais
-        const dips: Diploma[] = [];
-        allAvailableCourses.forEach((course) => {
-          const courseProgress = progressList.filter(
-            (p: any) => p.courseId === course._id && p.status === "completed"
-          );
-          const completedCount = courseProgress.length;
-          const denom = course.lessonsCount > 0 ? course.lessonsCount : 3;
-
-          if (completedCount >= denom && denom > 0) {
-            // Obter data de conclusão
-            let finalDate = "Hoje";
-            if (courseProgress.length > 0) {
-              const dates = courseProgress
-                .map((p: any) => p.updatedAt ? new Date(p.updatedAt) : new Date())
-                .sort((a, b) => b.getTime() - a.getTime());
-              if (dates.length > 0) {
-                finalDate = dates[0].toLocaleDateString("pt-PT");
-              }
-            }
-
-            // Gerar um código único
-            const hash = course._id.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
-            const code = `DIP-${hash}-9841-${Math.floor(1000 + Math.random() * 9000)}`;
-
-            dips.push({
-              id: `dip-${course._id}`,
-              title: course.title,
-              recipientName: studentName,
-              issueDate: finalDate,
-              verificationCode: code,
-              grade: "Excelente (100%)",
-              hours: course.hours,
-            });
-          }
+      let courses: CatalogCourse[] = FALLBACK_COURSES;
+      if (catalogRes.ok) {
+        const data = await catalogRes.json();
+        const real: CatalogCourse[] = (data.courses || []).map((c: any) => {
+          const mins = typeof c.minutes === "number" ? c.minutes : 0;
+          const hours = mins >= 60 ? Math.round(mins / 60) : 12;
+          return { id: c._id, title: c.title, lessonsCount: c.lessonsCount || 0, hours };
         });
-
-        setDiplomas(dips);
-      } catch (err) {
-        console.error("Erro ao ler dados de diplomas:", err);
-      } finally {
-        setIsLoading(false);
+        if (real.length > 0) {
+          const realIds = new Set(real.map((c) => c.id));
+          courses = [...real, ...FALLBACK_COURSES.filter((c) => !realIds.has(c.id))];
+        }
       }
-    }
+      setCatalogCourses(courses);
+      const courseMap = new Map(courses.map((c) => [c.id, c]));
 
+      let progressList: any[] = [];
+      if (progressRes.ok) {
+        const pdata = await progressRes.json();
+        progressList = pdata.progress || [];
+      }
+
+      let loadedTracks: Track[] = [];
+      if (tracksRes.ok) {
+        const tdata = await tracksRes.json();
+        loadedTracks = tdata.tracks || [];
+      }
+      setTracks(loadedTracks);
+
+      // Diploma = TODOS os cursos de um percurso concluídos a 100% (nunca um curso isolado —
+      // isso é o papel do Certificado).
+      const dips: Diploma[] = [];
+      loadedTracks.forEach((track) => {
+        const trackCourses = track.courseIds.map((id) => courseMap.get(id)).filter(Boolean) as CatalogCourse[];
+        if (trackCourses.length === 0) return;
+
+        let allCompleted = true;
+        let totalHours = 0;
+        const completionDates: Date[] = [];
+
+        for (const course of trackCourses) {
+          const courseProgress = progressList.filter((p: any) => p.courseId === course.id && p.status === "completed");
+          const denom = course.lessonsCount > 0 ? course.lessonsCount : 3;
+          if (courseProgress.length < denom) {
+            allCompleted = false;
+            break;
+          }
+          totalHours += course.hours;
+          courseProgress.forEach((p: any) => completionDates.push(p.updatedAt ? new Date(p.updatedAt) : new Date()));
+        }
+
+        if (allCompleted) {
+          completionDates.sort((a, b) => b.getTime() - a.getTime());
+          const finalDate = completionDates.length > 0 ? completionDates[0].toLocaleDateString("pt-PT") : "Hoje";
+          const hash = track.id.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5);
+          const code = `DIP-${hash}-9841-${Math.floor(1000 + Math.random() * 9000)}`;
+
+          dips.push({
+            id: `dip-${track.id}`,
+            title: `Especialista em ${track.name}`,
+            recipientName: studentName,
+            issueDate: finalDate,
+            verificationCode: code,
+            grade: "Excelente (100%)",
+            hours: totalHours,
+            courseCount: trackCourses.length,
+          });
+        }
+      });
+
+      setDiplomas(dips);
+    } catch (err) {
+      console.error("Erro ao ler dados de diplomas:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadDiplomasData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentName]);
+
+  const handleCreateTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackName.trim() || trackCourseIds.length < 2) {
+      showToast("Indique um nome e selecione pelo menos 2 cursos para o percurso.", "error");
+      return;
+    }
+    setCreatingTrack(true);
+    try {
+      const res = await fetch("/api/course-tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trackName, courseIds: trackCourseIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setTrackName("");
+      setTrackCourseIds([]);
+      setShowTrackForm(false);
+      showToast("Percurso criado com sucesso.", "success");
+      loadDiplomasData();
+    } catch (err: any) {
+      showToast(err.message || "Erro ao criar o percurso.", "error");
+    } finally {
+      setCreatingTrack(false);
+    }
+  };
+
+  const handleDeleteTrack = async (track: Track) => {
+    const confirmed = await confirmDialog({
+      title: "Apagar percurso",
+      message: `Tem a certeza que quer apagar o percurso "${track.name}"? Os cursos não são apagados, só deixam de contar para um Diploma conjunto.`,
+      confirmLabel: "Apagar",
+      cancelLabel: "Cancelar",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/course-tracks/${track.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      showToast("Percurso apagado.", "success");
+      loadDiplomasData();
+    } catch {
+      showToast("Erro ao apagar o percurso.", "error");
+    }
+  };
 
   const handleDownload = (dip: Diploma) => {
     setDownloadingDipId(dip.id);
@@ -244,15 +314,85 @@ startxref
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2.5">
-          <Award className="h-7 w-7 text-indigo-400" />
-          Meus Diplomas
-        </h1>
-        <p className="text-sm text-slate-400">
-          Gere, consulte e descarregue os seus diplomas académicos oficiais verificados pela MOZAI.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2.5">
+            <Award className="h-7 w-7 text-indigo-400" />
+            Meus Diplomas
+          </h1>
+          <p className="text-sm text-slate-400">
+            Um Diploma é emitido quando conclui TODOS os cursos de um percurso completo — não um curso isolado (para isso, veja os seus Certificados).
+          </p>
+        </div>
+        {canManage && (
+          <button
+            onClick={() => setShowTrackForm((v) => !v)}
+            className="inline-flex items-center gap-1.5 h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors cursor-pointer flex-shrink-0"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Gerir Percursos
+          </button>
+        )}
       </div>
+
+      {canManage && showTrackForm && (
+        <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-5">
+          <form onSubmit={handleCreateTrack} className="space-y-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Route className="h-4 w-4 text-indigo-400" />
+              Novo Percurso
+            </h3>
+            <input
+              type="text"
+              value={trackName}
+              onChange={(e) => setTrackName(e.target.value)}
+              placeholder="Nome do percurso (ex: Especialização em IA Generativa)"
+              className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold text-slate-400">Cursos que compõem o percurso (mín. 2)</span>
+              <div className="max-h-52 overflow-y-auto space-y-1.5 border border-slate-900 rounded-xl p-2">
+                {catalogCourses.map((course) => (
+                  <label key={course.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={trackCourseIds.includes(course.id)}
+                      onChange={(e) =>
+                        setTrackCourseIds((prev) => (e.target.checked ? [...prev, course.id] : prev.filter((id) => id !== course.id)))
+                      }
+                      className="h-3.5 w-3.5 accent-indigo-500"
+                    />
+                    <span className="text-xs text-slate-300">{course.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowTrackForm(false)} className="h-9 px-4 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer">Cancelar</button>
+              <button type="submit" disabled={creatingTrack} className="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer">
+                {creatingTrack ? "A criar..." : "Criar Percurso"}
+              </button>
+            </div>
+          </form>
+
+          {tracks.length > 0 && (
+            <div className="pt-4 border-t border-slate-900 space-y-2">
+              <span className="text-[11px] font-semibold text-slate-400 block">Percursos existentes</span>
+              {tracks.map((track) => (
+                <div key={track.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-900 bg-slate-950/60">
+                  <div className="min-w-0">
+                    <span className="text-xs font-semibold text-white block truncate">{track.name}</span>
+                    <span className="text-[10px] text-slate-500">{track.courseIds.length} cursos · por {track.createdByName}</span>
+                  </div>
+                  <button onClick={() => handleDeleteTrack(track)} title="Apagar" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-colors cursor-pointer flex-shrink-0">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Diplomas List */}
       <div className="space-y-6">
@@ -264,7 +404,9 @@ startxref
             <div className="space-y-1 max-w-[320px]">
               <span className="block text-sm font-bold text-slate-350">Ainda não possui diplomas.</span>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Complete todas as etapas obrigatórias de um dos cursos a 100% para que o seu diploma oficial seja assinado e emitido nesta área.
+                {tracks.length === 0
+                  ? "Ainda não existe nenhum percurso definido nesta plataforma. Um Diploma exige a conclusão de TODOS os cursos de um percurso completo."
+                  : "Conclua a 100% todos os cursos de um dos percursos disponíveis para que o seu diploma oficial seja assinado e emitido nesta área."}
               </p>
             </div>
           </div>
@@ -308,12 +450,16 @@ startxref
                     {dip.title}
                   </h3>
                   <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
-                    Este diploma atesta formalmente a conclusão da formação avançada com carga horária de {dip.hours} horas, incluindo avaliações práticas no Coding Lab e verificação automática por agentes.
+                    Este diploma atesta formalmente a conclusão de um percurso completo de {dip.courseCount} cursos, com carga horária total de {dip.hours} horas, incluindo avaliações práticas no Coding Lab e verificação automática por agentes.
                   </p>
                 </div>
 
                 {/* Stats Metadata */}
-                <div className="grid grid-cols-3 gap-4 py-4 border-t border-b border-slate-900/60 text-xs">
+                <div className="grid grid-cols-4 gap-4 py-4 border-t border-b border-slate-900/60 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] mb-1">Cursos</span>
+                    <span className="text-slate-200 font-semibold">{dip.courseCount}</span>
+                  </div>
                   <div>
                     <span className="text-slate-500 block text-[10px] mb-1">Aproveitamento</span>
                     <span className="text-slate-200 font-semibold">{dip.grade}</span>

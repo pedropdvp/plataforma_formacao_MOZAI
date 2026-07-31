@@ -561,6 +561,35 @@ html:not(.light) .workspace-page-container .coding-lab-console .text-rose-500 {
 }
 
 /* ==========================================
+   WORKSPACE > AI AGENTS - CARDS SEMPRE EM CINZA CLARO (Modo Claro e Modo Escuro)
+   Pedido explícito: ao contrário do resto do Workspace (fundo branco no modo escuro), os
+   cards de cada persona do catálogo AI Agents devem usar um cinza claro nos dois temas.
+   ========================================== */
+html:not(.light) .workspace-page-container div.rounded-2xl.ai-agent-card {
+  background-color: #e2e8f0 !important; /* cinza claro (slate-200) */
+  border-color: #cbd5e1 !important;
+}
+.ai-agent-card {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+.ai-agent-card:hover {
+  background-color: #cbd5e1 !important; /* cinza um pouco mais escuro no hover */
+}
+.ai-agent-card h4 {
+  color: #0f172a !important;
+}
+.ai-agent-card p {
+  color: #27303f !important;
+}
+.ai-agent-card .text-indigo-400 {
+  color: #4f46e5 !important;
+}
+.ai-agent-card .text-amber-400 {
+  color: #b45309 !important;
+}
+
+/* ==========================================
    SIDEBAR NAV - MENU GROUP BOXES AND UNIQUELY COLORED THEMES
    ========================================== */
 

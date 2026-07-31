@@ -229,7 +229,7 @@ export default function AiAgentsPage() {
                 <div
                   key={a.id}
                   onClick={() => openAgent(a)}
-                  className="text-left border border-slate-900 bg-slate-950/60 hover:bg-slate-900/60 rounded-2xl p-4 space-y-2 cursor-pointer transition-colors"
+                  className="ai-agent-card text-left border border-slate-900 rounded-2xl p-4 space-y-2 cursor-pointer transition-colors"
                 >
                   <h4 className="font-bold text-sm text-white">{a.name}</h4>
                   <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">{a.role}</span>

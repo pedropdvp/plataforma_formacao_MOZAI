@@ -42,9 +42,12 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Pencil,
+  X,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface MarketplaceListing {
   _id: string;
@@ -83,6 +86,7 @@ const STATUS_CONFIG: Record<MentorshipRequest["status"], { label: string; color:
 export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
+  const confirmDialog = useConfirm();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
   const [tab, setTab] = useState<
     | "courses"
@@ -1254,6 +1258,11 @@ export default function MarketplacePage() {
   const [agentResults, setAgentResults] = useState<{ title: string; output: string }[] | null>(null);
   const [agentRunning, setAgentRunning] = useState(false);
 
+  const [viewingAgent, setViewingAgent] = useState<AiAgent | null>(null);
+  const [editingAgent, setEditingAgent] = useState<AiAgent | null>(null);
+  const [editAgentForm, setEditAgentForm] = useState({ name: "", description: "", category: "", steps: [] as AgentStep[] });
+  const [savingAgentEdit, setSavingAgentEdit] = useState(false);
+
   const loadAgents = async (query: string) => {
     setLoadingAgents(true);
     try {
@@ -1322,6 +1331,14 @@ export default function MarketplacePage() {
   };
 
   const handleDeleteAgent = async (agent: AiAgent) => {
+    const confirmed = await confirmDialog({
+      title: "Eliminar Agente IA",
+      message: `Tem a certeza que quer eliminar o agente "${agent.name}"? Esta ação não pode ser revertida.`,
+      confirmLabel: "Eliminar",
+      cancelLabel: "Cancelar",
+      destructive: true,
+    });
+    if (!confirmed) return;
     try {
       const res = await fetch(`/api/ai-agents/${agent.id}`, { method: "DELETE" });
       if (res.ok) {
@@ -1330,6 +1347,56 @@ export default function MarketplacePage() {
       }
     } catch {
       showToast("Erro ao eliminar o Agente IA.", "error");
+    }
+  };
+
+  const openViewAgent = async (agent: AiAgent) => {
+    try {
+      const res = await fetch(`/api/ai-agents/${agent.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setViewingAgent(data.agent);
+    } catch {
+      showToast("Erro ao carregar detalhes do Agente IA.", "error");
+    }
+  };
+
+  const openEditAgent = async (agent: AiAgent) => {
+    try {
+      const res = await fetch(`/api/ai-agents/${agent.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setEditingAgent(agent);
+      setEditAgentForm({
+        name: data.agent.name,
+        description: data.agent.description,
+        category: data.agent.category,
+        steps: data.agent.steps,
+      });
+    } catch {
+      showToast("Erro ao carregar detalhes do Agente IA.", "error");
+    }
+  };
+
+  const handleSaveAgentEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAgent) return;
+    setSavingAgentEdit(true);
+    try {
+      const res = await fetch(`/api/ai-agents/${editingAgent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editAgentForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setEditingAgent(null);
+      showToast("Agente IA atualizado com sucesso.", "success");
+      loadAgents(agentSearch);
+    } catch (err: any) {
+      showToast(err.message || "Erro ao atualizar o Agente IA.", "error");
+    } finally {
+      setSavingAgentEdit(false);
     }
   };
 
@@ -3280,6 +3347,20 @@ export default function MarketplacePage() {
                       {agent.isMine && (
                         <div className="flex items-center gap-1 shrink-0">
                           <button
+                            onClick={() => openViewAgent(agent)}
+                            title="Visualizar"
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Eye className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => openEditAgent(agent)}
+                            title="Editar"
+                            className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
                             onClick={() => handleToggleAgentVisibility(agent)}
                             title={agent.isPublic ? "Tornar privado" : "Tornar público"}
                             className="h-6 w-6 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 flex items-center justify-center cursor-pointer"
@@ -3288,6 +3369,7 @@ export default function MarketplacePage() {
                           </button>
                           <button
                             onClick={() => handleDeleteAgent(agent)}
+                            title="Apagar"
                             className="h-6 w-6 rounded-lg border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-400 flex items-center justify-center cursor-pointer"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -3317,6 +3399,114 @@ export default function MarketplacePage() {
               </div>
             )}
           </div>
+
+          {/* Visualizar Agente IA */}
+          {viewingAgent && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setViewingAgent(null)}>
+              <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-white">{viewingAgent.name}</h3>
+                  <button onClick={() => setViewingAgent(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-3 text-xs text-slate-300">
+                  <p><strong className="text-slate-500">Categoria:</strong> {viewingAgent.category}</p>
+                  <p><strong className="text-slate-500">Descrição:</strong> {viewingAgent.description}</p>
+                  <p><strong className="text-slate-500">Visibilidade:</strong> {viewingAgent.isPublic ? "Público" : "Privado"}</p>
+                  <p><strong className="text-slate-500">Execuções:</strong> {viewingAgent.usesCount}</p>
+                  <div className="pt-3 border-t border-slate-900 space-y-2">
+                    <span className="text-slate-500 font-bold block">Passos encadeados:</span>
+                    {viewingAgent.steps.map((s, i) => (
+                      <div key={i} className="bg-slate-900/60 border border-slate-900 rounded-xl p-3">
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Passo {i + 1}: {s.title}</span>
+                        <p className="whitespace-pre-wrap leading-relaxed">{s.instruction}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Editar Agente IA */}
+          {editingAgent && (
+            <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setEditingAgent(null)}>
+              <form onSubmit={handleSaveAgentEdit} className="bg-slate-950 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-3 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold text-white">Editar Agente IA</h3>
+                  <button type="button" onClick={() => setEditingAgent(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <input
+                  value={editAgentForm.name}
+                  onChange={(e) => setEditAgentForm({ ...editAgentForm, name: e.target.value })}
+                  placeholder="Nome"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <input
+                  value={editAgentForm.category}
+                  onChange={(e) => setEditAgentForm({ ...editAgentForm, category: e.target.value })}
+                  placeholder="Categoria"
+                  className="w-full h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                />
+                <textarea
+                  value={editAgentForm.description}
+                  onChange={(e) => setEditAgentForm({ ...editAgentForm, description: e.target.value })}
+                  placeholder="Descrição"
+                  className="w-full h-14 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                />
+                <div className="space-y-2">
+                  {editAgentForm.steps.map((step, i) => (
+                    <div key={i} className="p-3 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Passo {i + 1}</span>
+                        {editAgentForm.steps.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => setEditAgentForm((prev) => ({ ...prev, steps: prev.steps.filter((_, idx) => idx !== i) }))}
+                            className="text-rose-400 hover:text-rose-300 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        value={step.title}
+                        onChange={(e) =>
+                          setEditAgentForm((prev) => ({ ...prev, steps: prev.steps.map((s, idx) => (idx === i ? { ...s, title: e.target.value } : s)) }))
+                        }
+                        placeholder="Título do passo"
+                        className="w-full h-9 px-3 rounded-lg border border-slate-800 bg-black text-white text-xs focus:border-indigo-500 focus:outline-none"
+                      />
+                      <textarea
+                        value={step.instruction}
+                        onChange={(e) =>
+                          setEditAgentForm((prev) => ({ ...prev, steps: prev.steps.map((s, idx) => (idx === i ? { ...s, instruction: e.target.value } : s)) }))
+                        }
+                        placeholder="Instrução deste passo"
+                        className="w-full h-16 p-2.5 rounded-lg border border-slate-800 bg-black text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                      />
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setEditAgentForm((prev) => ({ ...prev, steps: [...prev.steps, { title: "", instruction: "" }] }))}
+                    className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+                  >
+                    + Adicionar passo
+                  </button>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button type="button" onClick={() => setEditingAgent(null)} className="h-9 px-4 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer">Cancelar</button>
+                  <button type="submit" disabled={savingAgentEdit} className="h-9 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors disabled:opacity-50 cursor-pointer">
+                    {savingAgentEdit ? "A guardar..." : "Guardar Alterações"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {/* Painel de execução do Agente */}
           {runningAgentPanel && (
