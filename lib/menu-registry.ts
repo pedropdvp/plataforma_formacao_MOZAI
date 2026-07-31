@@ -37,6 +37,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "gamification", groupId: "aprendizagem", label: "Gamificação", path: "/dashboard/gamification" },
   { id: "marketplace", groupId: "aprendizagem", label: "Marketplace", path: "/dashboard/marketplace" },
   { id: "progress", groupId: "aprendizagem", label: "Meu Progresso & DigitalTwin", path: "/dashboard/personal/progress" },
+  { id: "digital-twin", groupId: "aprendizagem", label: "Digital Twin", path: "/dashboard/digital-twin" },
+  { id: "knowledge-graph", groupId: "aprendizagem", label: "Knowledge Graph", path: "/dashboard/knowledge-graph" },
   { id: "my-courses", groupId: "aprendizagem", label: "Meus Cursos", path: "/dashboard/my-courses" },
   { id: "mozai-academy", groupId: "aprendizagem", label: "MOZAI Academy", path: "/dashboard/mozai-academy" },
   { id: "projects", groupId: "aprendizagem", label: "Projetos", path: "/dashboard/projects" },
@@ -87,6 +89,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
   { id: "company-marketplace-profile", groupId: "workspace", label: "Perfil de Empresa & Vagas", path: "/dashboard/admin/company-profile" },
   { id: "content-factory", groupId: "workspace", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
+  { id: "content-factory-tools", groupId: "workspace", label: "Content Factory (Ferramentas)", path: "/dashboard/admin/content-factory-tools" },
   { id: "hr-console", groupId: "workspace", label: "Gestão de RH", path: "/dashboard/admin/hr" },
   { id: "skills-os", groupId: "workspace", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
 

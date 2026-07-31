@@ -1,171 +1,179 @@
 "use client";
 
-import React, { useState } from "react";
-import { RefreshCw, GitBranch, Terminal, Shield, ArrowRight, Loader2, Check, ExternalLink } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { RefreshCw, Loader2, Sparkles, CheckCircle2, ExternalLink, Send } from "lucide-react";
+import { useToast } from "@/components/ui/toast-provider";
+import { AUTO_UPDATE_SOURCES } from "@/lib/auto-update-sources";
 
-const MOCK_SCAN_SOURCES = [
-  { name: "GitHub Releases: vercel/next.js", lastScan: "há 23 minutos", status: "online" },
-  { name: "arXiv AI Preprints (cs.LG)", lastScan: "há 2 horas", status: "online" },
-  { name: "GitHub Releases: solidity/solidity", lastScan: "há 1 hora", status: "online" },
-];
-
-const INITIAL_DETECTED_UPDATES = [
-  {
-    id: "update-1",
-    source: "vercel/next.js",
-    title: "Next.js 16.3.0 - Otimização de Server Actions e Proxying",
-    description: "Lançamento de suporte aprimorado a proxies de middleware no edge, reduzindo latência de encaminhamento em 15%.",
-    generatedModule: "Atualizações Next.js 16.3: Otimizações no Edge",
-    status: "pending",
-  },
-  {
-    id: "update-2",
-    source: "solidity/solidity",
-    title: "Solidity v0.8.28 - Novos Opcodes de Criptografia",
-    description: "Introdução de validação otimizada de assinaturas criptográficas nativas na EVM, reduzindo consumo de gas em transações Web3.",
-    generatedModule: "Solidity 0.8.28: Técnicas de Otimização de Gas",
-    status: "pending",
-  },
-];
+interface FeedItem {
+  id: string;
+  sourceLabel: string;
+  title: string;
+  description: string;
+  url: string;
+  publishedAt: string;
+  status: "pending" | "draft_pending_review" | "published";
+  draftContent: string | null;
+}
 
 export default function AutoUpdatePage() {
+  const { showToast } = useToast();
   const [scanning, setScanning] = useState(false);
-  const [updates, setUpdates] = useState(INITIAL_DETECTED_UPDATES);
+  const [items, setItems] = useState<FeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
-  const handleScan = () => {
-    setScanning(true);
-    setTimeout(() => {
-      setScanning(false);
-    }, 2000);
+  const loadFeed = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/auto-update/feed");
+      const data = await res.json();
+      if (res.ok) setItems(data.items || []);
+    } catch {
+      showToast("Erro ao carregar o feed.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGenerateAndPublish = (id: string) => {
-    setGeneratingId(id);
-    setTimeout(() => {
-      // Marcar o status como publicado
-      setUpdates((prev) =>
-        prev.map((up) => (up.id === id ? { ...up, status: "published" } : up))
-      );
+  useEffect(() => {
+    loadFeed();
+  }, []);
+
+  const handleScan = async () => {
+    setScanning(true);
+    try {
+      const res = await fetch("/api/admin/auto-update/scan", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Scan real concluído: ${data.newItemsCount} itens novos.`, "success");
+        if (data.errors?.length) showToast(`Falhas: ${data.errors.join("; ")}`, "error");
+        loadFeed();
+      } else {
+        showToast(data.error || "Erro ao fazer scan.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao fazer scan.", "error");
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const handleGenerate = async (item: FeedItem) => {
+    setGeneratingId(item.id);
+    try {
+      const res = await fetch(`/api/admin/auto-update/${item.id}/generate`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Rascunho gerado — reveja antes de publicar.", "success");
+        loadFeed();
+      } else {
+        showToast(data.error || "Erro ao gerar rascunho.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao gerar rascunho.", "error");
+    } finally {
       setGeneratingId(null);
-    }, 2000);
+    }
+  };
+
+  const handlePublish = async (item: FeedItem) => {
+    setPublishingId(item.id);
+    try {
+      const res = await fetch(`/api/admin/auto-update/${item.id}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Publicado!", "success");
+        loadFeed();
+      } else {
+        showToast(data.error || "Erro ao publicar.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao publicar.", "error");
+    } finally {
+      setPublishingId(null);
+    }
   };
 
   return (
     <div className="space-y-8 workspace-page-container">
-      {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
             <RefreshCw className="h-6 w-6 text-indigo-400" />
-            Atualização Automática (Daily Engine)
+            Atualização Automática
           </h1>
-          <p className="text-sm text-slate-400">
-            A IA monitoriza repositórios de código e publicações científicas diariamente, sugerindo e gerando novas aulas práticas.
-          </p>
+          <p className="text-sm text-slate-400">Monitorização real de GitHub Releases e arXiv — scan diário automático (cron) + botão manual.</p>
         </div>
-
-        <button
-          onClick={handleScan}
-          disabled={scanning}
-          className="inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all disabled:opacity-50"
-        >
-          {scanning ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              A Scanear Fontes...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Scanear Agora
-            </>
-          )}
+        <button onClick={handleScan} disabled={scanning} className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55">
+          {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          {scanning ? "A verificar fontes reais..." : "Verificar Agora"}
         </button>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Fontes Monitorizadas */}
-        <div className="border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-4 self-start">
-          <h3 className="font-bold text-sm text-white flex items-center gap-2">
-            <GitBranch className="h-4.5 w-4.5 text-indigo-400" />
-            Fontes Ativas (Scanners)
-          </h3>
-
-          <div className="space-y-3">
-            {MOCK_SCAN_SOURCES.map((source, idx) => (
-              <div key={idx} className="p-3.5 rounded-xl bg-slate-950 border border-slate-900 flex items-center justify-between text-xs">
-                <div className="space-y-0.5">
-                  <span className="font-bold text-slate-200 block">{source.name}</span>
-                  <span className="text-[10px] text-slate-500">Último scan: {source.lastScan}</span>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Novidades Detetadas */}
-        <div className="lg:col-span-2 border border-slate-900 bg-slate-900/10 rounded-3xl p-6 space-y-6">
-          <h3 className="font-bold text-sm text-white flex items-center gap-2">
-            <Terminal className="h-4.5 w-4.5 text-cyan-400" />
-            Novidades Pendentes de Verificação
-          </h3>
-
-          <div className="space-y-4">
-            {updates.map((update) => (
-              <div key={update.id} className="p-5 rounded-2xl bg-slate-950 border border-slate-900 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-slate-900 text-indigo-400 border border-slate-800 font-mono">
-                    {update.source}
-                  </span>
-                  <span className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-white cursor-pointer">
-                    Release Oficial
-                    <ExternalLink className="h-3 w-3" />
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="font-bold text-sm text-white">{update.title}</h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">{update.description}</p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 flex items-center justify-between text-xs">
-                  <div className="space-y-0.5">
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Módulo Gerado por IA</span>
-                    <span className="block font-bold text-slate-200">{update.generatedModule}</span>
-                  </div>
-
-                  {update.status === "published" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/10 text-emerald-400 font-semibold">
-                      <Check className="h-4 w-4" />
-                      Publicado
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleGenerateAndPublish(update.id)}
-                      disabled={generatingId !== null}
-                      className="inline-flex items-center justify-center gap-1 h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors"
-                    >
-                      {generatingId === update.id ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          A Publicar...
-                        </>
-                      ) : (
-                        <>
-                          Validar & Publicar
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-1.5">
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fontes monitorizadas (APIs públicas reais)</span>
+        {AUTO_UPDATE_SOURCES.map((s) => (
+          <div key={s.id} className="text-[11px] text-slate-400">{s.label}</div>
+        ))}
       </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 text-indigo-500 animate-spin" /></div>
+      ) : items.length === 0 ? (
+        <div className="border border-slate-900 bg-slate-950/20 rounded-3xl p-12 text-center">
+          <span className="text-sm text-slate-500 italic">Ainda sem itens — clique "Verificar Agora" para o primeiro scan real.</span>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {items.map((item) => (
+            <div key={item.id} className="border border-slate-900 bg-slate-950/20 rounded-3xl p-6 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">{item.sourceLabel}</span>
+                <span
+                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                    item.status === "published"
+                      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                      : item.status === "draft_pending_review"
+                        ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                        : "text-slate-400 bg-slate-500/10 border-slate-500/20"
+                  }`}
+                >
+                  {item.status === "published" ? "Publicado" : item.status === "draft_pending_review" ? "Rascunho — aguarda revisão" : "Detetado"}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-white">{item.title}</h3>
+              <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{item.description}</p>
+              <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-400 underline flex items-center gap-1 w-fit">
+                Fonte original <ExternalLink className="h-3 w-3" />
+              </a>
+
+              {item.draftContent && (
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-900 mt-2">
+                  <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">{item.draftContent}</p>
+                </div>
+              )}
+
+              {item.status === "pending" && (
+                <button onClick={() => handleGenerate(item)} disabled={generatingId === item.id} className="h-8 px-3 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-400 flex items-center gap-1.5 cursor-pointer disabled:opacity-55">
+                  {generatingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Gerar Rascunho (1 Crédito IA)
+                </button>
+              )}
+              {item.status === "draft_pending_review" && (
+                <button onClick={() => handlePublish(item)} disabled={publishingId === item.id} className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-[11px] font-semibold text-white flex items-center gap-1.5 cursor-pointer disabled:opacity-55">
+                  {publishingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Aprovar e Publicar
+                </button>
+              )}
+              {item.status === "published" && (
+                <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5" /> Publicado</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
