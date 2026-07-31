@@ -3,35 +3,34 @@
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Compass, CheckCircle2, Play, Calendar, ShieldCheck, Download, Smartphone, XCircle } from "lucide-react";
+import { Compass, CheckCircle2, Play, Loader2, Smartphone, XCircle } from "lucide-react";
 
 interface AcademyCourse {
   id: string;
   title: string;
   category: string;
-  duration: string;
+  minutes: number;
   lessonsCount: number;
+  firstLesson: string;
 }
-
-const ACADEMY_COURSES: AcademyCourse[] = [
-  { id: "course-1", title: "Engenharia de IA e RAG Avançado", category: "Inteligência Artificial", duration: "24h", lessonsCount: 18 },
-  { id: "course-2", title: "Next.js 16 e Arquiteturas Composable SaaS", category: "Programação / Frontend", duration: "18h", lessonsCount: 14 },
-  { id: "course-4", title: "Prompt Engineering Essentials", category: "Inteligência Artificial", duration: "6h", lessonsCount: 8 },
-  { id: "course-3", title: "Smart Contracts e Criptografia com Solidity", category: "Crypto & Blockchain", duration: "30h", lessonsCount: 22 },
-  { id: "course-5", title: "Zero-Knowledge Proofs (ZKP) Avançado", category: "Crypto & Blockchain", duration: "40h", lessonsCount: 28 },
-  { id: "course-7", title: "Python Avançado para Automação & Data Science", category: "Programação / Core", duration: "20h", lessonsCount: 16 },
-  { id: "course-8", title: "Docker, Kubernetes & AWS Cloud Orchestration", category: "DevOps / Infraestrutura", duration: "32h", lessonsCount: 20 },
-  { id: "course-9", title: "UX/UI Reativo para Aplicações Baseadas em IA", category: "Design / Produto", duration: "14h", lessonsCount: 12 },
-  { id: "course-10", title: "Desenvolvimento Web3 e dApps com ethers.js", category: "Crypto & Blockchain", duration: "22h", lessonsCount: 18 },
-  { id: "course-11", title: "Segurança Ofensiva e Auditoria de Código", category: "CyberSecurity", duration: "28h", lessonsCount: 19 },
-];
 
 export default function MozaiAcademyPage() {
   const { showToast } = useToast();
   const confirmDialog = useConfirm();
   const [subActive, setSubActive] = useState(true);
+  const [courses, setCourses] = useState<AcademyCourse[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/catalog")
+      .then((res) => res.json())
+      .then((data) => setCourses(data.courses || []))
+      .catch(() => showToast("Erro ao carregar o catálogo de cursos.", "error"))
+      .finally(() => setLoadingCourses(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCancelSub = async () => {
     const confirmed = await confirmDialog({
@@ -132,11 +131,11 @@ export default function MozaiAcademyPage() {
             <ul className="space-y-3 text-xs text-slate-300">
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-indigo-400 flex-shrink-0" />
-                <span>Acesso imediato a todos os cursos TIA</span>
+                <span>Acesso imediato a todos os cursos MOZAI</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-indigo-400 flex-shrink-0" />
-                <span>50% de desconto em cursos fora da TIA</span>
+                <span>50% de desconto em cursos fora da MOZAI</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-indigo-400 flex-shrink-0" />
@@ -165,37 +164,49 @@ export default function MozaiAcademyPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between pb-2 border-b border-slate-900">
             <h3 className="font-bold text-lg text-white">Os Teus Cursos Mozai</h3>
-            <span className="text-xs text-slate-500 font-medium">Total de 10 cursos disponíveis</span>
+            <span className="text-xs text-slate-500 font-medium">
+              {loadingCourses ? "A carregar..." : `Total de ${courses.length} cursos disponíveis`}
+            </span>
           </div>
 
-          {/* Table-like or card-like courses list */}
-          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-            {ACADEMY_COURSES.map((course) => (
-              <div
-                key={course.id}
-                className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 flex items-center justify-between hover:border-slate-800 transition-colors"
-              >
-                <div className="space-y-1 min-w-0 pr-3">
-                  <span className="text-[9px] text-indigo-400 font-semibold uppercase tracking-wider block">
-                    {course.category}
-                  </span>
-                  <h4 className="font-bold text-sm text-white truncate">{course.title}</h4>
-                  <div className="flex gap-4 text-[10px] text-slate-500">
-                    <span>{course.duration} de conteúdo</span>
-                    <span>{course.lessonsCount} lições</span>
-                  </div>
-                </div>
-
-                <Link
-                  href={`/dashboard/courses/${course.id}/lessons/lesson-1-1`}
-                  className="h-8 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-white flex items-center gap-1 flex-shrink-0 transition-colors"
+          {/* Catálogo real (Sanity + cursos gerados por IA), nunca uma lista fixa */}
+          {loadingCourses ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="border border-slate-900 border-dashed rounded-2xl p-8 text-center">
+              <span className="text-xs text-slate-500">Ainda não há cursos publicados no catálogo.</span>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 flex items-center justify-between hover:border-slate-800 transition-colors"
                 >
-                  Aceder
-                  <Play className="h-3 w-3 fill-white" />
-                </Link>
-              </div>
-            ))}
-          </div>
+                  <div className="space-y-1 min-w-0 pr-3">
+                    <span className="text-[9px] text-indigo-400 font-semibold uppercase tracking-wider block">
+                      {course.category}
+                    </span>
+                    <h4 className="font-bold text-sm text-white truncate">{course.title}</h4>
+                    <div className="flex gap-4 text-[10px] text-slate-500">
+                      <span>{Math.round((course.minutes || 0) / 60)}h de conteúdo</span>
+                      <span>{course.lessonsCount} lições</span>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={course.firstLesson ? `/dashboard/courses/${course.id}/lessons/${course.firstLesson}` : `/dashboard/catalog`}
+                    className="h-8 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] font-semibold text-white flex items-center gap-1 flex-shrink-0 transition-colors"
+                  >
+                    Aceder
+                    <Play className="h-3 w-3 fill-white" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -56,7 +56,10 @@ import {
   Handshake,
   UsersRound,
   UserSquare2,
-  Sparkles
+  Sparkles,
+  UserCircle2,
+  Share2,
+  Wand2
 } from "lucide-react";
 
 // Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
@@ -170,6 +173,8 @@ export default function SidebarNav() {
     "/dashboard/gamification",
     "/dashboard/mozai-academy",
     "/dashboard/personal/progress",
+    "/dashboard/digital-twin",
+    "/dashboard/knowledge-graph",
     "/dashboard/avatar-training",
     "/dashboard/my-courses",
     "/dashboard/projects"
@@ -218,6 +223,7 @@ export default function SidebarNav() {
     "/dashboard/skills/coding-lab",
     "/dashboard/admin",
     "/dashboard/admin/content-factory",
+    "/dashboard/admin/content-factory-tools",
     "/dashboard/admin/hr",
     "/dashboard/admin/projects",
     "/dashboard/admin/academy",
@@ -319,6 +325,18 @@ export default function SidebarNav() {
             <Link href="/dashboard/personal/progress" className={linkClass("/dashboard/personal/progress")}>
               <GraduationCap className="h-4 w-4 text-emerald-400" />
               {t("nav_progress", "Meu Progresso & DigitalTwin")}
+            </Link>
+            )}
+            {isItemVisible("digital-twin") && (
+            <Link href="/dashboard/digital-twin" className={linkClass("/dashboard/digital-twin")}>
+              <UserCircle2 className="h-4 w-4 text-indigo-400" />
+              {t("nav_digital_twin", "Digital Twin")}
+            </Link>
+            )}
+            {isItemVisible("knowledge-graph") && (
+            <Link href="/dashboard/knowledge-graph" className={linkClass("/dashboard/knowledge-graph")}>
+              <Share2 className="h-4 w-4 text-indigo-400" />
+              {t("nav_knowledge_graph", "Knowledge Graph")}
             </Link>
             )}
             {isItemVisible("my-courses") && (
@@ -690,6 +708,14 @@ export default function SidebarNav() {
               <Link href="/dashboard/admin/content-factory" className={linkClass("/dashboard/admin/content-factory")}>
                 <Settings className="h-4 w-4 text-violet-400" />
                 {t("nav_content_factory", "Fábrica de Cursos (IA)")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("content-factory-tools") && (
+            <SecureRender requiredPermission="COURSES_CREATE">
+              <Link href="/dashboard/admin/content-factory-tools" className={linkClass("/dashboard/admin/content-factory-tools")}>
+                <Wand2 className="h-4 w-4 text-violet-400" />
+                {t("nav_content_factory_tools", "Content Factory (Ferramentas)")}
               </Link>
             </SecureRender>
             )}
