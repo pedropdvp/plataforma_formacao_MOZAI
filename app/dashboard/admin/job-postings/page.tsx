@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, Loader2, ShieldAlert, Save, Plus, Briefcase, ChevronDown, ChevronUp, Mail } from "lucide-react";
+import { Briefcase, Loader2, ShieldAlert, Plus, ChevronDown, ChevronUp, Mail } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
 import { useToast } from "@/components/ui/toast-provider";
 
@@ -25,16 +25,10 @@ interface Application {
   appliedAt: string;
 }
 
-export default function CompanyProfilePage() {
+export default function JobPostingsPage() {
   const { activeRole, isLoading: loadingRole } = useAccess();
   const { showToast } = useToast();
   const canAccess = !!activeRole && REVIEWER_ROLES.includes(activeRole);
-
-  const [description, setDescription] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [website, setWebsite] = useState("");
-  const [isPublic, setIsPublic] = useState(true);
-  const [savingProfile, setSavingProfile] = useState(false);
 
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,22 +43,13 @@ export default function CompanyProfilePage() {
 
   const loadData = async () => {
     try {
-      const [profileRes, jobsRes] = await Promise.all([fetch("/api/admin/company-profile"), fetch("/api/admin/job-postings")]);
-      if (profileRes.ok) {
-        const data = await profileRes.json();
-        if (data.profile) {
-          setDescription(data.profile.description || "");
-          setIndustry(data.profile.industry || "");
-          setWebsite(data.profile.website || "");
-          setIsPublic(data.profile.isPublic !== false);
-        }
-      }
-      if (jobsRes.ok) {
-        const data = await jobsRes.json();
+      const res = await fetch("/api/admin/job-postings");
+      if (res.ok) {
+        const data = await res.json();
         setJobs(data.jobs || []);
       }
     } catch (error) {
-      console.error("Erro ao carregar perfil da empresa:", error);
+      console.error("Erro ao carregar vagas:", error);
     } finally {
       setIsLoading(false);
     }
@@ -74,32 +59,6 @@ export default function CompanyProfilePage() {
     if (canAccess) loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canAccess]);
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!description.trim()) {
-      showToast("A descrição da empresa é obrigatória.", "error");
-      return;
-    }
-    setSavingProfile(true);
-    try {
-      const res = await fetch("/api/admin/company-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: description.trim(), industry: industry.trim(), website: website.trim(), isPublic }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showToast("Perfil público da empresa guardado.", "success");
-      } else {
-        showToast(data.error || "Erro ao guardar o perfil.", "error");
-      }
-    } catch {
-      showToast("Erro de comunicação ao guardar o perfil.", "error");
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,7 +142,7 @@ export default function CompanyProfilePage() {
         </div>
         <h1 className="text-xl font-bold text-white">Acesso Restrito</h1>
         <p className="text-sm text-slate-400 max-w-[420px]">
-          Só Administradores, Suporte ou o Gestor de Empresa podem gerir o perfil público e as vagas da empresa.
+          Só Administradores, Suporte ou o Gestor de Empresa podem gerir as vagas de emprego da empresa.
         </p>
       </div>
     );
@@ -193,11 +152,11 @@ export default function CompanyProfilePage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2.5">
-          <Building2 className="h-7 w-7 text-indigo-400" />
-          Perfil de Empresa & Vagas
+          <Briefcase className="h-7 w-7 text-indigo-400" />
+          Vagas de Emprego
         </h1>
         <p className="text-sm text-slate-400">
-          Publique a sua empresa e vagas reais no Marketplace da MOZAI — visível a todos os alunos da plataforma.
+          Publique vagas reais no Marketplace da MOZAI — visíveis a todos os alunos da plataforma.
         </p>
       </div>
 
@@ -208,45 +167,6 @@ export default function CompanyProfilePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Perfil público */}
-          <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
-            <h3 className="font-bold text-sm text-white">Perfil Público no Marketplace</h3>
-            <form onSubmit={handleSaveProfile} className="space-y-3">
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descreva a sua empresa aos alunos da plataforma..."
-                className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
-              />
-              <div className="grid sm:grid-cols-2 gap-3">
-                <input
-                  value={industry}
-                  onChange={(e) => setIndustry(e.target.value)}
-                  placeholder="Setor (ex: Tecnologia, Fintech)"
-                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
-                />
-                <input
-                  value={website}
-                  onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="Website (opcional)"
-                  className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
-                <span className="text-xs text-slate-300">Visível no Marketplace (alunos podem ver a empresa e as vagas)</span>
-              </label>
-              <button
-                type="submit"
-                disabled={savingProfile}
-                className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
-              >
-                {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Guardar Perfil
-              </button>
-            </form>
-          </div>
-
           {/* Nova vaga */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
             <h3 className="font-bold text-sm text-white flex items-center gap-2">

@@ -4,8 +4,8 @@ import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 import React, { useState, useEffect } from "react";
-import { 
-  Building, Paintbrush, Link2, ShieldCheck, Save, Loader2, CheckCircle2, BookOpen,
+import {
+  Building, Building2, Paintbrush, Link2, ShieldCheck, Save, Loader2, CheckCircle2, BookOpen,
   ArrowUpRight, Plus, Mail, User, ShieldAlert, Globe, Edit2, Trash2
 } from "lucide-react";
 import { useAccess } from "@/hooks/use-access";
@@ -23,13 +23,22 @@ interface Company {
 export default function AdminSettingsPage() {
   const { showToast } = useToast();
   const confirmDialog = useConfirm();
-  const { activeRole } = useAccess();
+  const { activeRole, hasPermission } = useAccess();
   const isGlobalAdmin = activeRole === "ADMIN" || activeRole === "SUPORTE";
+  const canManageProfile = isGlobalAdmin || hasPermission("COMPANY_INFO_UPDATE");
 
-  const [activeTab, setActiveTab] = useState("companies");
+  const [activeTab, setActiveTab] = useState(isGlobalAdmin ? "companies" : "profile");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // Estados do Perfil Público da Empresa (Marketplace)
+  const [profileDescription, setProfileDescription] = useState("");
+  const [profileIndustry, setProfileIndustry] = useState("");
+  const [profileWebsite, setProfileWebsite] = useState("");
+  const [profileIsPublic, setProfileIsPublic] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Estados das Definições de Inquilino
   const [companyName, setCompanyName] = useState("");
@@ -88,6 +97,63 @@ export default function AdminSettingsPage() {
       console.error("Erro ao ler empresas:", err);
     } finally {
       setLoadingCompanies(false);
+    }
+  };
+
+  // Carregar o Perfil Público da Empresa (Marketplace) — só quando a tab está ativa
+  const fetchCompanyProfile = async () => {
+    setLoadingProfile(true);
+    try {
+      const res = await fetch("/api/admin/company-profile");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile) {
+          setProfileDescription(data.profile.description || "");
+          setProfileIndustry(data.profile.industry || "");
+          setProfileWebsite(data.profile.website || "");
+          setProfileIsPublic(data.profile.isPublic !== false);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao carregar perfil da empresa:", err);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "profile" && canManageProfile) fetchCompanyProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, canManageProfile]);
+
+  const handleSaveCompanyProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileDescription.trim()) {
+      showToast("A descrição da empresa é obrigatória.", "error");
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await fetch("/api/admin/company-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description: profileDescription.trim(),
+          industry: profileIndustry.trim(),
+          website: profileWebsite.trim(),
+          isPublic: profileIsPublic,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast("Perfil público da empresa guardado.", "success");
+      } else {
+        showToast(data.error || "Erro ao guardar o perfil.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao guardar o perfil.", "error");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -243,8 +309,9 @@ export default function AdminSettingsPage() {
       </div>
 
       {/* Tabs */}
-      {isGlobalAdmin && (
+      {(isGlobalAdmin || canManageProfile) && (
         <div className="flex border-b border-slate-900 gap-6">
+          {isGlobalAdmin && (
           <button
             onClick={() => setActiveTab("companies")}
             className={`pb-3 text-xs font-bold transition-all relative ${
@@ -256,7 +323,9 @@ export default function AdminSettingsPage() {
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />
             )}
           </button>
+          )}
 
+          {isGlobalAdmin && (
           <button
             onClick={() => setActiveTab("branding")}
             className={`pb-3 text-xs font-bold transition-all relative ${
@@ -268,6 +337,21 @@ export default function AdminSettingsPage() {
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />
             )}
           </button>
+          )}
+
+          {canManageProfile && (
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`pb-3 text-xs font-bold transition-all relative ${
+              activeTab === "profile" ? "text-indigo-400 font-extrabold" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            Perfil da Empresa
+            {activeTab === "profile" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-500" />
+            )}
+          </button>
+          )}
         </div>
       )}
 
@@ -603,6 +687,62 @@ export default function AdminSettingsPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* TAB 3: PERFIL PÚBLICO DA EMPRESA (Marketplace) */}
+      {activeTab === "profile" && canManageProfile && (
+        <div className="max-w-2xl">
+          {loadingProfile ? (
+            <div className="flex items-center justify-center py-12 text-slate-500 gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+              <span className="text-xs font-medium">A carregar...</span>
+            </div>
+          ) : (
+            <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 space-y-4">
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <Building2 className="h-4.5 w-4.5 text-indigo-400" />
+                Perfil Público no Marketplace
+              </h3>
+              <p className="text-xs text-slate-500">
+                Publique a sua empresa no Marketplace da MOZAI — visível a todos os alunos da plataforma.
+              </p>
+              <form onSubmit={handleSaveCompanyProfile} className="space-y-3">
+                <textarea
+                  value={profileDescription}
+                  onChange={(e) => setProfileDescription(e.target.value)}
+                  placeholder="Descreva a sua empresa aos alunos da plataforma..."
+                  className="w-full h-20 p-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none resize-none"
+                />
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <input
+                    value={profileIndustry}
+                    onChange={(e) => setProfileIndustry(e.target.value)}
+                    placeholder="Setor (ex: Tecnologia, Fintech)"
+                    className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                  />
+                  <input
+                    value={profileWebsite}
+                    onChange={(e) => setProfileWebsite(e.target.value)}
+                    placeholder="Website (opcional)"
+                    className="h-10 px-3 rounded-xl border border-slate-800 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={profileIsPublic} onChange={(e) => setProfileIsPublic(e.target.checked)} className="h-4 w-4 accent-indigo-500" />
+                  <span className="text-xs text-slate-300">Visível no Marketplace (alunos podem ver a empresa e as vagas)</span>
+                </label>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="h-9 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-2 cursor-pointer disabled:opacity-55"
+                >
+                  {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Guardar Perfil
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
     </div>

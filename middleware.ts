@@ -88,8 +88,15 @@ export default clerkMiddleware(async (auth, req) => {
           allowedRoles.push("GESTOR_EMPRESA");
         }
 
-        // Perfil de Empresa & Vagas (Marketplace): gerido pelo Gestor Empresa
-        if (path.startsWith("/dashboard/admin/company-profile")) {
+        // Empresas (tab "Perfil da Empresa" no Marketplace): Gestor Empresa só vê essa tab,
+        // a Gestão de Empresas/Branding continua exclusiva de ADMIN/SUPORTE dentro da própria
+        // página (controlado no componente, não aqui).
+        if (path === "/dashboard/admin") {
+          allowedRoles.push("GESTOR_EMPRESA");
+        }
+
+        // Vagas de Emprego (Marketplace): geridas pelo Gestor Empresa
+        if (path.startsWith("/dashboard/admin/job-postings")) {
           allowedRoles.push("GESTOR_EMPRESA");
         }
 

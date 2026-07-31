@@ -227,7 +227,7 @@ export default function SidebarNav() {
     "/dashboard/admin/hr",
     "/dashboard/admin/projects",
     "/dashboard/admin/academy",
-    "/dashboard/admin/company-profile",
+    "/dashboard/admin/job-postings",
     "/dashboard/career",
     "/dashboard/skills"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
@@ -695,13 +695,11 @@ export default function SidebarNav() {
               {t("nav_cyber_lab", "Cyber Lab")}
             </Link>
             )}
-            {isItemVisible("config-company") && (
-            <SecureRender requiredPermission="TENANTS_MANAGE">
+            {isItemVisible("config-company") && (hasPermission("TENANTS_MANAGE") || hasPermission("COMPANY_INFO_UPDATE")) && (
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
                 <Settings className="h-4 w-4 text-slate-400" />
                 {t("nav_config_company", "Empresas")}
               </Link>
-            </SecureRender>
             )}
             {isItemVisible("content-factory") && (
             <SecureRender requiredPermission="COURSES_CREATE">
@@ -719,19 +717,19 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
-            {isItemVisible("company-marketplace-profile") && (
-            <SecureRender requiredPermission="COMPANY_INFO_UPDATE">
-              <Link href="/dashboard/admin/company-profile" className={linkClass("/dashboard/admin/company-profile")}>
-                <Building className="h-4 w-4 text-cyan-400" />
-                {t("nav_company_marketplace", "Perfil de Empresa & Vagas")}
-              </Link>
-            </SecureRender>
-            )}
             {isItemVisible("skills-os") && (
             <Link href="/dashboard/skills" className={linkClass("/dashboard/skills")}>
               <Terminal className="h-4 w-4 text-cyan-400" />
               {t("nav_skills_os", "Skills OS (Grafo de Competências)")}
             </Link>
+            )}
+            {isItemVisible("job-postings") && (
+            <SecureRender requiredPermission="COMPANY_INFO_UPDATE">
+              <Link href="/dashboard/admin/job-postings" className={linkClass("/dashboard/admin/job-postings")}>
+                <Briefcase className="h-4 w-4 text-cyan-400" />
+                {t("nav_job_postings", "Vagas de Emprego")}
+              </Link>
+            </SecureRender>
             )}
           </>
         )}
