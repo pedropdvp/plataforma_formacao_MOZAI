@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Shield, BookOpen, GraduationCap, Users, Settings, Briefcase, RefreshCw, Coins } from "lucide-react";
 
 interface RoleMetadata {
@@ -75,7 +74,6 @@ const ROLE_METADATA: Record<string, RoleMetadata> = {
 };
 
 export default function ChooseRolePage() {
-  const router = useRouter();
   const [roles, setRoles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectingRole, setSelectingRole] = useState<string | null>(null);
@@ -134,9 +132,10 @@ export default function ChooseRolePage() {
         body: JSON.stringify({ role }),
       });
       if (res.ok) {
-        // Recarregar a página para atualizar o estado de navegação
-        router.refresh();
-        router.push("/dashboard");
+        // Navegação completa (não router.push) — o middleware precisa de reavaliar a cookie
+        // "active-role" recém-definida numa requisição de servidor real; um push client-side
+        // podia deixar o utilizador "preso" nesta página até um reload manual.
+        window.location.href = "/dashboard";
       }
     } catch (err) {
       console.error("Erro ao selecionar perfil:", err);
