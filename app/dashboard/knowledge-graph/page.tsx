@@ -119,7 +119,7 @@ export default function KnowledgeGraphPage() {
 
       <div className="border border-amber-500/20 bg-amber-500/5 rounded-2xl p-4 flex items-start gap-2.5">
         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+        <p className="text-[11px] text-slate-200 leading-relaxed">
           <strong>Nota de âmbito:</strong> este NÃO é um grafo mundial com milhões de conceitos
           (isso exigiria uma base como a Wikidata, fora de âmbito) — é um grafo real que cresce a
           partir do conteúdo genuíno dos cursos desta plataforma, um curso de cada vez.

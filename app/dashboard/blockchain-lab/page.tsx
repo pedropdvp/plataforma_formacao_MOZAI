@@ -196,7 +196,7 @@ export default function BlockchainLabPage() {
 
       <div className="border border-amber-500/20 bg-amber-500/5 rounded-2xl p-4 flex items-start gap-2.5">
         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+        <p className="text-[11px] text-slate-200 leading-relaxed">
           <strong>Nota de âmbito:</strong> este laboratório usa exclusivamente a testnet pública
           Sepolia — nunca a mainnet (dinheiro real). Use uma carteira criada só para testes, com
           ETH gratuito de um faucet público, nunca uma carteira com fundos verdadeiros. A

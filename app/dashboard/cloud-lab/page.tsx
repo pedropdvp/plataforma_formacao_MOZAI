@@ -149,7 +149,7 @@ export default function CloudLabPage() {
 
       <div className="border border-amber-500/20 bg-amber-500/5 rounded-2xl p-4 flex items-start gap-2.5">
         <Info className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-200/80 leading-relaxed">
+        <p className="text-[11px] text-slate-200 leading-relaxed">
           <strong>Nota de segurança:</strong> use sempre um utilizador IAM dedicado com permissões
           <strong> só de leitura</strong> (ex: política gerida <code>ReadOnlyAccess</code>), nunca as
           credenciais raiz da sua conta AWS. Este laboratório nunca cria, altera nem apaga recursos.
