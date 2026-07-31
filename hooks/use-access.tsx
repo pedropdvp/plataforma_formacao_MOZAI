@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 interface AccessContextProps {
   activeRole: string | null;
@@ -18,6 +19,9 @@ interface AccessContextProps {
 const AccessContext = createContext<AccessContextProps | undefined>(undefined);
 
 export function AccessProvider({ children }: { children: React.ReactNode }) {
+  // userId do Clerk (não confundir com o nosso userId de BD, guardado à parte no estado
+  // abaixo) — serve só de "gatilho" para saber quando o estado de autenticação mudou.
+  const { userId: clerkUserId, isLoaded: isClerkLoaded } = useAuth();
   const [activeRole, setActiveRole] = useState<string | null>(null);
   const [assignedRoles, setAssignedRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -38,6 +42,15 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         setUserId(data.userId || null);
         setUserName(data.userName || null);
         setUserEmail(data.userEmail || null);
+      } else {
+        // Sem sessão válida (ex: acabou de terminar sessão) — limpa tudo em vez de deixar
+        // dados da conta anterior presos no estado.
+        setActiveRole(null);
+        setAssignedRoles([]);
+        setPermissions([]);
+        setUserId(null);
+        setUserName(null);
+        setUserEmail(null);
       }
     } catch (error) {
       console.error("Erro ao carregar permissões da sessão:", error);
@@ -46,9 +59,16 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Volta a pedir a sessão sempre que o estado de autenticação do Clerk mudar (login,
+  // logout, troca de conta) — antes só corria uma vez ao montar, o que deixava o nome/e-mail
+  // presos no fallback genérico ("Utilizador MOZAI") quando o login acontecia depois do
+  // primeiro render (ex: registo novo, ou sessão que arranca antes do Clerk carregar), já
+  // que o AccessProvider vive no layout raiz e nunca desmonta entre páginas.
   useEffect(() => {
+    if (!isClerkLoaded) return;
     fetchSession();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClerkLoaded, clerkUserId]);
 
   // Verificar se o utilizador possui determinada permissão
   const hasPermission = (permission: string) => {
