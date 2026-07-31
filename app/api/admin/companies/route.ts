@@ -25,19 +25,24 @@ export async function GET(req: NextRequest) {
     // Obter também a contagem de utilizadores por empresa
     const users = await db.collection("users").find({}).toArray();
     const companiesWithStats = companies.map((company: any) => {
-      const companyUsers = users.filter((u: any) => 
+      const companyUsers = users.filter((u: any) =>
         u.tenants?.some((t: any) => t.tenantId === company._id.toString())
       );
-      
-      const gestores = companyUsers.filter((u: any) => 
+
+      const gestores = companyUsers.filter((u: any) =>
         u.tenants?.some((t: any) => t.tenantId === company._id.toString() && t.roles.includes("GESTOR_EMPRESA"))
       );
 
+      // O nome/e-mail do Gestor mostrado aqui vem do PRÓPRIO registo da empresa (campos
+      // gestorName/gestorEmail do tenant), nunca do perfil de login partilhado do utilizador —
+      // esse perfil (users.firstName/lastName) pode estar associado a várias empresas ao mesmo
+      // tempo (mesma pessoa/e-mail a gerir mais que uma empresa), e editá-lo aqui não pode
+      // "vazar" para as outras empresas que partilhem essa conta.
       return {
         ...company,
         employeesCount: companyUsers.length,
-        gestorEmail: gestores[0]?.email || "Não atribuído",
-        gestorName: gestores[0] ? `${gestores[0].firstName} ${gestores[0].lastName}`.trim() : "Não atribuído"
+        gestorEmail: company.gestorEmail || gestores[0]?.email || "Não atribuído",
+        gestorName: company.gestorName || (gestores[0] ? `${gestores[0].firstName} ${gestores[0].lastName}`.trim() : "Não atribuído"),
       };
     });
 
@@ -78,13 +83,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Subdomínio já está em uso por outra empresa." }, { status: 400 });
     }
 
-    // 1. Criar inquilino (Tenant)
+    // 1. Criar inquilino (Tenant). gestorName/gestorEmail ficam guardados no PRÓPRIO
+    // registo da empresa — são o que este formulário de gestão de empresas mostra e edita,
+    // independentemente do perfil de login partilhado (users) que o gestor possa ter.
     const newTenant = {
       name: companyName,
       subdomain: subdomain.toLowerCase(),
       brandColor: "#6366f1",
       logoUrl: "",
       ssoActive: false,
+      gestorName: gestorName.trim(),
+      gestorEmail: gestorEmail.toLowerCase().trim(),
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -182,49 +191,59 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Subdomínio já está em uso por outra empresa." }, { status: 400 });
     }
 
-    // 1. Atualizar inquilino (Tenant)
+    // 1. Atualizar inquilino (Tenant). O nome/e-mail do Gestor mostrado nesta página fica
+    // guardado AQUI, no registo da própria empresa — nunca no perfil de login partilhado do
+    // utilizador (users.firstName/lastName), que pode estar associado a várias empresas ao
+    // mesmo tempo. Isto garante que editar o Gestor da Empresa A nunca afeta a Empresa B.
     await db.collection("tenants").updateOne(
       { _id: queryId },
       {
         $set: {
           name: companyName,
           subdomain: subdomain.toLowerCase(),
+          gestorName: gestorName.trim(),
+          gestorEmail: gestorEmail.toLowerCase().trim(),
           updatedAt: new Date()
         }
       }
     );
 
-    // 2. Encontrar ou atualizar o GestorEmpresa
+    // 2. Garantir que o utilizador com o e-mail indicado tem acesso GESTOR_EMPRESA a esta
+    // empresa (para efeitos de login/permissões) — sem nunca sobrescrever firstName/lastName
+    // de uma conta já existente, já que essa conta pode ser partilhada por outra empresa.
     const companyIdStr = companyId.toString();
-    const gestorUser = await db.collection("users").findOne({
-      tenants: {
-        $elemMatch: {
-          tenantId: companyIdStr,
-          roles: "GESTOR_EMPRESA"
-        }
-      }
+    const newEmail = gestorEmail.toLowerCase().trim();
+
+    // Se o e-mail do gestor mudou, remove o acesso GESTOR_EMPRESA desta empresa da conta
+    // anterior (o antigo gestor deixa de gerir esta empresa).
+    const previousGestorUser = await db.collection("users").findOne({
+      tenants: { $elemMatch: { tenantId: companyIdStr, roles: "GESTOR_EMPRESA" } }
     });
-
-    const nameParts = gestorName.trim().split(" ");
-    const firstName = nameParts[0] || "Gestor";
-    const lastName = nameParts.slice(1).join(" ") || "Empresa";
-
-    if (gestorUser) {
+    if (previousGestorUser && previousGestorUser.email !== newEmail) {
+      const remainingTenants = (previousGestorUser.tenants || []).filter((t: any) => t.tenantId !== companyIdStr);
       await db.collection("users").updateOne(
-        { _id: gestorUser._id },
-        {
-          $set: {
-            email: gestorEmail.toLowerCase().trim(),
-            firstName,
-            lastName,
-            updatedAt: new Date()
-          }
-        }
+        { _id: previousGestorUser._id },
+        { $set: { tenants: remainingTenants, updatedAt: new Date() } }
       );
+    }
+
+    const targetUser = await db.collection("users").findOne({ email: newEmail });
+    if (targetUser) {
+      const alreadyLinked = (targetUser.tenants || []).some((t: any) => t.tenantId === companyIdStr);
+      if (!alreadyLinked) {
+        const updatedTenants = [...(targetUser.tenants || []), { tenantId: companyIdStr, roles: ["GESTOR_EMPRESA"] }];
+        await db.collection("users").updateOne(
+          { _id: targetUser._id },
+          { $set: { tenants: updatedTenants, updatedAt: new Date() } }
+        );
+      }
     } else {
+      const nameParts = gestorName.trim().split(" ");
+      const firstName = nameParts[0] || "Gestor";
+      const lastName = nameParts.slice(1).join(" ") || "Empresa";
       const newGestor = {
         _id: `pre-registered-${new ObjectId().toString()}`,
-        email: gestorEmail.toLowerCase().trim(),
+        email: newEmail,
         firstName,
         lastName,
         tenants: [
