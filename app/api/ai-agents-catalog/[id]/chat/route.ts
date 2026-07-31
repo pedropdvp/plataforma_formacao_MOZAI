@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getAgentPersona } from "@/lib/ai-agents-catalog";
+import { getEffectiveAgentPersona } from "@/lib/ai-agents-catalog";
 import { debitCredits } from "@/lib/ai-credits";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const { id } = await params;
-    const persona = getAgentPersona(id);
+    const persona = await getEffectiveAgentPersona(id);
     if (!persona) {
       return NextResponse.json({ error: "Agente não encontrado." }, { status: 404 });
     }

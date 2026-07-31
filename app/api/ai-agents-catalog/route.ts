@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { AI_AGENTS_CATALOG } from "@/lib/ai-agents-catalog";
+import { getEffectiveAgents } from "@/lib/ai-agents-catalog";
 
 // GET — Lista o catálogo curado de agentes especializados (sem o system prompt completo,
-// só o necessário para os apresentar).
+// só o necessário para os apresentar). Reflete edições/remoções feitas por Admin/Gestor
+// Académico/Formador a partir da plataforma.
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
   }
 
+  const agents = await getEffectiveAgents();
+
   return NextResponse.json({
     success: true,
-    agents: AI_AGENTS_CATALOG.map((a) => ({
+    agents: agents.map((a) => ({
       id: a.id,
       name: a.name,
       role: a.role,

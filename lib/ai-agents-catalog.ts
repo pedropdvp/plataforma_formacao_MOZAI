@@ -235,3 +235,53 @@ export const AI_AGENTS_CATALOG: AgentPersona[] = [
 export function getAgentPersona(id: string): AgentPersona | undefined {
   return AI_AGENTS_CATALOG.find((a) => a.id === id);
 }
+
+// As 23 personas abaixo são a base do catálogo (o "guião" original de cada uma). Um
+// Admin/Gestor Académico/Formador pode editar ou remover uma persona a partir da plataforma —
+// essas alterações ficam na coleção ai_agent_catalog_state (uma por persona, indexada pelo
+// mesmo id) e sobrepõem-se aqui aos valores estáticos, sem precisar de tocar no código.
+export interface AgentCatalogState {
+  name?: string;
+  role?: string;
+  category?: string;
+  description?: string;
+  scopeNote?: string;
+  systemPrompt?: string;
+  deleted?: boolean;
+  updatedAt?: Date;
+  updatedById?: string;
+}
+
+async function loadCatalogState(): Promise<Map<string, AgentCatalogState>> {
+  const { getDb } = await import("@/lib/mongodb");
+  const db = await getDb();
+  const docs = await db.collection("ai_agent_catalog_state").find({}).toArray();
+  return new Map(docs.map((d: any) => [d._id, d as AgentCatalogState]));
+}
+
+function applyState(base: AgentPersona, state: AgentCatalogState | undefined): AgentPersona {
+  if (!state) return base;
+  return {
+    ...base,
+    name: state.name ?? base.name,
+    role: state.role ?? base.role,
+    category: state.category ?? base.category,
+    description: state.description ?? base.description,
+    scopeNote: state.scopeNote ?? base.scopeNote,
+    systemPrompt: state.systemPrompt ?? base.systemPrompt,
+  };
+}
+
+export async function getEffectiveAgents(): Promise<AgentPersona[]> {
+  const stateMap = await loadCatalogState();
+  return AI_AGENTS_CATALOG.filter((a) => !stateMap.get(a.id)?.deleted).map((a) => applyState(a, stateMap.get(a.id)));
+}
+
+export async function getEffectiveAgentPersona(id: string): Promise<AgentPersona | undefined> {
+  const base = getAgentPersona(id);
+  if (!base) return undefined;
+  const stateMap = await loadCatalogState();
+  const state = stateMap.get(id);
+  if (state?.deleted) return undefined;
+  return applyState(base, state);
+}
