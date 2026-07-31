@@ -131,7 +131,7 @@ export default function RecyclingPage() {
       <div>
         <h1 className="text-3xl font-extrabold text-white mb-2 flex items-center gap-2.5">
           <RefreshCw className="h-7 w-7 text-emerald-400" />
-          Reciclagem de Cursos
+          Cursos Efetuados
         </h1>
         <p className="text-sm text-slate-400">
           Permite ver os cursos que já foram efetuados por este utilizador.
