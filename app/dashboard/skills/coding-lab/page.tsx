@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, History, CheckCircle2, XCircle, Sparkles, Code2, KeyRound } from "lucide-react";
+import { ArrowLeft, Loader2, History, CheckCircle2, XCircle, Sparkles, Code2, KeyRound, TerminalSquare, Play, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { CodeLabBlockView } from "@/components/lesson-blocks/CodeLabBlockView";
 import { useToast } from "@/components/ui/toast-provider";
@@ -209,6 +209,102 @@ export default function CodingLabPage() {
     }
   };
 
+  // --- Terminal interativo (REPL real via Piston, um comando de cada vez) ---
+  interface TerminalEntry {
+    command: string;
+    stdout: string;
+    stderr: string;
+    exitCode: number;
+  }
+  const [terminalInput, setTerminalInput] = useState("");
+  const [terminalHistory, setTerminalHistory] = useState<TerminalEntry[]>([]);
+  const [terminalRunning, setTerminalRunning] = useState(false);
+
+  const handleTerminalRun = async () => {
+    if (!terminalInput.trim() || terminalRunning) return;
+    const command = terminalInput;
+    setTerminalRunning(true);
+    try {
+      const res = await fetch("/api/coding-lab/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, code: command }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTerminalHistory((prev) => [...prev, { command, stdout: data.stdout, stderr: data.stderr, exitCode: data.exitCode }]);
+        setTerminalInput("");
+      } else {
+        showToast(data.error || "Erro ao executar no terminal.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação com o terminal.", "error");
+    } finally {
+      setTerminalRunning(false);
+    }
+  };
+
+  // --- Pipeline CI/CD (Testes → Code Review → resultado final, tudo real e sequencial) ---
+  type StageStatus = "idle" | "running" | "passed" | "failed";
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [testStageStatus, setTestStageStatus] = useState<StageStatus>("idle");
+  const [reviewStageStatus, setReviewStageStatus] = useState<StageStatus>("idle");
+  const [pipelineTestSummary, setPipelineTestSummary] = useState<string | null>(null);
+
+  const handleRunPipeline = async () => {
+    setPipelineRunning(true);
+    setTestStageStatus("running");
+    setReviewStageStatus("idle");
+    setPipelineTestSummary(null);
+    setReview(null);
+
+    try {
+      const testRes = await fetch("/api/coding-lab/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language, code: currentCode, testCases: exercise.testCases, exerciseId }),
+      });
+      const testData = await testRes.json();
+      if (!testRes.ok) {
+        setTestStageStatus("failed");
+        showToast(testData.error || "Falha na etapa de Testes.", "error");
+        return;
+      }
+      const allPassed = !!testData.passed;
+      setTestStageStatus(allPassed ? "passed" : "failed");
+      const passedCount = (testData.testResults || []).filter((t: any) => t.passed).length;
+      setPipelineTestSummary(`${passedCount}/${(testData.testResults || []).length} testes passaram`);
+
+      setReviewStageStatus("running");
+      const reviewRes = await fetch("/api/coding-lab/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: currentCode, language }),
+      });
+      const reviewData = await reviewRes.json();
+      if (reviewRes.ok) {
+        setReview(reviewData.review);
+        const hasCritical = reviewData.review.issues.some((i: any) => i.severity === "crítico");
+        setReviewStageStatus(hasCritical ? "failed" : "passed");
+      } else {
+        setReviewStageStatus("failed");
+        showToast(reviewData.error || "Falha na etapa de Code Review.", "error");
+      }
+      loadHistory();
+    } catch {
+      showToast("Erro de comunicação no pipeline.", "error");
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
+  const stageBadge = (status: StageStatus) => {
+    if (status === "running") return <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />;
+    if (status === "passed") return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
+    if (status === "failed") return <XCircle className="h-4 w-4 text-rose-400" />;
+    return <div className="h-4 w-4 rounded-full border border-slate-700" />;
+  };
+
   return (
     <div className="space-y-6 flex flex-col h-[calc(100vh-4rem)] overflow-hidden -m-8 workspace-page-container">
       {/* Header bar */}
@@ -219,7 +315,7 @@ export default function CodingLabPage() {
           </Link>
           <div>
             <h1 className="text-lg font-bold text-white leading-tight">MOZAI Coding Lab</h1>
-            <span className="text-[10px] text-slate-500">Execução real e isolada (Piston/Docker) &bull; Testes automáticos &bull; Code Review por IA &bull; GitHub</span>
+            <span className="text-[10px] text-slate-500">Execução real e isolada (Piston/Docker) &bull; Terminal &bull; Pipeline CI/CD &bull; Code Review por IA &bull; GitHub</span>
           </div>
         </div>
 
@@ -340,6 +436,37 @@ Entrada: ${tc.stdin.replace("\n", ", ")} → Esperado: ${tc.expectedOutput}`}
               </form>
             )}
           </div>
+          {/* Terminal interativo */}
+          <div className="space-y-2 pt-2 border-t border-slate-900">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <TerminalSquare className="h-3.5 w-3.5" /> Terminal ({language})
+            </span>
+            <div className="rounded-xl border border-slate-800 bg-black p-2.5 space-y-1.5 max-h-48 overflow-y-auto font-mono text-[10px]">
+              {terminalHistory.length === 0 && <span className="text-slate-600 italic">Escreva código abaixo e prima Executar — cada linha corre isolada via Piston, tal como um terminal remoto.</span>}
+              {terminalHistory.map((entry, i) => (
+                <div key={i}>
+                  <div className="text-emerald-400">$ {entry.command.split("\n")[0]}{entry.command.includes("\n") ? " ..." : ""}</div>
+                  {entry.stdout && <div className="text-slate-300 whitespace-pre-wrap">{entry.stdout}</div>}
+                  {entry.stderr && <div className="text-rose-400 whitespace-pre-wrap">{entry.stderr}</div>}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              <textarea
+                value={terminalInput}
+                onChange={(e) => setTerminalInput(e.target.value)}
+                placeholder={`print("hello")`}
+                className="flex-1 h-9 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-950 text-white text-[10px] font-mono focus:border-indigo-500 focus:outline-none resize-none"
+              />
+              <button
+                onClick={handleTerminalRun}
+                disabled={terminalRunning}
+                className="h-9 w-9 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center cursor-pointer disabled:opacity-55 shrink-0"
+              >
+                {terminalRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Right side: Editor executável */}
@@ -354,6 +481,45 @@ Entrada: ${tc.stdin.replace("\n", ", ")} → Esperado: ${tc.expectedOutput}`}
             onRunComplete={loadHistory}
             onCodeChange={setCurrentCode}
           />
+
+          {/* Pipeline CI/CD */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800 bg-slate-900/40">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <GitBranch className="h-3.5 w-3.5 text-indigo-400" /> Pipeline CI/CD
+              </span>
+              <button
+                onClick={handleRunPipeline}
+                disabled={pipelineRunning}
+                className="h-8 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {pipelineRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                Executar Pipeline
+              </button>
+            </div>
+            <div className="p-4 space-y-2.5">
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/40">
+                <span className="text-xs text-slate-300">1. Testes (Piston)</span>
+                <div className="flex items-center gap-2">
+                  {pipelineTestSummary && <span className="text-[10px] text-slate-500">{pipelineTestSummary}</span>}
+                  {stageBadge(testStageStatus)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900/40">
+                <span className="text-xs text-slate-300">2. Code Review (IA)</span>
+                {stageBadge(reviewStageStatus)}
+              </div>
+              {(testStageStatus === "passed" || testStageStatus === "failed") && reviewStageStatus !== "idle" && reviewStageStatus !== "running" && (
+                <div className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg text-center ${
+                  testStageStatus === "passed" && reviewStageStatus === "passed"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                }`}>
+                  {testStageStatus === "passed" && reviewStageStatus === "passed" ? "Pipeline aprovado" : "Pipeline com falhas — reveja acima"}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Code Review IA */}
           <div className="rounded-2xl border border-slate-800 bg-slate-950 overflow-hidden">
