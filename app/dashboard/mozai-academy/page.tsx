@@ -26,7 +26,7 @@ export default function MozaiAcademyPage() {
   useEffect(() => {
     fetch("/api/catalog")
       .then((res) => res.json())
-      .then((data) => setCourses(data.courses || []))
+      .then((data) => setCourses((data.courses || []).map((c: any) => ({ ...c, id: c._id }))))
       .catch(() => showToast("Erro ao carregar o catálogo de cursos.", "error"))
       .finally(() => setLoadingCourses(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
