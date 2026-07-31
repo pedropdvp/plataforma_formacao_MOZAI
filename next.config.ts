@@ -19,6 +19,19 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // "Perfil de Empresa & Vagas" foi dividido em duas páginas (tab "Perfil da Empresa" em
+  // /dashboard/admin, e o novo submenu "Vagas de Emprego" em /dashboard/admin/job-postings) —
+  // este redirecionamento evita que marcadores/links antigos para a página combinada fiquem
+  // partidos (404).
+  async redirects() {
+    return [
+      {
+        source: "/dashboard/admin/company-profile",
+        destination: "/dashboard/admin",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
