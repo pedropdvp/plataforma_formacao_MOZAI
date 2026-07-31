@@ -274,7 +274,7 @@ export default function SkillsOSPage() {
                     <Award className="h-4 w-4 text-indigo-400" />
                     Gap Analysis Recomendada
                   </h4>
-                  <p className="text-[11px] text-slate-450 leading-relaxed">
+                  <p className="text-[11px] text-slate-450 gap-analysis-text leading-relaxed">
                     {selectedSkill.score === 0 ? (
                       `Esta competência encontra-se bloqueada. Inicie o curso e conclua as lições associadas para abrir esta ramificação do Grafo de Competências.`
                     ) : selectedSkill.daysSinceActivity !== null && selectedSkill.daysSinceActivity > 30 ? (

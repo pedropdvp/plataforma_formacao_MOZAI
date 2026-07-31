@@ -589,6 +589,12 @@ html:not(.light) .workspace-page-container div.rounded-2xl.ai-agent-card {
   color: #b45309 !important;
 }
 
+/* Skills OS > card "Gap Analysis Recomendada": o texto interior fica na mesma cor do título
+   do card (indigo), mas só no modo escuro — pedido explícito, o modo claro mantém o cinza. */
+html:not(.light) .gap-analysis-text {
+  color: #818cf8 !important;
+}
+
 /* ==========================================
    SIDEBAR NAV - MENU GROUP BOXES AND UNIQUELY COLORED THEMES
    ========================================== */

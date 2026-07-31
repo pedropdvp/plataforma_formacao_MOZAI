@@ -20,12 +20,17 @@ interface SkillsGraphCanvasProps {
   onSelect: (id: string) => void;
 }
 
+// O texto de cada nó é sempre cinza muito claro (independente do tema claro/escuro da
+// plataforma) — os retângulos de fundo são sempre escuros, pelo que qualquer variante de
+// azul/cinza escuro (como o "Bloqueado" tinha antes) fica ilegível sobre eles.
+const NODE_TEXT_COLOR = "#e2e8f0";
+
 const LEVEL_COLORS: Record<string, { border: string; bg: string; text: string }> = {
-  Bloqueado: { border: "#1e293b", bg: "#0b1120", text: "#475569" },
-  Iniciado: { border: "#78350f", bg: "#0f1524", text: "#f59e0b" },
-  Básico: { border: "#164e63", bg: "#0f1524", text: "#22d3ee" },
-  Intermédio: { border: "#3730a3", bg: "#0f1524", text: "#818cf8" },
-  Avançado: { border: "#065f46", bg: "#0f1524", text: "#34d399" },
+  Bloqueado: { border: "#1e293b", bg: "#0b1120", text: NODE_TEXT_COLOR },
+  Iniciado: { border: "#78350f", bg: "#0f1524", text: NODE_TEXT_COLOR },
+  Básico: { border: "#164e63", bg: "#0f1524", text: NODE_TEXT_COLOR },
+  Intermédio: { border: "#3730a3", bg: "#0f1524", text: NODE_TEXT_COLOR },
+  Avançado: { border: "#065f46", bg: "#0f1524", text: NODE_TEXT_COLOR },
 };
 
 /**
