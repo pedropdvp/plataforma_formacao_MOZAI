@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink, History, RotateCcw } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, Save, Video, ExternalLink, History, RotateCcw, FileText, Upload, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { BlockEditor } from "@/components/lesson-blocks/BlockEditor";
 import { MediaLibraryPanel } from "@/components/lesson-blocks/MediaLibraryPanel";
 import { EditingPresenceIndicator } from "@/components/lesson-blocks/EditingPresenceIndicator";
 import { LessonBlock, blocksToPlainText, getOrMigrateBlocks } from "@/lib/lesson-blocks";
+import { parseVideoEmbed } from "@/lib/video-embed";
 
 interface CourseVersion {
   versionNumber: number;
@@ -24,6 +25,9 @@ interface Lesson {
   blocks?: LessonBlock[];
   videoProvider?: string;
   videoId?: string;
+  videoUrl?: string;
+  materialUrl?: string;
+  materialName?: string;
   [key: string]: any;
 }
 
@@ -55,6 +59,7 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
   const [openLessonKey, setOpenLessonKey] = useState<string | null>(null);
   const [isPublicMarketplace, setIsPublicMarketplace] = useState(false);
   const [marketplaceDescription, setMarketplaceDescription] = useState("");
+  const [uploadingMaterialKey, setUploadingMaterialKey] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -141,6 +146,35 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
       next[mIdx] = mod;
       return next;
     });
+  };
+
+  // Anexa o Material Original (PDF) de uma lição: carrega diretamente para o Vercel Blob
+  // (mesmo padrão privado já usado pelos materiais da Fábrica de Cursos) e guarda só a
+  // referência (URL + nome) na lição — o ficheiro em si nunca passa pelo corpo do pedido.
+  const handleAttachMaterial = async (mIdx: number, lIdx: number, file: File) => {
+    const key = `${mIdx}-${lIdx}`;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      showToast("Só é possível anexar ficheiros PDF como Material Original.", "error");
+      return;
+    }
+    setUploadingMaterialKey(key);
+    try {
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(file.name, file, {
+        access: "private",
+        handleUploadUrl: "/api/admin/courses/generate/upload-token",
+      });
+      updateLesson(mIdx, lIdx, { materialUrl: blob.url, materialName: file.name });
+      showToast("Material original anexado — lembre-se de Guardar.", "success");
+    } catch (err: any) {
+      showToast(err?.message || "Erro ao anexar o material original.", "error");
+    } finally {
+      setUploadingMaterialKey(null);
+    }
+  };
+
+  const handleRemoveMaterial = (mIdx: number, lIdx: number) => {
+    updateLesson(mIdx, lIdx, { materialUrl: undefined, materialName: undefined });
   };
 
   const handleSave = async () => {
@@ -261,29 +295,63 @@ export function CourseEditModal({ courseId, onClose, onSaved }: CourseEditModalP
                                 className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                                  <Video className="h-3 w-3" /> Vídeo Principal (topo da lição) — Fornecedor
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                <Video className="h-3 w-3" /> URL do Vídeo Principal (YouTube, Vimeo ou ficheiro .mp4)
+                              </label>
+                              <input
+                                value={lesson.videoUrl ?? (lesson.videoProvider === "mux" ? `https://player.mux.com/${lesson.videoId || ""}` : lesson.videoId || "")}
+                                onChange={(e) => updateLesson(mIdx, lIdx, { videoUrl: e.target.value })}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
+                              />
+                              {lesson.videoUrl && !parseVideoEmbed(lesson.videoUrl) && (
+                                <p className="text-[10px] text-amber-400">
+                                  Não reconheci este URL como YouTube, Vimeo ou ficheiro de vídeo (.mp4/.webm/.ogg). Confirme o link.
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                                <FileText className="h-3 w-3" /> Material Original (PDF)
+                              </label>
+                              {lesson.materialUrl ? (
+                                <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs">
+                                  <span className="text-slate-300 truncate flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                                    {lesson.materialName || "material.pdf"}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMaterial(mIdx, lIdx)}
+                                    className="text-rose-400 hover:text-rose-300 cursor-pointer shrink-0"
+                                    title="Remover material"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-950 border border-dashed border-slate-800 rounded-lg text-xs text-slate-500 hover:border-indigo-500 hover:text-indigo-400 cursor-pointer transition-colors">
+                                  {uploadingMaterialKey === key ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Upload className="h-3.5 w-3.5" />
+                                  )}
+                                  {uploadingMaterialKey === key ? "A carregar..." : "Anexar PDF original desta lição"}
+                                  <input
+                                    type="file"
+                                    accept="application/pdf"
+                                    className="hidden"
+                                    disabled={uploadingMaterialKey !== null}
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleAttachMaterial(mIdx, lIdx, file);
+                                      e.target.value = "";
+                                    }}
+                                  />
                                 </label>
-                                <select
-                                  value={lesson.videoProvider || "youtube"}
-                                  onChange={(e) => updateLesson(mIdx, lIdx, { videoProvider: e.target.value })}
-                                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
-                                >
-                                  <option value="youtube">YouTube</option>
-                                  <option value="mux">Mux</option>
-                                </select>
-                              </div>
-                              <div className="space-y-1.5">
-                                <label className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block">ID do Vídeo Principal</label>
-                                <input
-                                  value={lesson.videoId || ""}
-                                  onChange={(e) => updateLesson(mIdx, lIdx, { videoId: e.target.value })}
-                                  placeholder="ex: dQw4w9WgXcQ"
-                                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white focus:outline-none focus:border-indigo-500"
-                                />
-                              </div>
+                              )}
                             </div>
 
                             <div className="space-y-1.5">

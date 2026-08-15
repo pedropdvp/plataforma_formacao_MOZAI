@@ -11,6 +11,8 @@ import { headers } from "next/headers";
 import { BlockRenderer } from "@/components/lesson-blocks/BlockRenderer";
 import { CourseMapButton } from "@/components/lesson-blocks/CourseMapCanvas";
 import { getOrMigrateBlocks } from "@/lib/lesson-blocks";
+import { parseVideoEmbed } from "@/lib/video-embed";
+import { PdfViewer } from "@/components/lesson-blocks/PdfViewer";
 
 // ---------------------------------------------------------------------------
 // Fallback estático para os cursos-demo que ainda não existem no Sanity.
@@ -95,8 +97,35 @@ interface LessonPageProps {
 
 interface NavLesson { slug: string; title: string; duration: string }
 
-// Player de vídeo real (Mux / YouTube) ou marcador quando ainda não há vídeo.
-function VideoBlock({ provider, videoId }: { provider?: string; videoId?: string }) {
+// Player de vídeo real: aceita uma única URL colada pelo autor (YouTube, Vimeo, Mux
+// player, ou ficheiro .mp4/.webm/.ogg direto), ou os campos legados provider/videoId
+// (lições antigas), ou marcador quando ainda não há vídeo nenhum.
+function VideoBlock({ videoUrl, provider, videoId }: { videoUrl?: string; provider?: string; videoId?: string }) {
+  const parsed = parseVideoEmbed(videoUrl);
+
+  if (parsed?.type === "youtube" || parsed?.type === "vimeo" || parsed?.type === "mux") {
+    return (
+      <div className="relative rounded-3xl overflow-hidden aspect-video bg-black border border-slate-800 shadow-2xl">
+        <iframe
+          src={parsed.embedUrl}
+          className="absolute inset-0 w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          title="Vídeo da lição"
+        />
+      </div>
+    );
+  }
+
+  if (parsed?.type === "file") {
+    return (
+      <div className="relative rounded-3xl overflow-hidden aspect-video bg-black border border-slate-800 shadow-2xl">
+        <video src={parsed.fileUrl} controls className="absolute inset-0 w-full h-full" />
+      </div>
+    );
+  }
+
+  // Compatibilidade com lições antigas guardadas com provider/videoId em vez de videoUrl
   if (videoId && provider === "mux") {
     return (
       <div className="relative rounded-3xl overflow-hidden aspect-video bg-black border border-slate-800 shadow-2xl">
@@ -132,7 +161,7 @@ function VideoBlock({ provider, videoId }: { provider?: string; videoId?: string
       <div className="p-5 rounded-full bg-slate-800 text-slate-500">
         <Play className="h-10 w-10 fill-slate-500" />
       </div>
-      <span className="text-[11px] text-slate-500">Vídeo por configurar — edite esta lição e defina um vídeo (YouTube ou Mux) no campo "Vídeo Principal".</span>
+      <span className="text-[11px] text-slate-500">Vídeo por configurar — edite esta lição e cole o URL do vídeo (YouTube, Vimeo ou MP4) no campo "Vídeo Principal".</span>
     </div>
   );
 }
@@ -207,7 +236,8 @@ export default async function LessonPage({ params }: LessonPageProps) {
         lessons={lessons}
         activeSlug={activeSlug}
         title={lesson?.title || lessons[idx]?.title || "Lição"}
-        video={{ provider: lesson?.videoProvider, id: lesson?.videoId }}
+        video={{ url: lesson?.videoUrl, provider: lesson?.videoProvider, id: lesson?.videoId }}
+        material={lesson?.materialUrl ? { url: lesson.materialUrl, name: lesson.materialName } : null}
         content={lesson?.content}
         resources={lesson?.resources || []}
         nextHref={next ? `/dashboard/courses/${courseId}/lessons/${next.slug}` : null}
@@ -271,7 +301,8 @@ export default async function LessonPage({ params }: LessonPageProps) {
         lessons={lessons}
         activeSlug={activeSlug}
         title={activeLesson?.title || lessons[idx]?.title || "Lição"}
-        video={{ provider: activeLesson?.videoProvider, id: activeLesson?.videoId }}
+        video={{ url: activeLesson?.videoUrl, provider: activeLesson?.videoProvider, id: activeLesson?.videoId }}
+        material={activeLesson?.materialUrl ? { url: activeLesson.materialUrl, name: activeLesson.materialName } : null}
         lessonBlocks={lessonBlocks}
         courseModules={aiCourse.modules}
         resources={activeLesson?.resources || []}
@@ -316,12 +347,13 @@ function LessonShell(props: {
   content?: any[];
   lessonBlocks?: import("@/lib/lesson-blocks").LessonBlock[];
   courseModules?: any[];
-  video: { provider?: string; id?: string };
+  video: { url?: string; provider?: string; id?: string };
+  material?: { url: string; name?: string } | null;
   resources: { title: string; url: string }[];
   nextHref: string | null;
   exercises?: Array<{ question: string; options: string[]; correct: string }>;
 }) {
-  const { courseId, courseTitle, lessons, activeSlug, title, description, content, lessonBlocks, courseModules, video, resources, nextHref, exercises } = props;
+  const { courseId, courseTitle, lessons, activeSlug, title, description, content, lessonBlocks, courseModules, video, material, resources, nextHref, exercises } = props;
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden bg-slate-950 -m-8">
@@ -344,7 +376,7 @@ function LessonShell(props: {
             )}
           </div>
 
-          <VideoBlock provider={video.provider} videoId={video.id} />
+          <VideoBlock videoUrl={video.url} provider={video.provider} videoId={video.id} />
 
           {/* Título */}
           <div className="space-y-2">
@@ -363,6 +395,21 @@ function LessonShell(props: {
               </p>
             )}
           </div>
+
+          {/* Material Original (PDF) anexado pelo autor da lição */}
+          {material?.url && (
+            <div className="border-t border-slate-900 pt-6 space-y-3">
+              <h3 className="font-semibold text-sm text-white flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-400" />
+                Material Original
+                {material.name && <span className="text-xs font-normal text-slate-500">— {material.name}</span>}
+              </h3>
+              <PdfViewer
+                src={`/api/lessons/material?courseId=${encodeURIComponent(courseId)}&lessonSlug=${encodeURIComponent(activeSlug)}`}
+                downloadName={material.name}
+              />
+            </div>
+          )}
 
           {/* Recursos de apoio (se existirem) */}
           {resources.length > 0 && (
