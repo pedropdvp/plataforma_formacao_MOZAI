@@ -177,7 +177,15 @@ export default function SidebarNav() {
     "/dashboard/knowledge-graph",
     "/dashboard/avatar-training",
     "/dashboard/my-courses",
-    "/dashboard/projects"
+    "/dashboard/projects",
+    "/dashboard/blockchain-lab",
+    "/dashboard/cyber-lab",
+    "/dashboard/skills/coding-lab",
+    "/dashboard/admin/content-factory",
+    "/dashboard/admin/projects",
+    "/dashboard/admin/academy",
+    "/dashboard/career",
+    "/dashboard/skills"
   ].some(path => pathname === path || pathname.startsWith(path + "/")) || pathname === "/dashboard";
 
   const isComunicacaoActive = [
@@ -212,25 +220,22 @@ export default function SidebarNav() {
     "/dashboard/personal/privacy"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
 
-  const isWorkspaceActive = [
+  const isWorkspaceActiveRaw = [
     "/dashboard/marketing-agency",
     "/dashboard/admin/auto-update",
     "/dashboard/ai-agents",
     "/dashboard/ai-lab",
-    "/dashboard/blockchain-lab",
-    "/dashboard/cyber-lab",
     "/dashboard/cloud-lab",
-    "/dashboard/skills/coding-lab",
     "/dashboard/admin",
-    "/dashboard/admin/content-factory",
     "/dashboard/admin/content-factory-tools",
     "/dashboard/admin/hr",
-    "/dashboard/admin/projects",
-    "/dashboard/admin/academy",
-    "/dashboard/admin/job-postings",
-    "/dashboard/career",
-    "/dashboard/skills"
+    "/dashboard/admin/job-postings"
   ].some(path => pathname === path || pathname.startsWith(path + "/"));
+
+  // "/dashboard/admin" fica na lista acima por causa da página "Empresas", mas é prefixo
+  // de /dashboard/admin/academy, /projects e /content-factory, que passaram para
+  // Aprendizagem. Sem isto os dois grupos acendiam ao mesmo tempo nessas rotas.
+  const isWorkspaceActive = isWorkspaceActiveRaw && !isAprendizagemActive;
 
   const isSuporteActive = [
     "/dashboard/user-guide",
@@ -297,16 +302,56 @@ export default function SidebarNav() {
         {sidebarSection(
           aprendizagemOpen,
           <>
+            {isItemVisible("academy") && (
+            <SecureRender requiredPermission="COURSES_SCHEDULE">
+              <Link href="/dashboard/admin/academy" className={linkClass("/dashboard/admin/academy")}>
+                <GraduationCap className="h-4 w-4 text-emerald-400" />
+                {t("nav_academy_corp", "Academia Corporativa")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("project-review") && (
+            <SecureRender requiredPermission="PROJECTS_REVIEW">
+              <Link href="/dashboard/admin/projects" className={linkClass("/dashboard/admin/projects")}>
+                <FolderKanban className="h-4 w-4 text-cyan-400" />
+                {t("nav_project_review", "Avaliação de Projetos")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("blockchain-lab") && (
+            <Link href="/dashboard/blockchain-lab" className={linkClass("/dashboard/blockchain-lab")}>
+              <Boxes className="h-4 w-4 text-amber-400" />
+              {t("nav_blockchain_lab", "Blockchain Lab")}
+            </Link>
+            )}
+            {isItemVisible("career") && (
+            <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>
+              <Brain className="h-4 w-4 text-violet-400" />
+              {t("nav_career", "Carreira & Mentoria")}
+            </Link>
+            )}
             {isItemVisible("catalog") && (
             <Link href="/dashboard/catalog" className={linkClass("/dashboard/catalog")}>
               <Library className="h-4 w-4 text-violet-400" />
               {t("nav_catalog", "Catálogo")}
             </Link>
             )}
+            {isItemVisible("coding-lab") && (
+            <Link href="/dashboard/skills/coding-lab" className={linkClass("/dashboard/skills/coding-lab")}>
+              <Terminal className="h-4 w-4 text-emerald-400" />
+              {t("nav_coding_lab", "Coding Lab (Prática)")}
+            </Link>
+            )}
+            {isItemVisible("cyber-lab") && (
+            <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
+              <ShieldAlert className="h-4 w-4 text-rose-400" />
+              {t("nav_cyber_lab", "Cyber Lab")}
+            </Link>
+            )}
             {isItemVisible("challenges") && (
             <Link href="/dashboard/challenges" className={linkClass("/dashboard/challenges")}>
               <Terminal className="h-4 w-4 text-cyan-400" />
-              {t("nav_coding_lab", "Desafios")}
+              {t("nav_challenges", "Desafios")}
             </Link>
             )}
             {isItemVisible("digital-twin") && (
@@ -314,6 +359,14 @@ export default function SidebarNav() {
               <UserCircle2 className="h-4 w-4 text-indigo-400" />
               {t("nav_digital_twin", "Digital Twin")}
             </Link>
+            )}
+            {isItemVisible("content-factory") && (
+            <SecureRender requiredPermission="COURSES_CREATE">
+              <Link href="/dashboard/admin/content-factory" className={linkClass("/dashboard/admin/content-factory")}>
+                <Settings className="h-4 w-4 text-violet-400" />
+                {t("nav_content_factory", "Fábrica de Cursos (IA)")}
+              </Link>
+            </SecureRender>
             )}
             {isItemVisible("gamification") && (
             <Link href="/dashboard/gamification" className={linkClass("/dashboard/gamification")}>
@@ -355,6 +408,12 @@ export default function SidebarNav() {
             <Link href="/dashboard/projects" className={linkClass("/dashboard/projects")}>
               <FolderKanban className="h-4 w-4 text-cyan-400" />
               {t("nav_projects", "Projetos")}
+            </Link>
+            )}
+            {isItemVisible("skills-os") && (
+            <Link href="/dashboard/skills" className={linkClass("/dashboard/skills")}>
+              <Terminal className="h-4 w-4 text-cyan-400" />
+              {t("nav_skills_os", "Skills OS (Grafo de Competências)")}
             </Link>
             )}
             {isItemVisible("avatar-training") && (
@@ -615,14 +674,6 @@ export default function SidebarNav() {
         {sidebarSection(
           workspaceOpen,
           <>
-            {isItemVisible("academy") && (
-            <SecureRender requiredPermission="COURSES_SCHEDULE">
-              <Link href="/dashboard/admin/academy" className={linkClass("/dashboard/admin/academy")}>
-                <GraduationCap className="h-4 w-4 text-emerald-400" />
-                {t("nav_academy_corp", "Academia Corporativa")}
-              </Link>
-            </SecureRender>
-            )}
             {isItemVisible("marketing-agency") && (
             <Link href="/dashboard/marketing-agency" className={linkClass("/dashboard/marketing-agency")}>
               <Megaphone className="h-4 w-4 text-indigo-400" />
@@ -649,36 +700,10 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
-            {isItemVisible("project-review") && (
-            <SecureRender requiredPermission="PROJECTS_REVIEW">
-              <Link href="/dashboard/admin/projects" className={linkClass("/dashboard/admin/projects")}>
-                <FolderKanban className="h-4 w-4 text-cyan-400" />
-                {t("nav_project_review", "Avaliação de Projetos")}
-              </Link>
-            </SecureRender>
-            )}
-            {isItemVisible("blockchain-lab") && (
-            <Link href="/dashboard/blockchain-lab" className={linkClass("/dashboard/blockchain-lab")}>
-              <Boxes className="h-4 w-4 text-amber-400" />
-              {t("nav_blockchain_lab", "Blockchain Lab")}
-            </Link>
-            )}
-            {isItemVisible("career") && (
-            <Link href="/dashboard/career" className={linkClass("/dashboard/career")}>
-              <Brain className="h-4 w-4 text-violet-400" />
-              {t("nav_career", "Carreira & Mentoria")}
-            </Link>
-            )}
             {isItemVisible("cloud-lab") && (
             <Link href="/dashboard/cloud-lab" className={linkClass("/dashboard/cloud-lab")}>
               <Cloud className="h-4 w-4 text-sky-400" />
               {t("nav_cloud_lab", "Cloud Lab")}
-            </Link>
-            )}
-            {isItemVisible("coding-lab") && (
-            <Link href="/dashboard/skills/coding-lab" className={linkClass("/dashboard/skills/coding-lab")}>
-              <Terminal className="h-4 w-4 text-emerald-400" />
-              {t("nav_coding_lab", "Coding Lab (Prática)")}
             </Link>
             )}
             {isItemVisible("content-factory-tools") && (
@@ -689,25 +714,11 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
-            {isItemVisible("cyber-lab") && (
-            <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
-              <ShieldAlert className="h-4 w-4 text-rose-400" />
-              {t("nav_cyber_lab", "Cyber Lab")}
-            </Link>
-            )}
             {isItemVisible("config-company") && (hasPermission("TENANTS_MANAGE") || hasPermission("COMPANY_INFO_UPDATE")) && (
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
                 <Settings className="h-4 w-4 text-slate-400" />
                 {t("nav_config_company", "Empresas")}
               </Link>
-            )}
-            {isItemVisible("content-factory") && (
-            <SecureRender requiredPermission="COURSES_CREATE">
-              <Link href="/dashboard/admin/content-factory" className={linkClass("/dashboard/admin/content-factory")}>
-                <Settings className="h-4 w-4 text-violet-400" />
-                {t("nav_content_factory", "Fábrica de Cursos (IA)")}
-              </Link>
-            </SecureRender>
             )}
             {isItemVisible("hr-console") && (
             <SecureRender requiredPermission="PAYMENTS_MANAGE">
@@ -716,12 +727,6 @@ export default function SidebarNav() {
                 {t("nav_hr_console", "Gestão de RH")}
               </Link>
             </SecureRender>
-            )}
-            {isItemVisible("skills-os") && (
-            <Link href="/dashboard/skills" className={linkClass("/dashboard/skills")}>
-              <Terminal className="h-4 w-4 text-cyan-400" />
-              {t("nav_skills_os", "Skills OS (Grafo de Competências)")}
-            </Link>
             )}
             {isItemVisible("job-postings") && (
             <SecureRender requiredPermission="COMPANY_INFO_UPDATE">

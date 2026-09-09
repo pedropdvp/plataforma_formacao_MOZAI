@@ -43,6 +43,14 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "mozai-academy", groupId: "aprendizagem", label: "MOZAI Academy", path: "/dashboard/mozai-academy" },
   { id: "projects", groupId: "aprendizagem", label: "Projetos", path: "/dashboard/projects" },
   { id: "avatar-training", groupId: "aprendizagem", label: "Treino com Avatares", path: "/dashboard/avatar-training" },
+  { id: "academy", groupId: "aprendizagem", label: "Academia Corporativa", path: "/dashboard/admin/academy" },
+  { id: "project-review", groupId: "aprendizagem", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
+  { id: "blockchain-lab", groupId: "aprendizagem", label: "Blockchain Lab", path: "/dashboard/blockchain-lab" },
+  { id: "cyber-lab", groupId: "aprendizagem", label: "Cyber Lab", path: "/dashboard/cyber-lab" },
+  { id: "career", groupId: "aprendizagem", label: "Carreira & Mentoria", path: "/dashboard/career" },
+  { id: "coding-lab", groupId: "aprendizagem", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
+  { id: "content-factory", groupId: "aprendizagem", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
+  { id: "skills-os", groupId: "aprendizagem", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
 
   // Comunicação
   { id: "live-classes", groupId: "comunicacao", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
@@ -76,22 +84,14 @@ export const MENU_ITEMS: MenuItemDef[] = [
 
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
-  { id: "academy", groupId: "workspace", label: "Academia Corporativa", path: "/dashboard/admin/academy" },
   { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
-  { id: "project-review", groupId: "workspace", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
   { id: "ai-agents-catalog", groupId: "workspace", label: "AI Agents (Personas Especializadas)", path: "/dashboard/ai-agents" },
   { id: "ai-lab", groupId: "workspace", label: "AI Lab (Multi-Modelo)", path: "/dashboard/ai-lab" },
-  { id: "blockchain-lab", groupId: "workspace", label: "Blockchain Lab", path: "/dashboard/blockchain-lab" },
-  { id: "cyber-lab", groupId: "workspace", label: "Cyber Lab", path: "/dashboard/cyber-lab" },
   { id: "cloud-lab", groupId: "workspace", label: "Cloud Lab", path: "/dashboard/cloud-lab" },
-  { id: "career", groupId: "workspace", label: "Carreira & Mentoria", path: "/dashboard/career" },
-  { id: "coding-lab", groupId: "workspace", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
   { id: "company-marketplace-profile", groupId: "workspace", label: "Perfil de Empresa & Vagas", path: "/dashboard/admin/company-profile" },
-  { id: "content-factory", groupId: "workspace", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
   { id: "content-factory-tools", groupId: "workspace", label: "Content Factory (Ferramentas)", path: "/dashboard/admin/content-factory-tools" },
   { id: "hr-console", groupId: "workspace", label: "Gestão de RH", path: "/dashboard/admin/hr" },
-  { id: "skills-os", groupId: "workspace", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
 
   // Suporte
   { id: "user-guide", groupId: "suporte", label: "Guia de Utilização", path: "/dashboard/user-guide" },
