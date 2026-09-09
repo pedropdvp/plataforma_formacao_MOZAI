@@ -144,21 +144,38 @@ Notas:
 
 ## 4. Dados e contas de demonstração
 
-Semear conteúdo com `MONGODB_URI` a apontar ao ambiente de produção:
+**Já está tudo lá — não correr seeds.** Verificado na base de dados de produção
+(`mozai_ai_edu_platform`): 2 cursos, 10 perfis, 68 permissões, 6 níveis de gamificação,
+3 empresas, 16 itens de media, e o índice do RAG povoado (22 `lesson_chunks` +
+934 `uploaded_chunks`, embeddings de 1536 dimensões). O `/api/catalog` responde com os
+cursos reais.
 
-```bash
-npm run seed:crypto
-npx tsx scripts/seed-security.ts
-npm run index:content   # embeddings do RAG (usa TENANT_ID, default "root")
-npm run verify:rag      # confirma que o Tutor de IA responde com contexto
-```
+**Não são precisas seis contas.** Uma só chega, e a razão está em
+`app/api/auth/session/route.ts`: quem tem o perfil `ADMIN` atribuído pode passar a
+**qualquer** perfil existente na coleção `roles` a partir de `/choose-role` — a
+validação aceita-o desde que o perfil exista. A conta `pedropdvp@gmail.com` já tem
+`ADMIN`, `ALUNO`, `SUPORTE` e `FORMADOR` em `root`, mais `GESTOR_EMPRESA` em três
+empresas. Um login demonstra a plataforma inteira.
 
-Criar **uma conta Clerk por perfil** — os seis papéis reconhecidos pelo `middleware.ts`:
-`ADMIN`, `SUPORTE`, `GESTOR_EMPRESA`, `GESTOR_ACADEMICO`, `FORMADOR`, `ALUNO`.
-O perfil activo é escolhido em `/choose-role` e guardado no cookie `active-role`.
+Trocar de perfil durante a apresentação: `/choose-role` → escolher → a aplicação
+recarrega em `/dashboard` com o novo perfil (cookie `active-role`, 24h de validade).
 
-Preparar um cartão com o link e as credenciais de cada perfil, para poder entrar em
-qualquer PC sem depender do gestor de palavras-passe pessoal.
+### Se um dia for preciso uma conta nova com um perfil específico
+
+Não se cria à mão na base de dados. O `GET /api/auth/session` já trata disso: basta
+inserir em `users` um documento com o `email` e os `tenants[].roles` desejados, e no
+primeiro login desse email o registo é re-chaveado para o `_id` do Clerk **mantendo os
+perfis**. É o mecanismo de pré-registo, e evita mexer em ids do Clerk à mão.
+
+Nota: as três empresas chamam-se "Empresa de Teste 1/2/3". Se a apresentação passar
+pelo perfil `GESTOR_EMPRESA`, esses nomes aparecem no ecrã — vale a pena renomeá-las
+em `/dashboard/admin` antes.
+
+### Os scripts de seed, para memória futura
+
+`npm run seed:crypto` escreve no **Sanity**, não no MongoDB, e usa `createOrReplace`
+— é idempotente e não duplica. `npm run index:content` reconstrói os embeddings do RAG
+(consome quota da OpenAI). Nenhum dos dois é necessário agora.
 
 ---
 
