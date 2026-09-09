@@ -101,13 +101,24 @@ um URL de *preview* está atrás da *Deployment Protection* da Vercel (responde 
 para `vercel.com/sso-api` a quem não tiver sessão na equipa), e o host de produção
 continua a servir um build antigo.
 
-**Passo que só se faz no painel, uma vez:** Settings → Git → *Production Branch* →
-`master`. A partir daí:
+**A causa era outra, e não estava no painel.** O repositório foi criado com um README
+em `main` e o trabalho seguiu todo em `master`: 129 commits num lado, um no outro. Como
+`main` é o branch por omissão do repositório, é dele que a Vercel publica — e por isso
+não havia *Production Branch* para corrigir nas definições. O painel estava certo; os
+pushes é que iam para o branch errado.
+
+Os dois branches foram juntos e `main` passou a conter tudo. **Publicar significa
+empurrar para `main`:**
 
 ```bash
 npm run build && npx tsc --noEmit   # validar SEMPRE antes de empurrar
-git push origin master
+git push origin main
 ```
+
+Se ainda trabalhares em `master`, empurra para os dois — `git push origin master` e
+`git push origin master:main` — ou, melhor, passa a trabalhar em `main` e deixa
+`master` morrer. Dois branches com o mesmo conteúdo é a forma de isto voltar a
+acontecer.
 
 Se o projeto ainda não estiver ligado ao Git: painel da Vercel → Project → Settings →
 Git → *Connect Git Repository*. É o único passo que exige o painel, e faz-se uma vez.
