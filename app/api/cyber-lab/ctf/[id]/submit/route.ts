@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
-import { getChallenge, hashFlag } from "@/lib/cyber-lab/ctf-challenges";
+import { generateChallengeSet, hashFlag } from "@/lib/cyber-lab/ctf-challenges";
 import { logAuditEvent } from "@/lib/audit";
 
 // POST — Submete uma flag para um desafio CTF. A comparação é feita por hash (SHA-256) — a
@@ -20,9 +20,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Submeta uma flag." }, { status: 400 });
     }
 
-    const challenge = getChallenge(id);
+    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const db = await getDb();
+
+    // O desafio é reconstruído a partir da semente guardada para este utilizador. Como cada
+    // pessoa tem o seu conjunto, a flag de um enunciado não serve a mais ninguém — e um id
+    // de uma geração anterior deixa de ser aceite, que é o que impede submeter respostas
+    // recolhidas antes de carregar em "Gerar novas questões".
+    const conjunto = await db.collection("ctf_challenge_sets").findOne({ _id: `${tenantId}:${userId}` });
+    const challenge = conjunto?.seed
+      ? generateChallengeSet(conjunto.seed).find((c) => c.id === id)
+      : undefined;
     if (!challenge) {
-      return NextResponse.json({ error: "Desafio não encontrado." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Desafio não encontrado — pode ter sido substituído por um conjunto novo." },
+        { status: 404 }
+      );
     }
 
     const correct = hashFlag(flag) === challenge.flagHash;
@@ -30,10 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, correct: false });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
-    const db = await getDb();
-
-    const existing = await db.collection("ctf_solves").findOne({ tenant_id: tenantId, userId, challengeId: id });
+    // Pontos por TIPO de desafio: resolver outra variante do mesmo exercício treina, mas
+    // não volta a dar XP.
+    const existing = await db.collection("ctf_solves").findOne({ tenant_id: tenantId, userId, challengeId: challenge.typeId });
     if (existing) {
       return NextResponse.json({ success: true, correct: true, alreadySolved: true });
     }
@@ -41,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await db.collection("ctf_solves").insertOne({
       tenant_id: tenantId,
       userId,
-      challengeId: id,
+      challengeId: challenge.typeId,
       points: challenge.points,
       solvedAt: new Date(),
     });
@@ -55,7 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       { upsert: true }
     );
 
-    await logAuditEvent(userId, "CTF_CHALLENGE_SOLVED", { tenantId, challengeId: id, points: challenge.points });
+    await logAuditEvent(userId, "CTF_CHALLENGE_SOLVED", { tenantId, challengeId: challenge.typeId, points: challenge.points });
 
     return NextResponse.json({ success: true, correct: true, pointsAwarded: challenge.points });
   } catch (error: any) {

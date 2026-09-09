@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { ShieldAlert, Loader2, Search, Flag, Globe, CheckCircle2, XCircle, Sparkles, Trophy } from "lucide-react";
+import { ShieldAlert, Loader2, Search, Flag, Globe, CheckCircle2, XCircle, Sparkles, Trophy, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 
 type Tab = "scanner" | "ctf" | "headers";
@@ -81,6 +81,27 @@ export default function CyberLabPage() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [flagInputs, setFlagInputs] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      const res = await fetch("/api/cyber-lab/ctf", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setChallenges(data.challenges || []);
+        setTotalPoints(data.totalPoints || 0);
+        setFlagInputs({}); // as flags escritas eram para os enunciados antigos
+        showToast("Novas questões geradas.", "success");
+      } else {
+        showToast(data.error || "Erro ao gerar novas questões.", "error");
+      }
+    } catch {
+      showToast("Erro de comunicação ao gerar novas questões.", "error");
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   const loadChallenges = async () => {
     setLoadingChallenges(true);
@@ -237,9 +258,27 @@ export default function CyberLabPage() {
         </div>
       ) : tab === "ctf" ? (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
-            <Trophy className="h-4.5 w-4.5" /> {totalPoints} pontos CTF acumulados
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
+              <Trophy className="h-4.5 w-4.5" /> {totalPoints} pontos CTF acumulados
+            </div>
+            <button
+              onClick={handleRegenerate}
+              disabled={regenerating || loadingChallenges}
+              className="h-9 px-4 rounded-xl border border-indigo-500/30 bg-indigo-600/10 hover:bg-indigo-600/20 text-[11px] font-semibold text-indigo-300 flex items-center gap-2 cursor-pointer disabled:opacity-55"
+            >
+              {regenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Gerar novas questões
+            </button>
           </div>
+          <p className="text-[11px] text-slate-500">
+            Cada geração sorteia exercícios novos, com valores diferentes. Os pontos contam
+            uma vez por tipo de desafio — resolver outra variante treina, mas não repete XP.
+          </p>
           {loadingChallenges ? (
             <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
           ) : (
