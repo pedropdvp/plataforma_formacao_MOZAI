@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# plataforma_formacao_MOZAI
 
-## Getting Started
+Plataforma de Formação para Moçambique.
 
-First, run the development server:
+Aplicação **Next.js fullstack única**: o frontend (App Router) e o backend (route
+handlers em `app/api/`) vivem no mesmo projeto e são servidos pelo mesmo servidor.
+
+| Camada | Tecnologia |
+|---|---|
+| Framework | Next.js 16 (App Router, RSC, Turbopack) |
+| UI | React 19 + TypeScript 5 + Tailwind CSS 4 |
+| Base de dados | MongoDB Atlas |
+| Autenticação, RBAC e multi-tenancy | Clerk |
+| SSO B2B | WorkOS |
+| CMS de conteúdos | Sanity (Studio em `/studio`) |
+| IA | Vercel AI SDK (OpenAI, Anthropic, Google) |
+| Ficheiros, vídeo e pagamentos | Vercel Blob, Mux, Stripe |
+| Alojamento | Vercel |
+
+## Arrancar localmente
 
 ```bash
+npm install
+cp .env.example .env.local   # e preencher os valores
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Comandos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Build de produção (mais estrito que `dev` — correr antes de publicar) |
+| `npm run lint` | ESLint |
+| `npm run seed:crypto` | Semeia o curso de criptomoedas |
+| `npm run index:content` | Gera os embeddings do RAG |
+| `npm run verify:rag` | Confirma que o Tutor de IA responde com contexto |
+| `npm run db:backup` / `db:restore` | Cópia de segurança da base de dados |
+| `npm run deploy:env` | Envia as variáveis de `.env.local` para a Vercel |
 
-## Learn More
+## Documentação
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — como se publica, variáveis de ambiente
+  e checklist de verificação.
+- [`CLAUDE.md`](CLAUDE.md) — stack, RBAC, multi-tenancy e regras para agentes.
+- [`AGENTS.md`](AGENTS.md) — avisos sobre esta versão do Next.js.
