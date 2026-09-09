@@ -210,6 +210,55 @@ const GENERATORS: CtfGenerator[] = [
     },
   },
   {
+    typeId: "atbash",
+    title: "Cifra de Atbash",
+    category: "Criptografia",
+    difficulty: "Médio",
+    points: 15,
+    build: (r) => {
+      const flag = r.pick(FRASES);
+      const atbash = (txt: string) =>
+        txt.replace(/[A-Z]/g, (c) => String.fromCharCode(155 - c.charCodeAt(0)));
+      return {
+        prompt: `Este texto foi cifrado com a cifra de Atbash, que troca A por Z, B por Y, e assim por diante. Decifra-o:
+
+"${atbash(flag)}"`,
+        flag,
+      };
+    },
+  },
+  {
+    typeId: "binario-decimal",
+    title: "Binário para Decimal",
+    category: "Sistemas",
+    difficulty: "Fácil",
+    points: 10,
+    build: (r) => {
+      const valor = r.int(200) + 28;
+      return {
+        prompt: `Converte este número binário para decimal e submete o resultado:
+
+${valor.toString(2).padStart(8, "0")}`,
+        flag: String(valor),
+      };
+    },
+  },
+  {
+    typeId: "cidr-hosts",
+    title: "Endereçamento CIDR",
+    category: "Redes",
+    difficulty: "Médio",
+    points: 20,
+    build: (r) => {
+      const prefixo = r.int(6) + 24; // /24 a /29
+      const rede = `10.${r.int(256)}.${r.int(256)}.0`;
+      return {
+        prompt: `Quantos endereços IP utilizáveis (excluindo o de rede e o de broadcast) existem na sub-rede ${rede}/${prefixo}? Submete apenas o número.`,
+        flag: String(2 ** (32 - prefixo) - 2),
+      };
+    },
+  },
+  {
     typeId: "conceito-seguranca",
     title: "Conceitos de Segurança",
     category: "Autenticação",
@@ -262,32 +311,56 @@ export function novaSemente(): number {
 }
 
 /**
- * Constrói um conjunto de desafios a partir de uma semente. Determinístico: a mesma
- * semente devolve exactamente os mesmos desafios.
+ * Escolhe que tipos entram num conjunto, dando prioridade aos que o utilizador ainda não
+ * pontuou — gerar questões novas deve trazer sobretudo material por fazer. Quando os
+ * tipos por pontuar não chegam para encher o conjunto, completa-se com os restantes: são
+ * variantes novas do mesmo exercício, e continuam a servir para treinar.
  */
-export function generateChallengeSet(seed: number): CtfChallenge[] {
+export function sortearTipos(seed: number, tiposJaPontuados: string[] = []): string[] {
+  const r = makeRng(seed);
+  const pontuados = new Set(tiposJaPontuados);
+
+  const baralhar = (items: CtfGenerator[]) => {
+    const a = [...items];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = r.int(i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  const porFazer = baralhar(GENERATORS.filter((g) => !pontuados.has(g.typeId)));
+  const feitos = baralhar(GENERATORS.filter((g) => pontuados.has(g.typeId)));
+  return [...porFazer, ...feitos].slice(0, CHALLENGES_POR_CONJUNTO).map((g) => g.typeId);
+}
+
+/**
+ * Constrói o conjunto a partir da semente e da lista de tipos.
+ *
+ * Os tipos vêm de fora, e não de um sorteio aqui dentro, porque o sorteio depende do que o
+ * utilizador já pontuou — que muda com o tempo. Se dependesse disso, reconstruir o conjunto
+ * mais tarde para validar uma submissão podia devolver desafios diferentes dos que a pessoa
+ * tem no ecrã. Guardando os tipos ao lado da semente, a reconstrução é sempre a mesma.
+ */
+export function generateChallengeSet(seed: number, typeIds: string[]): CtfChallenge[] {
   const r = makeRng(seed);
 
-  // Baralha os geradores (Fisher-Yates) e fica com os primeiros — sem repetir tipos.
-  const pool = [...GENERATORS];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = r.int(i + 1);
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-
-  return pool.slice(0, CHALLENGES_POR_CONJUNTO).map((g) => {
-    const variante = g.build(r);
-    return {
-      id: `${g.typeId}-${seed.toString(36)}`,
-      typeId: g.typeId,
-      title: g.title,
-      category: g.category,
-      difficulty: g.difficulty,
-      points: g.points,
-      prompt: variante.prompt,
-      flagHash: hashFlag(variante.flag),
-    };
-  });
+  return typeIds
+    .map((id) => GENERATORS.find((g) => g.typeId === id))
+    .filter((g): g is CtfGenerator => Boolean(g))
+    .map((g) => {
+      const variante = g.build(r);
+      return {
+        id: `${g.typeId}-${seed.toString(36)}`,
+        typeId: g.typeId,
+        title: g.title,
+        category: g.category,
+        difficulty: g.difficulty,
+        points: g.points,
+        prompt: variante.prompt,
+        flagHash: hashFlag(variante.flag),
+      };
+    });
 }
 
 /**

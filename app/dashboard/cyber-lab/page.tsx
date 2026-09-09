@@ -27,7 +27,10 @@ interface Challenge {
   difficulty: string;
   points: number;
   prompt: string;
+  /** Resolvido nesta geração. Um conjunto acabado de gerar nasce todo por responder. */
   solved: boolean;
+  /** Este tipo de desafio já deu pontos antes — resolve-se na mesma, mas sem novo XP. */
+  alreadyScored?: boolean;
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -137,7 +140,12 @@ export default function CyberLabPage() {
       const data = await res.json();
       if (res.ok) {
         if (data.correct) {
-          showToast(data.alreadySolved ? "Já tinha resolvido este desafio." : `Correto! +${data.pointsAwarded} pontos`, "success");
+          showToast(
+            data.alreadyScored
+              ? "Correto! Já tinhas pontuado neste tipo de desafio, por isso não há novo XP."
+              : `Correto! +${data.pointsAwarded} pontos`,
+            "success"
+          );
           loadChallenges();
         } else {
           showToast("Flag incorreta. Tenta novamente.", "error");
@@ -276,8 +284,9 @@ export default function CyberLabPage() {
             </button>
           </div>
           <p className="text-[11px] text-slate-500">
-            Cada geração sorteia exercícios novos, com valores diferentes. Os pontos contam
-            uma vez por tipo de desafio — resolver outra variante treina, mas não repete XP.
+            Cada geração sorteia exercícios novos, com valores diferentes, dando prioridade
+            aos tipos que ainda não resolveste. Os pontos contam uma vez por tipo — os
+            marcados como &quot;já pontuado&quot; continuam a poder ser resolvidos, mas não repetem XP.
           </p>
           {loadingChallenges ? (
             <Loader2 className="h-6 w-6 text-indigo-500 animate-spin" />
@@ -287,7 +296,9 @@ export default function CyberLabPage() {
                 <div key={c.id} className={`border rounded-2xl p-4 space-y-2 ${c.solved ? "border-emerald-500/20 bg-emerald-500/5" : "border-slate-900 bg-slate-950/60"}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider">{c.category} · {c.difficulty}</span>
-                    <span className="text-[10px] font-bold text-amber-400">{c.points} pts</span>
+                    <span className="text-[10px] font-bold text-amber-400">
+                      {c.alreadyScored ? "já pontuado" : `${c.points} pts`}
+                    </span>
                   </div>
                   <h4 className="font-bold text-xs text-white">{c.title}</h4>
                   <pre className="text-[11px] text-slate-400 whitespace-pre-wrap font-mono">{c.prompt}</pre>

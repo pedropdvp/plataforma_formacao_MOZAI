@@ -28,9 +28,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // de uma geração anterior deixa de ser aceite, que é o que impede submeter respostas
     // recolhidas antes de carregar em "Gerar novas questões".
     const conjunto = await db.collection("ctf_challenge_sets").findOne({ _id: `${tenantId}:${userId}` });
-    const challenge = conjunto?.seed
-      ? generateChallengeSet(conjunto.seed).find((c) => c.id === id)
-      : undefined;
+    const challenge =
+      conjunto?.seed && Array.isArray(conjunto?.typeIds)
+        ? generateChallengeSet(conjunto.seed, conjunto.typeIds).find((c) => c.id === id)
+        : undefined;
     if (!challenge) {
       return NextResponse.json(
         { error: "Desafio não encontrado — pode ter sido substituído por um conjunto novo." },
@@ -43,11 +44,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: true, correct: false });
     }
 
-    // Pontos por TIPO de desafio: resolver outra variante do mesmo exercício treina, mas
-    // não volta a dar XP.
+    // Marca a instância como resolvida neste conjunto, para o cartão passar a "Resolvido"
+    // sem afectar os conjuntos que vierem a seguir.
+    await db.collection("ctf_challenge_sets").updateOne(
+      { _id: `${tenantId}:${userId}` },
+      { $addToSet: { solvedIds: challenge.id } }
+    );
+
+    // Os pontos contam uma vez por TIPO: outra variante do mesmo exercício treina, mas não
+    // volta a dar XP — senão "Gerar novas questões" era uma torneira de pontos.
     const existing = await db.collection("ctf_solves").findOne({ tenant_id: tenantId, userId, challengeId: challenge.typeId });
     if (existing) {
-      return NextResponse.json({ success: true, correct: true, alreadySolved: true });
+      return NextResponse.json({ success: true, correct: true, alreadyScored: true });
     }
 
     await db.collection("ctf_solves").insertOne({

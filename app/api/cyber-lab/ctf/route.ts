@@ -4,6 +4,7 @@ import { getDb } from "@/lib/mongodb";
 import {
   generateChallengeSet,
   novaSemente,
+  sortearTipos,
   toPublicChallenge,
 } from "@/lib/cyber-lab/ctf-challenges";
 
@@ -14,29 +15,70 @@ interface CtfSolve {
 }
 
 /**
- * Conjunto de desafios de um utilizador. Guarda-se **só a semente**: como
- * `generateChallengeSet` é determinístico, os enunciados e os hashes reconstroem-se a
- * partir dela e não há cópias por onde uma flag possa escapar.
+ * O conjunto guardado de um utilizador: só a semente e os tipos sorteados. Os enunciados e
+ * os hashes reconstroem-se a partir daí, e assim não fica na base de dados nenhuma cópia
+ * por onde uma flag possa escapar.
+ *
+ * `solvedIds` são as instâncias resolvidas **neste** conjunto, e voltam a zero a cada
+ * geração — um desafio acabado de gerar tem de nascer por responder.
  */
-async function obterSemente(db: any, tenantId: string, userId: string): Promise<number> {
-  const id = `${tenantId}:${userId}`;
-  const existente = await db.collection("ctf_challenge_sets").findOne({ _id: id });
-  if (existente?.seed) return existente.seed;
-
-  const seed = novaSemente();
-  await db.collection("ctf_challenge_sets").insertOne({
-    _id: id,
-    tenant_id: tenantId,
-    userId,
-    seed,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  return seed;
+interface CtfSet {
+  seed: number;
+  typeIds: string[];
+  solvedIds?: string[];
 }
 
-// GET — Devolve o conjunto actual de desafios do utilizador (sem nunca expor a flag) e
-// quais os tipos que já resolveu.
+async function lerSolves(db: any, tenantId: string, userId: string): Promise<CtfSolve[]> {
+  return db.collection("ctf_solves").find({ tenant_id: tenantId, userId }).toArray();
+}
+
+function montarResposta(conjunto: CtfSet, solves: CtfSolve[]) {
+  const tiposPontuados = new Set(solves.map((s) => s.challengeId));
+  const resolvidas = new Set(conjunto.solvedIds || []);
+
+  const challenges = generateChallengeSet(conjunto.seed, conjunto.typeIds).map((c) => ({
+    ...toPublicChallenge(c),
+    // Resolvido = esta instância, neste conjunto. Contava-se por tipo, e era por isso que
+    // um conjunto novo nascia com cartões marcados e sem sítio para responder.
+    solved: resolvidas.has(c.id),
+    // Este tipo já deu pontos noutra altura: resolve-se na mesma, mas sem novo XP.
+    alreadyScored: tiposPontuados.has(c.typeId),
+  }));
+
+  return {
+    success: true,
+    challenges,
+    totalPoints: solves.reduce((sum, s) => sum + (s.points || 0), 0),
+  };
+}
+
+/** Semente nova, tipos sorteados de novo (com prioridade aos que ainda não pontuaram) e
+ *  nenhuma instância resolvida. */
+async function criarConjunto(
+  db: any,
+  tenantId: string,
+  userId: string,
+  solves: CtfSolve[]
+): Promise<CtfSet> {
+  const seed = novaSemente();
+  const typeIds = sortearTipos(
+    seed,
+    solves.map((s) => s.challengeId)
+  );
+
+  await db.collection("ctf_challenge_sets").updateOne(
+    { _id: `${tenantId}:${userId}` },
+    {
+      $set: { tenant_id: tenantId, userId, seed, typeIds, solvedIds: [], updatedAt: new Date() },
+      $setOnInsert: { createdAt: new Date() },
+    },
+    { upsert: true }
+  );
+
+  return { seed, typeIds, solvedIds: [] };
+}
+
+// GET — Devolve o conjunto actual do utilizador (sem nunca expor a flag).
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -46,28 +88,28 @@ export async function GET(req: NextRequest) {
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const db = await getDb();
+    const solves = await lerSolves(db, tenantId, userId);
 
-    const seed = await obterSemente(db, tenantId, userId);
-    const solves: CtfSolve[] = await db.collection("ctf_solves").find({ tenant_id: tenantId, userId }).toArray();
-    // Os pontos contam-se por TIPO de desafio, não por instância: gerar questões novas dá
-    // treino ilimitado, mas não uma torneira de XP a repetir o mesmo exercício.
-    const solvedTypes = new Set(solves.map((s: CtfSolve) => s.challengeId));
+    const guardado = await db
+      .collection("ctf_challenge_sets")
+      .findOne({ _id: `${tenantId}:${userId}` });
 
-    const challenges = generateChallengeSet(seed).map((c) => ({
-      ...toPublicChallenge(c),
-      solved: solvedTypes.has(c.typeId),
-    }));
-    const totalPoints = solves.reduce((sum: number, s: CtfSolve) => sum + (s.points || 0), 0);
+    // Os conjuntos criados antes desta mudança não têm `typeIds`. Nesses gera-se um novo,
+    // em vez de adivinhar quais eram — adivinhar daria enunciados diferentes dos que a
+    // pessoa tem no ecrã, e submissões a falhar sem explicação.
+    const conjunto: CtfSet =
+      guardado?.seed && Array.isArray(guardado?.typeIds) && guardado.typeIds.length
+        ? { seed: guardado.seed, typeIds: guardado.typeIds, solvedIds: guardado.solvedIds }
+        : await criarConjunto(db, tenantId, userId, solves);
 
-    return NextResponse.json({ success: true, challenges, totalPoints });
+    return NextResponse.json(montarResposta(conjunto, solves));
   } catch (error: any) {
     console.error("Erro ao listar desafios CTF:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST — Gera um conjunto novo. Muda a semente, o que troca tanto os valores de cada
-// enunciado como quais os tipos de desafio sorteados.
+// POST — Gera um conjunto novo.
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -77,30 +119,10 @@ export async function POST(req: NextRequest) {
 
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const db = await getDb();
-    const seed = novaSemente();
+    const solves = await lerSolves(db, tenantId, userId);
+    const conjunto = await criarConjunto(db, tenantId, userId, solves);
 
-    await db.collection("ctf_challenge_sets").updateOne(
-      { _id: `${tenantId}:${userId}` },
-      {
-        $set: { tenant_id: tenantId, userId, seed, updatedAt: new Date() },
-        $setOnInsert: { createdAt: new Date() },
-      },
-      { upsert: true }
-    );
-
-    const solves: CtfSolve[] = await db.collection("ctf_solves").find({ tenant_id: tenantId, userId }).toArray();
-    const solvedTypes = new Set(solves.map((s: CtfSolve) => s.challengeId));
-
-    const challenges = generateChallengeSet(seed).map((c) => ({
-      ...toPublicChallenge(c),
-      solved: solvedTypes.has(c.typeId),
-    }));
-
-    return NextResponse.json({
-      success: true,
-      challenges,
-      totalPoints: solves.reduce((sum: number, s: CtfSolve) => sum + (s.points || 0), 0),
-    });
+    return NextResponse.json(montarResposta(conjunto, solves));
   } catch (error: any) {
     console.error("Erro ao gerar novos desafios CTF:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
