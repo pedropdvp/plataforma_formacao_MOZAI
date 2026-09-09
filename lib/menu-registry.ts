@@ -52,7 +52,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "content-factory", groupId: "aprendizagem", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
   { id: "skills-os", groupId: "aprendizagem", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
   { id: "cloud-lab", groupId: "aprendizagem", label: "Cloud Lab", path: "/dashboard/cloud-lab" },
-  { id: "content-factory-tools", groupId: "aprendizagem", label: "Content Factory (Ferramentas)", path: "/dashboard/admin/content-factory-tools" },
+  { id: "content-factory-tools", groupId: "aprendizagem", label: "Gerador de Conteúdo", path: "/dashboard/admin/content-factory-tools" },
   { id: "live-classes", groupId: "aprendizagem", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
   { id: "community-mentorships", groupId: "aprendizagem", label: "Mentorias", path: "/dashboard/marketplace?tab=mentors" },
   { id: "training-rooms", groupId: "aprendizagem", label: "Salas de Treino", path: "/dashboard/training-rooms" },

@@ -92,7 +92,7 @@ export default function ContentFactoryToolsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
           <Wand2 className="h-6 w-6 text-indigo-400" />
-          Content Factory — Ferramentas
+          Gerador de Conteúdo
         </h1>
         <p className="text-sm text-slate-400">Geradores reais de conteúdo educativo — cada resultado fica pendente de revisão humana antes de ser usado.</p>
       </div>

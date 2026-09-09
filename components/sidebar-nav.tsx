@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import SecureRender from "@/components/secure-render";
 import { useLanguage } from "@/hooks/use-language";
 import { useAccess } from "@/hooks/use-access";
@@ -72,6 +72,13 @@ import {
  * Ganha o prefixo mais longo: /dashboard/admin/academy pertence a Aprendizagem mesmo
  * havendo /dashboard/admin (Empresas) no Workspace, que também casaria.
  */
+/** Verdadeiro se todos os parâmetros de `query` estiverem presentes, com o mesmo valor,
+ *  na query actual do browser. */
+function queryCorresponde(query: string, actual: URLSearchParams): boolean {
+  const pares = Array.from(new URLSearchParams(query).entries());
+  return pares.every(([chave, valor]) => actual.get(chave) === valor);
+}
+
 function groupOfPath(pathname: string): string | null {
   if (pathname === "/dashboard") return "aprendizagem";
   let melhor: { groupId: string; tamanho: number } | null = null;
@@ -88,6 +95,7 @@ function groupOfPath(pathname: string): string | null {
 
 export default function SidebarNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const { activeRole, hasPermission } = useAccess();
 
@@ -125,8 +133,27 @@ export default function SidebarNav() {
   const isGroupVisible = (groupId: string) =>
     MENU_ITEMS.filter((item) => item.groupId === groupId).some((item) => !hiddenIds.has(item.id));
 
-  // Helper para verificar se a rota está ativa
-  const isActive = (path: string) => pathname === path;
+  /**
+   * Um item está activo quando a rota bate certo — e, para os que trazem query, quando os
+   * parâmetros também batem.
+   *
+   * "Mentorias" aponta para /dashboard/marketplace?tab=mentors, e com uma comparação só de
+   * pathname nunca acendia: o `usePathname` não traz query, por isso a igualdade falhava
+   * sempre. Pior, era o "Marketplace" que acendia no lugar dela, por ter o mesmo caminho
+   * base — clicar num item deixava outro realçado.
+   */
+  const isActive = (path: string) => {
+    const [base, query] = path.split("?");
+    if (pathname !== base) return false;
+    if (query) return queryCorresponde(query, searchParams);
+
+    // Item sem query cede a um irmão com query que esteja a corresponder, senão o
+    // Marketplace e as Mentorias acendiam ambos na mesma página.
+    return !MENU_ITEMS.some((item) => {
+      const [irmaoBase, irmaoQuery] = item.path.split("?");
+      return irmaoQuery !== undefined && irmaoBase === base && queryCorresponde(irmaoQuery, searchParams);
+    });
+  };
 
   const isAprendizagemActive = activeGroup === "aprendizagem";
   const isComunicacaoActive = activeGroup === "comunicacao";
@@ -227,14 +254,6 @@ export default function SidebarNav() {
               {t("nav_coding_lab", "Coding Lab (Prática)")}
             </Link>
             )}
-            {isItemVisible("content-factory-tools") && (
-            <SecureRender requiredPermission="COURSES_CREATE">
-              <Link href="/dashboard/admin/content-factory-tools" className={linkClass("/dashboard/admin/content-factory-tools")}>
-                <Wand2 className="h-4 w-4 text-violet-400" />
-                {t("nav_content_factory_tools", "Content Factory (Ferramentas)")}
-              </Link>
-            </SecureRender>
-            )}
             {isItemVisible("cyber-lab") && (
             <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
               <ShieldAlert className="h-4 w-4 text-rose-400" />
@@ -267,6 +286,14 @@ export default function SidebarNav() {
               {t("nav_gamification", "Gamificação")}
             </Link>
             )}
+            {isItemVisible("content-factory-tools") && (
+            <SecureRender requiredPermission="COURSES_CREATE">
+              <Link href="/dashboard/admin/content-factory-tools" className={linkClass("/dashboard/admin/content-factory-tools")}>
+                <Wand2 className="h-4 w-4 text-violet-400" />
+                {t("nav_content_factory_tools", "Gerador de Conteúdo")}
+              </Link>
+            </SecureRender>
+            )}
             {isItemVisible("knowledge-graph") && (
             <Link href="/dashboard/knowledge-graph" className={linkClass("/dashboard/knowledge-graph")}>
               <Share2 className="h-4 w-4 text-indigo-400" />
@@ -280,7 +307,7 @@ export default function SidebarNav() {
             </Link>
             )}
             {isItemVisible("community-mentorships") && (
-            <Link href="/dashboard/marketplace?tab=mentors" className={linkClass("/dashboard/marketplace")}>
+            <Link href="/dashboard/marketplace?tab=mentors" className={linkClass("/dashboard/marketplace?tab=mentors")}>
               <Handshake className="h-4 w-4 text-violet-400" />
               {t("nav_community_mentorships", "Mentorias")}
             </Link>
