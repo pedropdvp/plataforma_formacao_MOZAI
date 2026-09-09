@@ -48,3 +48,6 @@ next-env.d.ts
 # database backups (contain user PII — never commit)
 /backups/
 
+
+# artefactos de testes com o Playwright MCP (snapshots, logs de consola)
+.playwright-mcp/
