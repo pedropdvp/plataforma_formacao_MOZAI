@@ -29,8 +29,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // As rotas de autenticação são fixas — `app/(auth)/sign-in` e `sign-up` — e ficam
+  // aqui escritas em vez de virem de NEXT_PUBLIC_CLERK_SIGN_IN_URL. Não é preferência:
+  // um valor que começa por "/" é convertido em caminho do Windows quando passa por um
+  // shell MSYS (Git Bash), e foi o que aconteceu em produção — o Clerk ficou a
+  // redireccionar para "C:/.../Git/sign-in" e todas as rotas protegidas respondiam 404
+  // a quem não tivesse sessão. Como não há motivo para estas rotas serem
+  // configuráveis, deixam de o ser.
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+    >
       <html
         lang="pt-PT"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}

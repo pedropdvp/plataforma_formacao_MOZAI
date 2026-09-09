@@ -130,7 +130,11 @@ export default clerkMiddleware(async (auth, req) => {
       headers: requestHeaders,
     },
   });
-});
+},
+// Pelo mesmo motivo do `app/layout.tsx`: o `auth.protect()` daqui reencaminha para o
+// login, e se for buscar o destino ao ambiente herda o caminho do Windows que um shell
+// MSYS lhe deixa. Escrito aqui, não há como o perder.
+{ signInUrl: "/sign-in", signUpUrl: "/sign-up" });
 
 export const config = {
   matcher: [
