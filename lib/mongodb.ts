@@ -240,7 +240,17 @@ if (process.env.NODE_ENV === "development") {
 export default clientPromise;
 
 /**
- * Retorna a instância do Banco de Dados MongoDB ou um MockDb se estiver offline.
+ * Em produção o fallback para MockDb é proibido: a aplicação pareceria funcionar mas os
+ * dados não persistiriam, com o único sinal a ser um aviso na consola do servidor. Falhar
+ * de forma explícita torna um problema de ligação (ex.: IP não autorizado na allowlist do
+ * Atlas) imediatamente visível em vez de silenciosamente corromper a experiência.
+ */
+const ALLOW_MOCK_DB =
+  process.env.VERCEL_ENV !== "production" && process.env.NODE_ENV !== "production";
+
+/**
+ * Retorna a instância do Banco de Dados MongoDB. Fora de produção, se o Atlas estiver
+ * inacessível, devolve um MockDb em memória para permitir desenvolvimento offline.
  */
 export async function getDb(dbOverride?: string): Promise<any> {
   // Reutiliza a ligação real já validada (sem re-ping em cada chamada)
@@ -255,6 +265,10 @@ export async function getDb(dbOverride?: string): Promise<any> {
     if (!dbOverride) cachedDb = db;
     return db;
   } catch (error: any) {
+    if (!ALLOW_MOCK_DB) {
+      console.error("✖ MongoDB indisponível em produção. Detalhe:", error?.message);
+      throw error;
+    }
     console.warn("⚠ MongoDB indisponível — a usar Mock Database (os dados NÃO persistem). Detalhe:", error?.message);
     return new MockDb();
   }

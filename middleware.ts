@@ -33,7 +33,12 @@ export default clerkMiddleware(async (auth, req) => {
   if (!subdomain) {
     const hostname = req.headers.get("host") || "";
     const isLocalhost = hostname.includes("localhost");
-    const baseDomain = isLocalhost ? "localhost:3000" : "mozai.education";
+    // Configurável para que o mesmo código sirva localhost, os deployments *.vercel.app
+    // e o domínio próprio, sem que o host da apresentação seja lido como um subdomínio
+    // (e portanto como um tenant) por acidente.
+    const baseDomain = isLocalhost
+      ? "localhost:3000"
+      : process.env.NEXT_PUBLIC_BASE_DOMAIN || "mozai.education";
     
     if (hostname !== baseDomain) {
       subdomain = hostname.replace(`.${baseDomain}`, "");
