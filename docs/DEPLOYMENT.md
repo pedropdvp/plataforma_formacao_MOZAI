@@ -31,23 +31,18 @@ Projecto Vercel já ligado: `plataforma-formacao-mozai` (ver `.vercel/project.js
 1. **MongoDB Atlas → Network Access**: as funções serverless da Vercel usam IPs
    dinâmicos. Adicionar `0.0.0.0/0` à allowlist. Sem isto, todas as ligações esgotam o
    timeout de 8 s definido em `CONNECT_OPTIONS` e a aplicação devolve erro 500.
-2. **Clerk — atenção, isto não é cosmético.** Com *development keys* (`pk_test_…`)
-   num domínio publicado, uma visita **sem sessão** a uma rota protegida não é
-   reencaminhada para o login: recebe **404**. Verificado em produção —
-   `GET /dashboard` responde `404` com os cabeçalhos
-   `X-Clerk-Auth-Reason: protect-rewrite, dev-browser-missing` e
-   `X-Matched-Path: /404`. Falta o *dev browser token*, que uma instância de
-   desenvolvimento do Clerk só sabe estabelecer em localhost.
+2. **Clerk**: a instância é de *development* (`pk_test_…`, `clerk.accounts.dev`) e
+   **funciona** num domínio publicado — o percurso `/dashboard` → `/sign-in` → login
+   está verificado em produção num browser real. O que se paga: o rótulo
+   *"Development mode"* no fundo do formulário e o tecto de utilizadores do plano de
+   desenvolvimento. Nada disto impede uma apresentação.
 
-   Consequência prática: entrar pela landing page e clicar em *Entrar* funciona
-   (o `ClerkProvider` fixa o cookie ao carregar `/sign-in`), mas **qualquer link
-   directo para `/dashboard`, e qualquer separador novo, dá 404**. Para uma
-   apresentação é frágil de mais.
+   Um aviso para quem for diagnosticar: com `curl`, `/dashboard` responde **404** com
+   `X-Clerk-Auth-Reason: protect-rewrite, dev-browser-missing`. **Não é uma avaria** —
+   é o Clerk a exigir o *dev browser token*, que só o Clerk JS estabelece. Num browser
+   a rota reencaminha para o login como deve. Testar autenticação com `curl` numa
+   instância de desenvolvimento dá sempre um falso negativo.
 
-   A correcção robusta é uma **instância de produção do Clerk**, que exige um
-   **domínio próprio** (o Clerk precisa de CNAMEs em `clerk.<dominio>` — não é
-   possível em `*.vercel.app`). É a razão pela qual o domínio próprio deixa de ser
-   opcional: ver "Evolução futura".
 3. **Sanity → API → CORS Origins**: adicionar `https://<host>.vercel.app` com
    *Allow credentials*, senão o Studio em `/studio` e as queries de conteúdo falham.
 4. **Vercel Blob**: ligar a store ao projecto e confirmar os **dois** tokens distintos
@@ -115,10 +110,22 @@ npm run build && npx tsc --noEmit   # validar SEMPRE antes de empurrar
 git push origin main
 ```
 
-Se ainda trabalhares em `master`, empurra para os dois — `git push origin master` e
-`git push origin master:main` — ou, melhor, passa a trabalhar em `main` e deixa
-`master` morrer. Dois branches com o mesmo conteúdo é a forma de isto voltar a
-acontecer.
+**Empurrar para `main` e mais nada.** Se empurrares primeiro para `master`, a Vercel
+constrói esse SHA como *Preview* e depois deduplica o push para `main` — a produção
+só actualiza alguns minutos mais tarde, ou não actualiza. Passa a trabalhar em `main`
+e deixa `master` morrer: dois branches com o mesmo conteúdo é a forma de isto voltar
+a acontecer.
+
+### Variáveis de ambiente e o Git Bash
+
+`NEXT_PUBLIC_CLERK_SIGN_IN_URL` chegou a produção como
+`C:/Area de Trabalho/.../SOFTWARE/Git/sign-in`. Um valor que começa por `/` é
+convertido em caminho do Windows quando passa por um shell MSYS, e o Clerk ficou a
+reencaminhar para um caminho inexistente. As rotas de login deixaram de vir do
+ambiente por causa disto (ver `app/layout.tsx` e `middleware.ts`), mas a armadilha
+continua de pé para qualquer variável nova que comece por `/`: definir essas no painel
+da Vercel, ou pelo `npm run deploy:env`, que passa os valores por stdin e escapa à
+conversão.
 
 Se o projeto ainda não estiver ligado ao Git: painel da Vercel → Project → Settings →
 Git → *Connect Git Repository*. É o único passo que exige o painel, e faz-se uma vez.
@@ -188,14 +195,14 @@ Fazer **num PC diferente**, em rede diferente (hotspot do telemóvel), em janela
 
 ## Evolução futura (fora do âmbito da demo)
 
-**O domínio próprio deixou de ser opcional.** A secção 1 explica porquê: sem ele o
-Clerk fica numa instância de desenvolvimento, e nessa instância as rotas protegidas
-respondem 404 a quem não tenha sessão. Ordem de trabalhos:
+**Domínio próprio.** Não é necessário para apresentar — o `.vercel.app` serve — mas é
+o que tira o rótulo *"Development mode"* e o tecto de utilizadores, porque uma
+instância de produção do Clerk exige CNAMEs em `clerk.<dominio>`, impossíveis em
+`*.vercel.app`. Ordem de trabalhos, quando for altura:
 
-1. Apontar `mozai.education` (ou um subdomínio, ex.: `demo.mozai.education`) à Vercel.
-2. Criar a instância de **produção** no Clerk para esse domínio e acrescentar os
-   CNAMEs que ele indica.
-3. Trocar `pk_test_`/`sk_test_` pelas chaves `pk_live_`/`sk_live_` e actualizar
+1. Apontar `mozai.education` (ou `demo.mozai.education`) à Vercel.
+2. Criar a instância de **produção** no Clerk e acrescentar os CNAMEs que ele indica.
+3. Trocar `pk_test_`/`sk_test_` por `pk_live_`/`sk_live_` e actualizar
    `NEXT_PUBLIC_BASE_DOMAIN`.
 
 Fica para depois: subdomínios por tenant, ambiente de staging separado, monitorização
