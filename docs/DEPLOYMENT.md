@@ -31,9 +31,23 @@ Projecto Vercel já ligado: `plataforma-formacao-mozai` (ver `.vercel/project.js
 1. **MongoDB Atlas → Network Access**: as funções serverless da Vercel usam IPs
    dinâmicos. Adicionar `0.0.0.0/0` à allowlist. Sem isto, todas as ligações esgotam o
    timeout de 8 s definido em `CONNECT_OPTIONS` e a aplicação devolve erro 500.
-2. **Clerk**: manter as *development keys* (`pk_test_…`/`sk_test_…`) — funcionam em
-   qualquer domínio; as *production keys* exigiriam domínio próprio. No dashboard do
-   Clerk, adicionar o URL `.vercel.app` às origens permitidas.
+2. **Clerk — atenção, isto não é cosmético.** Com *development keys* (`pk_test_…`)
+   num domínio publicado, uma visita **sem sessão** a uma rota protegida não é
+   reencaminhada para o login: recebe **404**. Verificado em produção —
+   `GET /dashboard` responde `404` com os cabeçalhos
+   `X-Clerk-Auth-Reason: protect-rewrite, dev-browser-missing` e
+   `X-Matched-Path: /404`. Falta o *dev browser token*, que uma instância de
+   desenvolvimento do Clerk só sabe estabelecer em localhost.
+
+   Consequência prática: entrar pela landing page e clicar em *Entrar* funciona
+   (o `ClerkProvider` fixa o cookie ao carregar `/sign-in`), mas **qualquer link
+   directo para `/dashboard`, e qualquer separador novo, dá 404**. Para uma
+   apresentação é frágil de mais.
+
+   A correcção robusta é uma **instância de produção do Clerk**, que exige um
+   **domínio próprio** (o Clerk precisa de CNAMEs em `clerk.<dominio>` — não é
+   possível em `*.vercel.app`). É a razão pela qual o domínio próprio deixa de ser
+   opcional: ver "Evolução futura".
 3. **Sanity → API → CORS Origins**: adicionar `https://<host>.vercel.app` com
    *Allow credentials*, senão o Studio em `/studio` e as queries de conteúdo falham.
 4. **Vercel Blob**: ligar a store ao projecto e confirmar os **dois** tokens distintos
@@ -76,9 +90,19 @@ Acrescentar `NEXT_PUBLIC_BASE_DOMAIN` ao `.env.local` **antes** de correr o scri
 
 ## 3. Deploy
 
-O projeto está ligado ao repositório `pedropdvp/plataforma_formacao_MOZAI`. Com o
-*Git Integration* da Vercel activo, **cada push para `master` publica em produção** e
-cada branch gera um *preview deployment*. Não é preciso CLI para publicar:
+O projeto está ligado ao repositório `pedropdvp/plataforma_formacao_MOZAI` e a
+integração Git funciona — cada push constrói. **Mas está a construir para *Preview*,
+não para produção.** Os 100 deployments que a API do GitHub devolve estão todos com
+`environment: Preview`, incluindo o mais recente; nunca houve um deployment de
+produção vindo do Git.
+
+Isso tem duas consequências que se anulam mutuamente como link de apresentação:
+um URL de *preview* está atrás da *Deployment Protection* da Vercel (responde `302`
+para `vercel.com/sso-api` a quem não tiver sessão na equipa), e o host de produção
+continua a servir um build antigo.
+
+**Passo que só se faz no painel, uma vez:** Settings → Git → *Production Branch* →
+`master`. A partir daí:
 
 ```bash
 npm run build && npx tsc --noEmit   # validar SEMPRE antes de empurrar
@@ -153,6 +177,15 @@ Fazer **num PC diferente**, em rede diferente (hotspot do telemóvel), em janela
 
 ## Evolução futura (fora do âmbito da demo)
 
-Domínio próprio `mozai.education` com subdomínios por tenant e Clerk *production keys*
-(basta actualizar `NEXT_PUBLIC_BASE_DOMAIN`); ambiente de staging separado;
-monitorização e alertas; rate limiting; verificação automática dos backups.
+**O domínio próprio deixou de ser opcional.** A secção 1 explica porquê: sem ele o
+Clerk fica numa instância de desenvolvimento, e nessa instância as rotas protegidas
+respondem 404 a quem não tenha sessão. Ordem de trabalhos:
+
+1. Apontar `mozai.education` (ou um subdomínio, ex.: `demo.mozai.education`) à Vercel.
+2. Criar a instância de **produção** no Clerk para esse domínio e acrescentar os
+   CNAMEs que ele indica.
+3. Trocar `pk_test_`/`sk_test_` pelas chaves `pk_live_`/`sk_live_` e actualizar
+   `NEXT_PUBLIC_BASE_DOMAIN`.
+
+Fica para depois: subdomínios por tenant, ambiente de staging separado, monitorização
+e alertas, rate limiting, verificação automática dos backups.
