@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useLayoutEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SecureRender from "@/components/secure-render";
@@ -62,19 +62,28 @@ import {
   Wand2
 } from "lucide-react";
 
-// Estado dos agrupadores da sidebar (aberto/fechado) persistido no browser, para que uma
-// recarga da página (reload do Next.js em dev, refresh manual, etc.) não force os menus
-// recolhidos pelo utilizador a reabrirem sozinhos.
-const SIDEBAR_GROUPS_STORAGE_KEY = "mozai-sidebar-groups";
-
-function loadStoredGroupState(): Record<string, boolean> | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+/**
+ * Grupo a que uma rota pertence, deduzido do registo de menus.
+ *
+ * Havia antes uma lista de caminhos escrita à mão por grupo. Eram três sítios a manter
+ * de cada vez que um item mudava de menu — o registo, o JSX e a lista — e o terceiro era
+ * o que se esquecia, deixando o grupo errado aceso. Aqui há uma fonte só.
+ *
+ * Ganha o prefixo mais longo: /dashboard/admin/academy pertence a Aprendizagem mesmo
+ * havendo /dashboard/admin (Empresas) no Workspace, que também casaria.
+ */
+function groupOfPath(pathname: string): string | null {
+  if (pathname === "/dashboard") return "aprendizagem";
+  let melhor: { groupId: string; tamanho: number } | null = null;
+  for (const item of MENU_ITEMS) {
+    const base = item.path.split("?")[0];
+    if (pathname === base || pathname.startsWith(base + "/")) {
+      if (!melhor || base.length > melhor.tamanho) {
+        melhor = { groupId: item.groupId, tamanho: base.length };
+      }
+    }
   }
+  return melhor ? melhor.groupId : null;
 }
 
 export default function SidebarNav() {
@@ -82,69 +91,23 @@ export default function SidebarNav() {
   const { t } = useLanguage();
   const { activeRole, hasPermission } = useAccess();
 
-  // Estados dos agrupadores — iniciam SEMPRE expandidos (igual ao servidor) para evitar
-  // erros de hidratação; o valor guardado em localStorage só é aplicado depois da
-  // montagem no cliente (ver useLayoutEffect abaixo), nunca durante o render inicial.
-  const [aprendizagemOpen, setAprendizagemOpen] = useState(true);
-  const [comunicacaoOpen, setComunicacaoOpen] = useState(true);
-  const [financeiroOpen, setFinanceiroOpen] = useState(true);
-  const [pessoalOpen, setPessoalOpen] = useState(true);
-  const [workspaceOpen, setWorkspaceOpen] = useState(true);
-  const [guiasOpen, setGuiasOpen] = useState(true);
-  const [relatoriosOpen, setRelatoriosOpen] = useState(true);
-  const [administracaoOpen, setAdministracaoOpen] = useState(true);
-  const [hydrated, setHydrated] = useState(false);
+  // Acordeão: guarda-se o grupo aberto (ou nenhum), em vez de um booleano por grupo.
+  // O grupo aberto é o da rota actual, por isso não há nada a persistir — e como sai do
+  // `pathname`, servidor e cliente chegam ao mesmo valor e não há erro de hidratação.
+  const activeGroup = groupOfPath(pathname);
+  const [openGroup, setOpenGroup] = useState<string | null>(activeGroup);
 
-  // Aplica o estado guardado assim que o componente monta no cliente (antes do
-  // browser pintar), para minimizar o "flash" de grupos que estavam recolhidos.
-  useLayoutEffect(() => {
-    const stored = loadStoredGroupState();
-    if (stored) {
-      if (typeof stored.aprendizagem === "boolean") setAprendizagemOpen(stored.aprendizagem);
-      if (typeof stored.comunicacao === "boolean") setComunicacaoOpen(stored.comunicacao);
-      if (typeof stored.financeiro === "boolean") setFinanceiroOpen(stored.financeiro);
-      if (typeof stored.pessoal === "boolean") setPessoalOpen(stored.pessoal);
-      if (typeof stored.workspace === "boolean") setWorkspaceOpen(stored.workspace);
-      if (typeof stored.guias === "boolean") setGuiasOpen(stored.guias);
-      if (typeof stored.relatorios === "boolean") setRelatoriosOpen(stored.relatorios);
-      if (typeof stored.administracao === "boolean") setAdministracaoOpen(stored.administracao);
-    }
-    setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Mudar de grupo fecha o anterior. É o padrão do React para acertar estado quando uma
+  // entrada muda — feito no render, não num efeito, para o utilizador nunca chegar a ver
+  // o estado desactualizado pintado.
+  const [grupoObservado, setGrupoObservado] = useState<string | null>(activeGroup);
+  if (activeGroup !== grupoObservado) {
+    setGrupoObservado(activeGroup);
+    setOpenGroup(activeGroup);
+  }
 
-  // Guarda o estado sempre que um agrupador é aberto/fechado (nunca no primeiro
-  // render, para não reescrever o valor guardado com os defaults antes de o ler)
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(
-        SIDEBAR_GROUPS_STORAGE_KEY,
-        JSON.stringify({
-          aprendizagem: aprendizagemOpen,
-          comunicacao: comunicacaoOpen,
-          financeiro: financeiroOpen,
-          pessoal: pessoalOpen,
-          workspace: workspaceOpen,
-          guias: guiasOpen,
-          relatorios: relatoriosOpen,
-          administracao: administracaoOpen,
-        })
-      );
-    } catch {
-      // localStorage indisponível (modo privado, quota excedida, etc.) — ignora silenciosamente
-    }
-  }, [
-    aprendizagemOpen,
-    comunicacaoOpen,
-    financeiroOpen,
-    pessoalOpen,
-    workspaceOpen,
-    guiasOpen,
-    relatoriosOpen,
-    administracaoOpen,
-    hydrated,
-  ]);
+  const toggleGroup = (id: string) =>
+    setOpenGroup((actual) => (actual === id ? null : id));
 
   // Ids de menus ocultos para o tenant ativo (definidos pelo Admin em Configurações > Menus)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
@@ -165,104 +128,14 @@ export default function SidebarNav() {
   // Helper para verificar se a rota está ativa
   const isActive = (path: string) => pathname === path;
 
-  // Active status of each group
-  const isAprendizagemActive = [
-    "/dashboard/catalog",
-    "/dashboard/marketplace",
-    "/dashboard/challenges",
-    "/dashboard/gamification",
-    "/dashboard/mozai-academy",
-    "/dashboard/personal/progress",
-    "/dashboard/digital-twin",
-    "/dashboard/knowledge-graph",
-    "/dashboard/avatar-training",
-    "/dashboard/my-courses",
-    "/dashboard/projects",
-    "/dashboard/blockchain-lab",
-    "/dashboard/cyber-lab",
-    "/dashboard/skills/coding-lab",
-    "/dashboard/admin/content-factory",
-    "/dashboard/admin/projects",
-    "/dashboard/admin/academy",
-    "/dashboard/career",
-    "/dashboard/skills"
-  ].some(path => pathname === path || pathname.startsWith(path + "/")) || pathname === "/dashboard";
-
-  const isComunicacaoActive = [
-    "/dashboard/live-classes",
-    "/dashboard/community",
-    "/dashboard/events",
-    "/dashboard/hackathons",
-    "/dashboard/meetups",
-    "/dashboard/networking",
-    "/dashboard/groups",
-    "/dashboard/teams",
-    "/dashboard/project-showcase",
-    "/dashboard/forum",
-    "/dashboard/notifications",
-    "/dashboard/training-rooms",
-    "/dashboard/personal/telegram-ia"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  const isFinanceiroActive = [
-    "/dashboard/financial/subscriptions",
-    "/dashboard/financial/payments"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  const isPessoalActive = [
-    "/dashboard/personal/profile",
-    "/dashboard/personal/change-password",
-    "/dashboard/professional-card",
-    "/dashboard/certificates",
-    "/dashboard/personal/ai-credits",
-    "/dashboard/recycling",
-    "/dashboard/diplomas",
-    "/dashboard/personal/privacy"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  const isWorkspaceActiveRaw = [
-    "/dashboard/marketing-agency",
-    "/dashboard/admin/auto-update",
-    "/dashboard/ai-agents",
-    "/dashboard/ai-lab",
-    "/dashboard/cloud-lab",
-    "/dashboard/admin",
-    "/dashboard/admin/content-factory-tools",
-    "/dashboard/admin/hr",
-    "/dashboard/admin/job-postings"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  // "/dashboard/admin" fica na lista acima por causa da página "Empresas", mas é prefixo
-  // de /dashboard/admin/academy, /projects e /content-factory, que passaram para
-  // Aprendizagem. Sem isto os dois grupos acendiam ao mesmo tempo nessas rotas.
-  const isWorkspaceActive = isWorkspaceActiveRaw && !isAprendizagemActive;
-
-  const isSuporteActive = [
-    "/dashboard/user-guide",
-    "/dashboard/personal/student-guide",
-    "/dashboard/personal/support"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  const isRelatoriosActive = [
-    "/dashboard/reports/students",
-    "/dashboard/reports/audit",
-    "/dashboard/reports/companies",
-    "/dashboard/reports/employees",
-    "/dashboard/reports/teachers",
-    "/dashboard/personal/history"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
-
-  const isAdministracaoActive = [
-    "/dashboard/admin/backups",
-    "/dashboard/admin/api-keys",
-    "/dashboard/admin/chatbot",
-    "/dashboard/admin/discord",
-    "/dashboard/admin/compliance",
-    "/dashboard/admin/plugins",
-    "/dashboard/admin/menus",
-    "/dashboard/admin/levels",
-    "/dashboard/admin/roles"
-  ].some(path => pathname === path || pathname.startsWith(path + "/"));
+  const isAprendizagemActive = activeGroup === "aprendizagem";
+  const isComunicacaoActive = activeGroup === "comunicacao";
+  const isFinanceiroActive = activeGroup === "financeiro";
+  const isPessoalActive = activeGroup === "pessoal";
+  const isWorkspaceActive = activeGroup === "workspace";
+  const isSuporteActive = activeGroup === "suporte";
+  const isRelatoriosActive = activeGroup === "relatorios";
+  const isAdministracaoActive = activeGroup === "configuracao";
 
   const linkClass = (path: string) =>
     `flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
@@ -285,14 +158,14 @@ export default function SidebarNav() {
       {isGroupVisible("aprendizagem") && (
       <div className={`menu-group-container group-aprendizagem space-y-1.5 rounded-2xl border border-transparent transition-all ${isAprendizagemActive ? "active" : ""}`}>
         <button
-          onClick={() => setAprendizagemOpen(!aprendizagemOpen)}
+          onClick={() => toggleGroup("aprendizagem")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <GraduationCap className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_learning_group", "Aprendizagem")}</span>
           </div>
-          {aprendizagemOpen ? (
+          {openGroup === "aprendizagem" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -300,7 +173,7 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          aprendizagemOpen,
+          openGroup === "aprendizagem",
           <>
             {isItemVisible("academy") && (
             <SecureRender requiredPermission="COURSES_SCHEDULE">
@@ -309,6 +182,12 @@ export default function SidebarNav() {
                 {t("nav_academy_corp", "Academia Corporativa")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("live-classes") && (
+            <Link href="/dashboard/live-classes" className={linkClass("/dashboard/live-classes")}>
+              <Video className="h-4 w-4 text-cyan-400" />
+              {t("nav_live_classes", "Aulas ao Vivo")}
+            </Link>
             )}
             {isItemVisible("project-review") && (
             <SecureRender requiredPermission="PROJECTS_REVIEW">
@@ -336,11 +215,25 @@ export default function SidebarNav() {
               {t("nav_catalog", "Catálogo")}
             </Link>
             )}
+            {isItemVisible("cloud-lab") && (
+            <Link href="/dashboard/cloud-lab" className={linkClass("/dashboard/cloud-lab")}>
+              <Cloud className="h-4 w-4 text-sky-400" />
+              {t("nav_cloud_lab", "Cloud Lab")}
+            </Link>
+            )}
             {isItemVisible("coding-lab") && (
             <Link href="/dashboard/skills/coding-lab" className={linkClass("/dashboard/skills/coding-lab")}>
               <Terminal className="h-4 w-4 text-emerald-400" />
               {t("nav_coding_lab", "Coding Lab (Prática)")}
             </Link>
+            )}
+            {isItemVisible("content-factory-tools") && (
+            <SecureRender requiredPermission="COURSES_CREATE">
+              <Link href="/dashboard/admin/content-factory-tools" className={linkClass("/dashboard/admin/content-factory-tools")}>
+                <Wand2 className="h-4 w-4 text-violet-400" />
+                {t("nav_content_factory_tools", "Content Factory (Ferramentas)")}
+              </Link>
+            </SecureRender>
             )}
             {isItemVisible("cyber-lab") && (
             <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
@@ -386,6 +279,12 @@ export default function SidebarNav() {
               {t("nav_marketplace", "Marketplace")}
             </Link>
             )}
+            {isItemVisible("community-mentorships") && (
+            <Link href="/dashboard/marketplace?tab=mentors" className={linkClass("/dashboard/marketplace")}>
+              <Handshake className="h-4 w-4 text-violet-400" />
+              {t("nav_community_mentorships", "Mentorias")}
+            </Link>
+            )}
             {isItemVisible("progress") && (
             <Link href="/dashboard/personal/progress" className={linkClass("/dashboard/personal/progress")}>
               <GraduationCap className="h-4 w-4 text-emerald-400" />
@@ -404,10 +303,28 @@ export default function SidebarNav() {
               {t("nav_academy", "MOZAI Academy")}
             </Link>
             )}
+            {isItemVisible("notifications") && (
+            <Link href="/dashboard/notifications" className={linkClass("/dashboard/notifications")}>
+              <Bell className="h-4 w-4 text-amber-400" />
+              {t("nav_notifications", "Notificações")}
+            </Link>
+            )}
             {isItemVisible("projects") && (
             <Link href="/dashboard/projects" className={linkClass("/dashboard/projects")}>
               <FolderKanban className="h-4 w-4 text-cyan-400" />
               {t("nav_projects", "Projetos")}
+            </Link>
+            )}
+            {isItemVisible("project-showcase") && (
+            <Link href="/dashboard/project-showcase" className={linkClass("/dashboard/project-showcase")}>
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              {t("nav_project_showcase", "Projetos (Showcase)")}
+            </Link>
+            )}
+            {isItemVisible("training-rooms") && (
+            <Link href="/dashboard/training-rooms" className={linkClass("/dashboard/training-rooms")}>
+              <Users className="h-4 w-4 text-indigo-400" />
+              {t("nav_rooms", "Salas de Treino")}
             </Link>
             )}
             {isItemVisible("skills-os") && (
@@ -431,14 +348,14 @@ export default function SidebarNav() {
       {isGroupVisible("comunicacao") && (
       <div className={`menu-group-container group-comunicacao space-y-1.5 rounded-2xl border border-transparent transition-all ${isComunicacaoActive ? "active" : ""}`}>
         <button
-          onClick={() => setComunicacaoOpen(!comunicacaoOpen)}
+          onClick={() => toggleGroup("comunicacao")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <MessageSquare className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_comm_group", "Comunicação")}</span>
           </div>
-          {comunicacaoOpen ? (
+          {openGroup === "comunicacao" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -446,13 +363,15 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          comunicacaoOpen,
+          openGroup === "comunicacao",
           <>
-            {isItemVisible("live-classes") && (
-            <Link href="/dashboard/live-classes" className={linkClass("/dashboard/live-classes")}>
-              <Video className="h-4 w-4 text-cyan-400" />
-              {t("nav_live_classes", "Aulas ao Vivo")}
-            </Link>
+            {isItemVisible("auto-update") && (
+            <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">
+              <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
+                <Settings className="h-4 w-4 text-rose-400" />
+                {t("nav_auto_update", "Atualização Automática (Daily Engine)")}
+              </Link>
+            </SecureRender>
             )}
             {isItemVisible("community") && (
             <Link href="/dashboard/community" className={linkClass("/dashboard/community")}>
@@ -496,34 +415,10 @@ export default function SidebarNav() {
               {t("nav_meetups", "Meetups")}
             </Link>
             )}
-            {isItemVisible("community-mentorships") && (
-            <Link href="/dashboard/marketplace?tab=mentors" className={linkClass("/dashboard/marketplace")}>
-              <Handshake className="h-4 w-4 text-violet-400" />
-              {t("nav_community_mentorships", "Mentorias")}
-            </Link>
-            )}
             {isItemVisible("networking") && (
             <Link href="/dashboard/networking" className={linkClass("/dashboard/networking")}>
               <Network className="h-4 w-4 text-indigo-400" />
               {t("nav_networking", "Networking")}
-            </Link>
-            )}
-            {isItemVisible("notifications") && (
-            <Link href="/dashboard/notifications" className={linkClass("/dashboard/notifications")}>
-              <Bell className="h-4 w-4 text-amber-400" />
-              {t("nav_notifications", "Notificações")}
-            </Link>
-            )}
-            {isItemVisible("project-showcase") && (
-            <Link href="/dashboard/project-showcase" className={linkClass("/dashboard/project-showcase")}>
-              <Sparkles className="h-4 w-4 text-amber-400" />
-              {t("nav_project_showcase", "Projetos (Showcase)")}
-            </Link>
-            )}
-            {isItemVisible("training-rooms") && (
-            <Link href="/dashboard/training-rooms" className={linkClass("/dashboard/training-rooms")}>
-              <Users className="h-4 w-4 text-indigo-400" />
-              {t("nav_rooms", "Salas de Treino")}
             </Link>
             )}
             {isItemVisible("telegram-ia") && (
@@ -541,14 +436,14 @@ export default function SidebarNav() {
       {isGroupVisible("financeiro") && (
       <div className={`menu-group-container group-financeiro space-y-1.5 rounded-2xl border border-transparent transition-all ${isFinanceiroActive ? "active" : ""}`}>
         <button
-          onClick={() => setFinanceiroOpen(!financeiroOpen)}
+          onClick={() => toggleGroup("financeiro")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <CreditCard className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_financial_group", "Financeiro")}</span>
           </div>
-          {financeiroOpen ? (
+          {openGroup === "financeiro" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -556,7 +451,7 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          financeiroOpen,
+          openGroup === "financeiro",
           <>
             {isItemVisible("subscriptions") && (
             <Link href="/dashboard/financial/subscriptions" className={linkClass("/dashboard/financial/subscriptions")}>
@@ -579,14 +474,14 @@ export default function SidebarNav() {
       {isGroupVisible("pessoal") && (
       <div className={`menu-group-container group-pessoal space-y-1.5 rounded-2xl border border-transparent transition-all ${isPessoalActive ? "active" : ""}`}>
         <button
-          onClick={() => setPessoalOpen(!pessoalOpen)}
+          onClick={() => toggleGroup("pessoal")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <User className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_personal_group", "Pessoal")}</span>
           </div>
-          {pessoalOpen ? (
+          {openGroup === "pessoal" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -594,7 +489,7 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          pessoalOpen,
+          openGroup === "pessoal",
           <>
             {isItemVisible("change-password") && (
             <Link href="/dashboard/personal/change-password" className={linkClass("/dashboard/personal/change-password")}>
@@ -657,14 +552,14 @@ export default function SidebarNav() {
       {isGroupVisible("workspace") && (
       <div className={`menu-group-container group-workspace space-y-1.5 rounded-2xl border border-transparent transition-all ${isWorkspaceActive ? "active" : ""}`}>
         <button
-          onClick={() => setWorkspaceOpen(!workspaceOpen)}
+          onClick={() => toggleGroup("workspace")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <Terminal className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_workspace_group", "Workspace")}</span>
           </div>
-          {workspaceOpen ? (
+          {openGroup === "workspace" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -672,7 +567,7 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          workspaceOpen,
+          openGroup === "workspace",
           <>
             {isItemVisible("marketing-agency") && (
             <Link href="/dashboard/marketing-agency" className={linkClass("/dashboard/marketing-agency")}>
@@ -691,28 +586,6 @@ export default function SidebarNav() {
               <FlaskConical className="h-4 w-4 text-cyan-400" />
               {t("nav_ai_lab", "AI Lab (Multi-Modelo)")}
             </Link>
-            )}
-            {isItemVisible("auto-update") && (
-            <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">
-              <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
-                <Settings className="h-4 w-4 text-rose-400" />
-                {t("nav_auto_update", "Atualização Automática (Daily Engine)")}
-              </Link>
-            </SecureRender>
-            )}
-            {isItemVisible("cloud-lab") && (
-            <Link href="/dashboard/cloud-lab" className={linkClass("/dashboard/cloud-lab")}>
-              <Cloud className="h-4 w-4 text-sky-400" />
-              {t("nav_cloud_lab", "Cloud Lab")}
-            </Link>
-            )}
-            {isItemVisible("content-factory-tools") && (
-            <SecureRender requiredPermission="COURSES_CREATE">
-              <Link href="/dashboard/admin/content-factory-tools" className={linkClass("/dashboard/admin/content-factory-tools")}>
-                <Wand2 className="h-4 w-4 text-violet-400" />
-                {t("nav_content_factory_tools", "Content Factory (Ferramentas)")}
-              </Link>
-            </SecureRender>
             )}
             {isItemVisible("config-company") && (hasPermission("TENANTS_MANAGE") || hasPermission("COMPANY_INFO_UPDATE")) && (
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
@@ -745,14 +618,14 @@ export default function SidebarNav() {
       {isGroupVisible("suporte") && (
       <div className={`menu-group-container group-suporte space-y-1.5 rounded-2xl border border-transparent transition-all ${isSuporteActive ? "active" : ""}`}>
         <button
-          onClick={() => setGuiasOpen(!guiasOpen)}
+          onClick={() => toggleGroup("suporte")}
           className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
         >
           <div className="flex items-center gap-2.5">
             <Compass className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
             <span>{t("nav_guides_group", "Suporte")}</span>
           </div>
-          {guiasOpen ? (
+          {openGroup === "suporte" ? (
             <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -760,7 +633,7 @@ export default function SidebarNav() {
         </button>
 
         {sidebarSection(
-          guiasOpen,
+          openGroup === "suporte",
           <>
             {isItemVisible("user-guide") && (
             <Link href="/dashboard/user-guide" className={linkClass("/dashboard/user-guide")}>
@@ -789,14 +662,14 @@ export default function SidebarNav() {
       {(activeRole === "ADMIN" || activeRole === "SUPORTE" || activeRole === "GESTOR_EMPRESA") && isGroupVisible("relatorios") && (
         <div className={`menu-group-container group-relatorios space-y-1.5 rounded-2xl border border-transparent transition-all ${isRelatoriosActive ? "active" : ""}`}>
           <button
-            onClick={() => setRelatoriosOpen(!relatoriosOpen)}
+            onClick={() => toggleGroup("relatorios")}
             className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
           >
             <div className="flex items-center gap-2.5">
               <FileText className="h-4 w-4 text-indigo-400 group-hover:text-indigo-300 transition-colors" />
               <span>{t("nav_reports_group", "Relatórios")}</span>
             </div>
-            {relatoriosOpen ? (
+            {openGroup === "relatorios" ? (
               <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
             ) : (
               <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -804,7 +677,7 @@ export default function SidebarNav() {
           </button>
 
           {sidebarSection(
-            relatoriosOpen,
+            openGroup === "relatorios",
             <>
               {isItemVisible("rep-students") && (
               <Link href="/dashboard/reports/students" className={linkClass("/dashboard/reports/students")}>
@@ -854,14 +727,14 @@ export default function SidebarNav() {
       {(hasPermission("BACKUP_MANAGE") || hasPermission("API_KEYS_MANAGE") || hasPermission("CHATBOT_MANAGE") || hasPermission("MENUS_MANAGE") || hasPermission("LEVELS_MANAGE") || hasPermission("ROLES_MANAGE") || hasPermission("LOGS_VIEW")) && isGroupVisible("configuracao") && (
         <div className={`menu-group-container group-administracao space-y-1.5 rounded-2xl border border-transparent transition-all ${isAdministracaoActive ? "active" : ""}`}>
           <button
-            onClick={() => setAdministracaoOpen(!administracaoOpen)}
+            onClick={() => toggleGroup("configuracao")}
             className="group-header-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-900 transition-all text-left text-[10px] font-bold uppercase tracking-widest cursor-pointer select-none group"
           >
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="h-4 w-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
               <span>{t("nav_administracao_group", "Configurações")}</span>
             </div>
-            {administracaoOpen ? (
+            {openGroup === "configuracao" ? (
               <ChevronDown className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
             ) : (
               <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-350" />
@@ -869,7 +742,7 @@ export default function SidebarNav() {
           </button>
 
           {sidebarSection(
-            administracaoOpen,
+            openGroup === "configuracao",
             <>
               {isItemVisible("api-keys") && (
               <SecureRender requiredPermission="API_KEYS_MANAGE">

@@ -51,22 +51,25 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "coding-lab", groupId: "aprendizagem", label: "Coding Lab (Prática)", path: "/dashboard/skills/coding-lab" },
   { id: "content-factory", groupId: "aprendizagem", label: "Fábrica de Cursos (IA)", path: "/dashboard/admin/content-factory" },
   { id: "skills-os", groupId: "aprendizagem", label: "Skills OS (Grafo de Competências)", path: "/dashboard/skills" },
+  { id: "cloud-lab", groupId: "aprendizagem", label: "Cloud Lab", path: "/dashboard/cloud-lab" },
+  { id: "content-factory-tools", groupId: "aprendizagem", label: "Content Factory (Ferramentas)", path: "/dashboard/admin/content-factory-tools" },
+  { id: "live-classes", groupId: "aprendizagem", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
+  { id: "community-mentorships", groupId: "aprendizagem", label: "Mentorias", path: "/dashboard/marketplace?tab=mentors" },
+  { id: "training-rooms", groupId: "aprendizagem", label: "Salas de Treino", path: "/dashboard/training-rooms" },
+  { id: "project-showcase", groupId: "aprendizagem", label: "Projetos (Showcase)", path: "/dashboard/project-showcase" },
+  { id: "notifications", groupId: "aprendizagem", label: "Notificações", path: "/dashboard/notifications" },
 
   // Comunicação
-  { id: "live-classes", groupId: "comunicacao", label: "Aulas ao Vivo", path: "/dashboard/live-classes" },
   { id: "community", groupId: "comunicacao", label: "Comunidade", path: "/dashboard/community" },
   { id: "events", groupId: "comunicacao", label: "Eventos", path: "/dashboard/events" },
   { id: "hackathons", groupId: "comunicacao", label: "Hackathons", path: "/dashboard/hackathons" },
   { id: "meetups", groupId: "comunicacao", label: "Meetups", path: "/dashboard/meetups" },
-  { id: "community-mentorships", groupId: "comunicacao", label: "Mentorias", path: "/dashboard/marketplace?tab=mentors" },
   { id: "networking", groupId: "comunicacao", label: "Networking", path: "/dashboard/networking" },
   { id: "groups", groupId: "comunicacao", label: "Grupos", path: "/dashboard/groups" },
   { id: "teams", groupId: "comunicacao", label: "Equipas", path: "/dashboard/teams" },
-  { id: "project-showcase", groupId: "comunicacao", label: "Projetos (Showcase)", path: "/dashboard/project-showcase" },
   { id: "forum", groupId: "comunicacao", label: "Fórum", path: "/dashboard/forum" },
-  { id: "notifications", groupId: "comunicacao", label: "Notificações", path: "/dashboard/notifications" },
-  { id: "training-rooms", groupId: "comunicacao", label: "Salas de Treino", path: "/dashboard/training-rooms" },
   { id: "telegram-ia", groupId: "comunicacao", label: "Telegram IA", path: "/dashboard/personal/telegram-ia" },
+  { id: "auto-update", groupId: "comunicacao", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
 
   // Financeiro
   { id: "subscriptions", groupId: "financeiro", label: "Mensalidades", path: "/dashboard/financial/subscriptions" },
@@ -84,14 +87,11 @@ export const MENU_ITEMS: MenuItemDef[] = [
 
   // Workspace
   { id: "marketing-agency", groupId: "workspace", label: "Agência de Marketing", path: "/dashboard/marketing-agency" },
-  { id: "auto-update", groupId: "workspace", label: "Atualização Automática (Daily Engine)", path: "/dashboard/admin/auto-update" },
   { id: "ai-agents-catalog", groupId: "workspace", label: "AI Agents (Personas Especializadas)", path: "/dashboard/ai-agents" },
   { id: "ai-lab", groupId: "workspace", label: "AI Lab (Multi-Modelo)", path: "/dashboard/ai-lab" },
-  { id: "cloud-lab", groupId: "workspace", label: "Cloud Lab", path: "/dashboard/cloud-lab" },
   { id: "config-company", groupId: "workspace", label: "Configurar Empresa", path: "/dashboard/admin" },
-  { id: "company-marketplace-profile", groupId: "workspace", label: "Perfil de Empresa & Vagas", path: "/dashboard/admin/company-profile" },
-  { id: "content-factory-tools", groupId: "workspace", label: "Content Factory (Ferramentas)", path: "/dashboard/admin/content-factory-tools" },
   { id: "hr-console", groupId: "workspace", label: "Gestão de RH", path: "/dashboard/admin/hr" },
+  { id: "job-postings", groupId: "workspace", label: "Vagas de Emprego", path: "/dashboard/admin/job-postings" },
 
   // Suporte
   { id: "user-guide", groupId: "suporte", label: "Guia de Utilização", path: "/dashboard/user-guide" },

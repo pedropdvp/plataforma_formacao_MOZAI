@@ -1627,12 +1627,22 @@ export default function MarketplacePage() {
   return (
     <div className="space-y-8 workspace-page-container">
       <div>
+        {/* Esta página serve duas entradas do menu: "Marketplace" e "Mentorias", que abre
+            aqui já na aba dos mentores (?tab=mentors). Com um título fixo, quem clicava em
+            Mentorias aterrava num ecrã intitulado "AI Marketplace" e parecia ter-se enganado
+            no menu — o cabeçalho acompanha a aba. */}
         <h1 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
-          <Store className="h-6 w-6 text-indigo-400" />
-          AI Marketplace
+          {tab === "mentors" ? (
+            <Users className="h-6 w-6 text-indigo-400" />
+          ) : (
+            <Store className="h-6 w-6 text-indigo-400" />
+          )}
+          {tab === "mentors" ? "Mentorias" : "AI Marketplace"}
         </h1>
         <p className="text-sm text-slate-400">
-          Cursos publicados por outras organizações e mentores disponíveis para apoiar o seu percurso.
+          {tab === "mentors"
+            ? "Mentores disponíveis para apoiar o seu percurso, e a gestão dos seus pedidos de mentoria."
+            : "Cursos publicados por outras organizações e mentores disponíveis para apoiar o seu percurso."}
         </p>
       </div>
 

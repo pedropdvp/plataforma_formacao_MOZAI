@@ -1,0 +1,9 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "MOZAI" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Aceda ao seu Sistema Operativo de Aprendizagem
+    - generic [ref=e7]:
+      - button "Acesso Geral" [ref=e8]
+      - button "SSO Corporativo" [ref=e9]
+  - alert [ref=e10]
