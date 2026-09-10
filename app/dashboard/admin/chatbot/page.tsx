@@ -28,6 +28,10 @@ interface TenantStats {
   conversations7d: number;
   estimatedCostEur: number;
   perDay: { day: string; messages: number }[];
+  byLang: { lang: string; count: number }[];
+  cacheHits: number;
+  topQuestions: { question: string; hits: number; lang: string }[];
+  ragChunks: number;
 }
 
 interface CompanyStats extends TenantStats {
@@ -58,6 +62,14 @@ export default function ChatbotPage() {
 
   const [ownStats, setOwnStats] = useState<TenantStats | null>(null);
   const [companyStats, setCompanyStats] = useState<CompanyStats[]>([]);
+  /** Preço por milhão de tokens usado nas estimativas, vindo do servidor. */
+  const [pricePerMTok, setPricePerMTok] = useState(0.28);
+
+  /** Sugestões da conversa vazia, por idioma. Editadas como texto (uma por linha), que é
+   *  mais rápido de rever do que uma lista de campos. */
+  const [suggestions, setSuggestions] = useState<Record<string, string>>({ pt: "", en: "", fr: "" });
+  const [savingSuggestions, setSavingSuggestions] = useState(false);
+  const [suggestionsMsg, setSuggestionsMsg] = useState<string | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
 
   const fetchStatus = async () => {
@@ -84,6 +96,7 @@ export default function ChatbotPage() {
         const data = await res.json();
         setOwnStats(data.own || null);
         setCompanyStats(data.companies || []);
+        if (typeof data.pricePerMTokEur === "number") setPricePerMTok(data.pricePerMTokEur);
       }
     } catch (err) {
       console.error("Erro ao ler as estatísticas do ChatBot:", err);
@@ -92,9 +105,56 @@ export default function ChatbotPage() {
     }
   };
 
+  /** Lê as sugestões dos três idiomas para o editor. */
+  const fetchSuggestions = async () => {
+    const langs = ["pt", "en", "fr"] as const;
+    try {
+      const resultados = await Promise.all(
+        langs.map((lang) =>
+          fetch(`/api/chatbot/suggestions?lang=${lang}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null)
+        )
+      );
+      const proximo: Record<string, string> = {};
+      langs.forEach((lang, i) => {
+        proximo[lang] = (resultados[i]?.suggestions || []).join("\n");
+      });
+      setSuggestions(proximo);
+    } catch (err) {
+      console.error("Erro ao ler as sugestões do ChatBot:", err);
+    }
+  };
+
+  const saveSuggestions = async () => {
+    setSavingSuggestions(true);
+    setSuggestionsMsg(null);
+    try {
+      const payload: Record<string, string[]> = {};
+      for (const [lang, texto] of Object.entries(suggestions)) {
+        payload[lang] = texto
+          .split("\n")
+          .map((l) => l.trim())
+          .filter(Boolean);
+      }
+      const res = await fetch("/api/chatbot/suggestions", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suggestions: payload }),
+      });
+      setSuggestionsMsg(res.ok ? "Sugestões guardadas." : "Erro ao guardar as sugestões.");
+      if (res.ok) await fetchSuggestions();
+    } catch {
+      setSuggestionsMsg("Erro de comunicação ao guardar.");
+    } finally {
+      setSavingSuggestions(false);
+    }
+  };
+
   useEffect(() => {
     if (canAccess) {
       fetchStatus();
+      fetchSuggestions();
       fetchStats();
     }
   }, [canAccess]);
@@ -316,6 +376,61 @@ export default function ChatbotPage() {
                   <StatCard label="Custo Estimado" value={`${ownStats.estimatedCostEur.toFixed(2)} €`} />
                 </div>
 
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <StatCard label="Conversas (7 dias)" value={ownStats.conversations7d} />
+                  <StatCard label="Respostas da Cache" value={ownStats.cacheHits} />
+                  <StatCard label="Blocos de Conhecimento" value={ownStats.ragChunks} />
+                  <StatCard
+                    label="Poupança da Cache"
+                    value={`${(((ownStats.cacheHits * (ownStats.assistantMessages ? ownStats.totalTokens / ownStats.assistantMessages : 0)) / 1_000_000) * pricePerMTok).toFixed(2)} €`}
+                  />
+                </div>
+
+                {ownStats.byLang.length > 1 && (
+                  <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      Conversas por idioma
+                    </h3>
+                    <div className="space-y-1.5">
+                      {ownStats.byLang.map((l) => {
+                        const max = Math.max(...ownStats.byLang.map((x) => x.count), 1);
+                        return (
+                          <div key={l.lang} className="flex items-center gap-2.5">
+                            <span className="text-[10px] text-slate-500 w-16 shrink-0 uppercase">{l.lang}</span>
+                            <div className="flex-1 h-2 rounded-full bg-slate-900 overflow-hidden">
+                              <div className="h-full bg-emerald-500/60 rounded-full" style={{ width: `${(l.count / max) * 100}%` }} />
+                            </div>
+                            <span className="text-[10px] text-slate-400 w-6 text-right shrink-0">{l.count}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {ownStats.topQuestions.length > 0 && (
+                  <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-2">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      Perguntas mais frequentes
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Perguntas já respondidas que voltaram a ser feitas. Cada repetição foi servida
+                      da cache, sem custo — e diz-lhe o que vale a pena esclarecer no material.
+                    </p>
+                    <div className="space-y-1">
+                      {ownStats.topQuestions.map((q) => (
+                        <div key={`${q.lang}-${q.question}`} className="flex items-center gap-2.5 text-[11px]">
+                          <span className="text-[9px] text-slate-600 uppercase w-6 shrink-0">{q.lang}</span>
+                          <span className="flex-1 text-slate-300 truncate" title={q.question}>
+                            {q.question}
+                          </span>
+                          <span className="text-amber-400 font-semibold shrink-0">{q.hits}×</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {ownStats.perDay.length > 0 && (
                   <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-2">
                     <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
@@ -345,6 +460,14 @@ export default function ChatbotPage() {
               <p className="text-xs text-slate-500 italic py-4">Ainda não há dados de utilização.</p>
             )}
 
+            <SuggestionsEditor
+              value={suggestions}
+              onChange={(lang, text) => setSuggestions((prev) => ({ ...prev, [lang]: text }))}
+              onSave={saveSuggestions}
+              saving={savingSuggestions}
+              message={suggestionsMsg}
+            />
+
             {isAdmin && companyStats.length > 0 && (
               <div className="space-y-2.5">
                 <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Por Empresa</h3>
@@ -365,6 +488,61 @@ export default function ChatbotPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SuggestionsEditor({
+  value,
+  onChange,
+  onSave,
+  saving,
+  message,
+}: {
+  value: Record<string, string>;
+  onChange: (lang: string, text: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  message: string | null;
+}) {
+  const LABELS: Record<string, string> = { pt: "Português", en: "English", fr: "Français" };
+  return (
+    <div className="border border-slate-900 bg-slate-950/40 rounded-2xl p-4 space-y-3">
+      <div>
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          Perguntas sugeridas do assistente
+        </h3>
+        <p className="text-[10px] text-slate-500 mt-1">
+          Aparecem quando a conversa está vazia. Uma por linha, no máximo seis por idioma.
+          Deixar em branco repõe as de origem.
+        </p>
+      </div>
+      <div className="grid sm:grid-cols-3 gap-2.5">
+        {(["pt", "en", "fr"] as const).map((lang) => (
+          <div key={lang} className="space-y-1">
+            <label htmlFor={`sug-${lang}`} className="text-[10px] font-semibold text-slate-400">
+              {LABELS[lang]}
+            </label>
+            <textarea
+              id={`sug-${lang}`}
+              value={value[lang] || ""}
+              onChange={(e) => onChange(lang, e.target.value)}
+              rows={5}
+              className="w-full px-2.5 py-2 rounded-xl border border-slate-800 bg-slate-950 text-white text-[11px] focus:border-indigo-500 focus:outline-none resize-none"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="h-8 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-[11px] font-semibold text-white cursor-pointer disabled:opacity-55"
+        >
+          {saving ? "A guardar..." : "Guardar sugestões"}
+        </button>
+        {message && <span className="text-[10px] text-slate-400">{message}</span>}
+      </div>
     </div>
   );
 }

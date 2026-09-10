@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTopCachedQuestions, countCacheHits, type CachedQuestion } from "@/lib/chatbot-cache";
+import { getChatbotBriefingId } from "@/lib/chatbot-documents";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
@@ -18,6 +20,14 @@ interface TenantStats {
   conversations7d: number;
   estimatedCostEur: number;
   perDay: { day: string; messages: number }[];
+  /** Conversas por idioma — só existe para conversas posteriores ao registo do idioma. */
+  byLang: { lang: string; count: number }[];
+  /** Respostas servidas pela cache: chamadas ao modelo que não chegaram a acontecer. */
+  cacheHits: number;
+  /** Perguntas mais reaproveitadas, da cache. */
+  topQuestions: CachedQuestion[];
+  /** Blocos de conhecimento indexados e disponíveis ao ChatBot deste tenant. */
+  ragChunks: number;
 }
 
 async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
@@ -27,6 +37,23 @@ async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const conversations7d = conversations.filter((c: any) => c.createdAt && c.createdAt > sevenDaysAgo).length;
+
+  // Conversas por idioma. As anteriores a esta funcionalidade não têm `lang` guardado e
+  // contam como "pt", que era o único idioma que o ChatBot falava até aqui.
+  const langMap = new Map<string, number>();
+  for (const c of conversations as { lang?: string }[]) {
+    const lang = c.lang || "pt";
+    langMap.set(lang, (langMap.get(lang) || 0) + 1);
+  }
+  const byLang = [...langMap.entries()]
+    .sort(([, a], [, b]) => b - a)
+    .map(([lang, count]) => ({ lang, count }));
+
+  const [cacheHits, topQuestions, ragChunks] = await Promise.all([
+    countCacheHits(tenantId),
+    getTopCachedQuestions(tenantId),
+    contarRagChunks(tenantId),
+  ]);
 
   if (conversationIds.length === 0) {
     return {
@@ -38,6 +65,10 @@ async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
       conversations7d,
       estimatedCostEur: 0,
       perDay: [],
+      byLang,
+      cacheHits,
+      topQuestions,
+      ragChunks,
     };
   }
 
@@ -74,7 +105,25 @@ async function computeStatsForTenant(tenantId: string): Promise<TenantStats> {
     conversations7d,
     estimatedCostEur: Number(((totalTokens / 1_000_000) * PRICE_EUR_PER_MTOK).toFixed(4)),
     perDay,
+    byLang,
+    cacheHits,
+    topQuestions,
+    ragChunks,
   };
+}
+
+/**
+ * Blocos de conhecimento ao alcance do ChatBot deste tenant: os da plataforma mais os da
+ * própria empresa. São os dois que o motor consulta ao responder (ver `streamChatbotAnswer`),
+ * por isso contar só um dos lados daria um número que não corresponde ao que o assistente
+ * realmente sabe.
+ */
+async function contarRagChunks(tenantId: string): Promise<number> {
+  const db = await getDb();
+  const briefings = tenantId === "root"
+    ? [getChatbotBriefingId("root")]
+    : [getChatbotBriefingId("root"), getChatbotBriefingId(tenantId)];
+  return db.collection("uploaded_chunks").countDocuments({ briefingId: { $in: briefings } });
 }
 
 /**

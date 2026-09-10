@@ -16,6 +16,7 @@ import {
   getRecentMessages,
   addMessage,
   setTitleIfEmpty,
+  setConversationLang,
   getConversationState,
   getMessagesAfter,
   setSummary,
@@ -168,6 +169,8 @@ export async function POST(req: NextRequest) {
   }
 
   const storedMessage = file ? (message ? `${message} [anexo: ${file.name}]` : `[anexo: ${file.name}]`) : message;
+
+  await setConversationLang(conversationId, lang);
 
   if (regenerate) {
     // A pergunta já está guardada de quando foi feita — só se apaga a resposta anterior,

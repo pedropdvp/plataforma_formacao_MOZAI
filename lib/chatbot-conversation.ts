@@ -230,3 +230,18 @@ export async function deleteLastAssistantMessage(conversationId: string): Promis
   await db.collection("chatbot_messages").deleteOne({ _id: ultima[0]._id });
   return true;
 }
+
+/**
+ * Regista o idioma em que a conversa está a decorrer.
+ *
+ * Sem isto não há como responder à pergunta "em que línguas nos procuram?" — as mensagens
+ * não guardam idioma nenhum, e o painel não tinha por onde o contar. Fica na conversa e
+ * não na mensagem porque é a conversa que tem uma língua; trocar a meio é raro e o valor
+ * mais recente é o que interessa.
+ */
+export async function setConversationLang(conversationId: string, lang: string): Promise<void> {
+  const _id = toObjectId(conversationId);
+  if (!_id) return;
+  const db = await getDb();
+  await db.collection("chatbot_conversations").updateOne({ _id }, { $set: { lang } });
+}
