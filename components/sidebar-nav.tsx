@@ -33,6 +33,7 @@ import {
   User,
   GraduationCap,
   Key,
+  KeyRound,
   FileText,
   Building,
   Activity,
@@ -771,6 +772,12 @@ export default function SidebarNav() {
           {sidebarSection(
             openGroup === "configuracao",
             <>
+              {isItemVisible("env-check") && activeRole === "ADMIN" && (
+              <Link href="/dashboard/admin/env-check" className={linkClass("/dashboard/admin/env-check")}>
+                <KeyRound className="h-4 w-4 text-orange-400" />
+                {t("nav_env_check", "Variáveis de Ambiente")}
+              </Link>
+              )}
               {isItemVisible("api-keys") && (
               <SecureRender requiredPermission="API_KEYS_MANAGE">
                 <Link href="/dashboard/admin/api-keys" className={linkClass("/dashboard/admin/api-keys")}>

@@ -112,6 +112,14 @@ export default clerkMiddleware(async (auth, req) => {
 
         // Menus (Configuração > Menus): gestão de visibilidade é exclusiva de ADMIN/SUPORTE
 
+        // Variáveis de Ambiente: só ADMIN. Nem o SUPORTE — saber que variáveis existem e
+        // como estão preenchidas é informação de infraestrutura, e a página tem o botão
+        // que revela segredos.
+        if (path.startsWith("/dashboard/admin/env-check") && activeRole !== "ADMIN") {
+          url.pathname = "/dashboard";
+          return NextResponse.redirect(url);
+        }
+
         if (!allowedRoles.includes(activeRole)) {
           // Utilizador não autorizado, redireciona para a raiz do dashboard
           url.pathname = "/dashboard";

@@ -114,6 +114,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "plugins", groupId: "configuracao", label: "Plugins", path: "/dashboard/admin/plugins" },
   { id: "compliance", groupId: "configuracao", label: "Compliance (RGPD)", path: "/dashboard/admin/compliance" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
+  { id: "env-check", groupId: "configuracao", label: "Variáveis de Ambiente", path: "/dashboard/admin/env-check" },
   { id: "levels", groupId: "configuracao", label: "Níveis", path: "/dashboard/admin/levels" },
   { id: "access-profiles", groupId: "configuracao", label: "Perfis de acesso", path: "/dashboard/admin/roles" },
 ];

@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   // caminho relativo fique quebrado (erro "Setting up fake worker failed: Cannot find
   // module ...pdf.worker.mjs"), usando a resolução nativa de módulos do Node em runtime.
   serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
+  // O diagnóstico de variáveis lê o catálogo do `.env.example` em runtime. Um ficheiro que
+  // ninguém importa não entra no bundle da função serverless — sem isto, a página
+  // funcionaria em desenvolvimento e ficaria sem lista nenhuma em produção.
+  outputFileTracingIncludes: {
+    "/api/admin/env-check": ["./.env.example"],
+  },
   // @vercel/blob importa fetch de "undici" (só Node) sem nenhuma condição "browser" no seu
   // package.json — no bundle do cliente isso ficava pendurado para sempre em vez de fazer o
   // pedido real, impedindo silenciosamente o upload de PDF/PPTX. Substitui-se "undici" pelo

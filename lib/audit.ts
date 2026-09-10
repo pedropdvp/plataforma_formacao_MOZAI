@@ -53,3 +53,37 @@ export async function logAuditEvent(
     console.error("Erro ao inserir log de auditoria no MongoDB:", error);
   }
 }
+
+/**
+ * Igual a {@link logAuditEvent}, mas **propaga o erro** em vez de o engolir.
+ *
+ * Existe para as acções em que o registo é a condição da acção, e não um extra: revelar
+ * o valor de um segredo, por exemplo. Um segredo mostrado sem deixar rasto é pior do que
+ * um segredo não mostrado — quem quiser auditar um incidente depois não terá por onde
+ * começar. Nesses casos, falhar a gravar tem de impedir a operação.
+ */
+export async function logAuditEventStrict(
+  userId: string,
+  action: string,
+  metadata: Record<string, unknown> = {}
+): Promise<void> {
+  const db = await getDb();
+  const user = await db.collection("users").findOne({ _id: userId });
+  const userName = user ? `${user.firstName} ${user.lastName}`.trim() : "Utilizador Desconhecido";
+  const userEmail = user ? user.email : "desconhecido@mozai.education";
+  const tenantId = (metadata.tenantId as string) || user?.tenants?.[0]?.tenantId || "root";
+
+  const resultado = await db.collection("audit_logs").insertOne({
+    userId,
+    userName,
+    userEmail,
+    tenantId,
+    action,
+    description: (metadata.description as string) || `${action} executado por ${userName}`,
+    metadata,
+    timestamp: new Date(),
+  });
+  if (!resultado.acknowledged) {
+    throw new Error("O registo de auditoria não foi confirmado pela base de dados.");
+  }
+}
