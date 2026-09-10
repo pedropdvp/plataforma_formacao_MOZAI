@@ -1,5 +1,5 @@
 import { openai, createOpenAI } from "@ai-sdk/openai";
-import { streamText, type ModelMessage, type UserContent } from "ai";
+import { streamText, generateText, type ModelMessage, type UserContent } from "ai";
 import { searchUploadedMaterials } from "@/lib/ai/generator-engine";
 import { getChatbotBriefingId } from "@/lib/chatbot-documents";
 
@@ -8,7 +8,20 @@ function resolveOpenAiProvider(apiKey?: string) {
 }
 
 const BASE_SYSTEM_PROMPT = `És o assistente virtual da MOZAI, uma plataforma de formação com Inteligência Artificial.
-Respondes sempre em Português de Portugal, de forma clara, simpática e concisa.`;
+Respondes de forma clara, simpática e concisa.`;
+
+/** Idiomas em que o assistente responde. O português é o de omissão da plataforma. */
+export const CHATBOT_LANGS = {
+  pt: { label: "Português", instruction: "Responde sempre em Português de Portugal.", voice: "pt-PT" },
+  en: { label: "English", instruction: "Always reply in English.", voice: "en-GB" },
+  fr: { label: "Français", instruction: "Réponds toujours en français.", voice: "fr-FR" },
+} as const;
+
+export type ChatbotLang = keyof typeof CHATBOT_LANGS;
+
+export function isChatbotLang(value: unknown): value is ChatbotLang {
+  return typeof value === "string" && value in CHATBOT_LANGS;
+}
 
 /**
  * Personas especializadas do assistente — cada uma ajusta o tom e o foco da resposta,
@@ -64,6 +77,11 @@ export async function streamChatbotAnswer(opts: {
   attachmentName?: string;
   webSearch?: boolean;
   persona?: ChatbotPersonaId;
+  lang?: ChatbotLang;
+  /** Resumo da parte antiga da conversa, quando já foi resumida. */
+  summary?: string | null;
+  /** 0 = determinista, 1 = criativo. Omitido usa o valor por omissão do modelo. */
+  temperature?: number;
   onFinish?: (fullText: string, totalTokens: number) => void | Promise<void>;
   onError?: (error: unknown) => void | Promise<void>;
 }) {
@@ -111,6 +129,7 @@ export async function streamChatbotAnswer(opts: {
     model: provider("gpt-4o-mini"),
     system,
     messages,
+    ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
     tools: opts.webSearch ? { web_search: provider.tools.webSearch() } : undefined,
     onFinish: async ({ text, usage }) => {
       if (text && text.trim()) await opts.onFinish?.(text, usage?.totalTokens || 0);
@@ -120,4 +139,51 @@ export async function streamChatbotAnswer(opts: {
       await opts.onError?.(error);
     },
   });
+}
+
+/**
+ * Condensa a parte antiga de uma conversa num resumo curto.
+ *
+ * Serve o custo, não a experiência: em vez de reenviar dezenas de mensagens a cada
+ * pergunta, envia-se este parágrafo. Usa o modelo mais barato e um tecto de tokens
+ * baixo — um resumo que custasse como a conversa que substitui não resolvia nada.
+ *
+ * Devolve `null` em caso de falha: ficar sem resumo é aceitável (a conversa continua a
+ * funcionar com o histórico recente), rebentar a resposta ao utilizador não é.
+ */
+export async function summarizeConversation(opts: {
+  messages: { role: "user" | "assistant"; content: string }[];
+  previousSummary?: string | null;
+  lang?: ChatbotLang;
+  apiKey: string;
+}): Promise<string | null> {
+  if (!opts.messages.length) return null;
+  const provider = resolveOpenAiProvider(opts.apiKey);
+  const transcricao = opts.messages
+    .map((m) => `${m.role === "user" ? "Utilizador" : "Assistente"}: ${m.content}`)
+    .join("\n");
+
+  try {
+    const { text } = await generateText({
+      model: provider("gpt-4o-mini"),
+      temperature: 0.2,
+      maxOutputTokens: 350,
+      system: `Resumes conversas para servirem de memória a um assistente.
+${CHATBOT_LANGS[opts.lang || "pt"].instruction}
+Escreve um parágrafo único e factual com o essencial: o que o utilizador quer, o que já
+lhe foi respondido e as decisões ou preferências que ficaram assentes. Não faças
+comentários sobre o resumo nem uses listas.`,
+      prompt: opts.previousSummary
+        ? `Resumo até agora:
+${opts.previousSummary}
+
+Novas mensagens a integrar:
+${transcricao}`
+        : transcricao,
+    });
+    return text.trim() || null;
+  } catch (error) {
+    console.error("[chatbot-engine] falha ao resumir a conversa:", error);
+    return null;
+  }
 }

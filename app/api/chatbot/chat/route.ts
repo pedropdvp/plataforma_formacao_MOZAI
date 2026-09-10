@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
-import { streamChatbotAnswer, CHATBOT_PERSONAS, type ChatbotPersonaId } from "@/lib/ai/chatbot-engine";
+import {
+  streamChatbotAnswer,
+  summarizeConversation,
+  CHATBOT_PERSONAS,
+  isChatbotLang,
+  type ChatbotPersonaId,
+  type ChatbotLang,
+} from "@/lib/ai/chatbot-engine";
 import { extractPdfContent } from "@/lib/pdf-extract";
 import {
   createConversation,
@@ -9,12 +16,22 @@ import {
   getRecentMessages,
   addMessage,
   setTitleIfEmpty,
+  getConversationState,
+  getMessagesAfter,
+  setSummary,
+  deleteLastAssistantMessage,
 } from "@/lib/chatbot-conversation";
+import { getCachedAnswer, putCachedAnswer, isCacheable } from "@/lib/chatbot-cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const MAX_MESSAGE_LEN = 2000;
+/** Acima de quantas mensagens por resumir se condensa a parte antiga da conversa. */
+const SUMMARY_TRIGGER = Number(process.env.CHATBOT_SUMMARY_TRIGGER || 16);
+/** Quantas mensagens recentes ficam sempre fora do resumo, para o contexto imediato não
+ *  se perder numa paráfrase. */
+const SUMMARY_KEEP = Number(process.env.CHATBOT_SUMMARY_KEEP || 8);
 const ALLOWED_FILE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
 const MAX_FILE_B64 = 3_800_000; // ~2.8 MB de ficheiro original
 
@@ -48,11 +65,51 @@ function isOpenAIQuotaError(error: unknown): boolean {
   });
 }
 
-function buildErrorNotice(error: unknown): string {
-  if (isOpenAIQuotaError(error)) {
-    return "Ocorreu um erro ao gerar a resposta. Necessário adicionar crédito à conta da API na OpenAI.";
-  }
-  return "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes.";
+/** A forma dos erros do AI SDK que aqui interessa inspeccionar. */
+interface ErroDoModelo {
+  statusCode?: number;
+  data?: unknown;
+  responseBody?: unknown;
+  message?: unknown;
+}
+
+/** Um problema de chave/configuração — distinto de falta de crédito, e com outra solução. */
+function isOpenAIAuthError(error: unknown): boolean {
+  const e = (error || {}) as ErroDoModelo;
+  const texto = JSON.stringify(e.data ?? e.responseBody ?? e.message ?? "").toLowerCase();
+  return e.statusCode === 401 || e.statusCode === 403 || texto.includes("invalid_api_key") || texto.includes("api key");
+}
+
+/**
+ * Mensagens de erro que o utilizador possa ler.
+ *
+ * Um 429 cru da OpenAI não diz nada a um aluno, e expor a mensagem interna do fornecedor
+ * é dar detalhes de infraestrutura a quem não os deve ver. Três categorias chegam: falta
+ * de crédito, problema de configuração, e o resto.
+ */
+function buildErrorNotice(error: unknown, lang: ChatbotLang = "pt"): string {
+  const msgs = {
+    pt: {
+      quota: "Ocorreu um erro ao gerar a resposta. Necessário adicionar crédito à conta da API na OpenAI.",
+      auth: "Há um problema de configuração do serviço. Por favor contacte o administrador da plataforma.",
+      generic: "Ocorreu um erro ao gerar a resposta. Tente novamente dentro de instantes.",
+    },
+    en: {
+      quota: "I could not generate the reply: the OpenAI API account needs credit.",
+      auth: "There is a service configuration problem. Please contact the platform administrator.",
+      generic: "An error occurred while generating the reply. Please try again shortly.",
+    },
+    fr: {
+      quota: "Impossible de générer la réponse : le compte de l'API OpenAI a besoin de crédit.",
+      auth: "Il y a un problème de configuration du service. Veuillez contacter l'administrateur.",
+      generic: "Une erreur est survenue lors de la génération de la réponse. Veuillez réessayer.",
+    },
+  } as const;
+
+  const t = msgs[lang] || msgs.pt;
+  if (isOpenAIQuotaError(error)) return t.quota;
+  if (isOpenAIAuthError(error)) return t.auth;
+  return t.generic;
 }
 
 function validateFile(file: any): ChatFile | null {
@@ -83,6 +140,14 @@ export async function POST(req: NextRequest) {
   const webSearch = body.webSearch === true;
   const file = validateFile(body.file);
   const persona: ChatbotPersonaId = body.persona in CHATBOT_PERSONAS ? body.persona : "assistente";
+  const lang: ChatbotLang = isChatbotLang(body.lang) ? body.lang : "pt";
+  const regenerate = body.regenerate === true;
+  // Criatividade opcional. Fora de 0..1 é fixada no intervalo em vez de recusada: um
+  // valor absurdo vindo do cliente não deve impedir a resposta.
+  const temperature =
+    typeof body.temperature === "number" && Number.isFinite(body.temperature)
+      ? Math.min(1, Math.max(0, body.temperature))
+      : undefined;
 
   if (!message && !file) {
     return NextResponse.json({ error: "Mensagem em falta." }, { status: 400 });
@@ -103,8 +168,15 @@ export async function POST(req: NextRequest) {
   }
 
   const storedMessage = file ? (message ? `${message} [anexo: ${file.name}]` : `[anexo: ${file.name}]`) : message;
-  await addMessage(conversationId, "user", storedMessage);
-  await setTitleIfEmpty(conversationId, storedMessage);
+
+  if (regenerate) {
+    // A pergunta já está guardada de quando foi feita — só se apaga a resposta anterior,
+    // para a nova ocupar o lugar dela em vez de a conversa ficar com duas seguidas.
+    await deleteLastAssistantMessage(conversationId);
+  } else {
+    await addMessage(conversationId, "user", storedMessage);
+    await setTitleIfEmpty(conversationId, storedMessage);
+  }
 
   const apiKey = await resolveOpenAIKeyForTenant(tenantId);
   if (!apiKey) {
@@ -135,7 +207,35 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const history = (await getRecentMessages(conversationId)).slice(0, -1); // exclui a pergunta atual (já vai como `message`)
+    // Memória da conversa: o que já foi resumido entra como `summary`; o resto vai como
+    // histórico, limitado a MAX_HISTORY. Ao regenerar, a última pergunta continua na lista
+    // (não foi apagada) e tem de sair, senão ia duas vezes ao modelo.
+    const { summary } = await getConversationState(conversationId);
+    const recentes = await getRecentMessages(conversationId);
+    const history = recentes.filter((m, i) => !(i === recentes.length - 1 && m.role === "user"));
+
+    const podeUsarCache = isCacheable({
+      historyLength: history.length,
+      hasSummary: !!summary,
+      hasAttachment: !!file,
+      webSearch,
+      regenerate,
+      message,
+    });
+
+    if (podeUsarCache) {
+      const cached = await getCachedAnswer(tenantId, lang, message);
+      if (cached) {
+        await addMessage(conversationId, "assistant", cached, 0);
+        return new Response(cached, {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "X-Conversation-Id": conversationId,
+            "X-Chatbot-Cached": "1",
+          },
+        });
+      }
+    }
 
     let errorHandled = false;
     const result = await streamChatbotAnswer({
@@ -148,21 +248,59 @@ export async function POST(req: NextRequest) {
       attachmentName: file?.name,
       webSearch,
       persona,
-      onFinish: (full, totalTokens) => addMessage(conversationId, "assistant", full, totalTokens),
+      lang,
+      summary,
+      temperature,
+      onFinish: async (full, totalTokens) => {
+        await addMessage(conversationId, "assistant", full, totalTokens);
+        if (podeUsarCache) await putCachedAnswer(tenantId, lang, message, full);
+        // O resumo corre depois de a resposta já ter sido servida — nunca a atrasa.
+        await maybeSummarize(conversationId, lang, apiKey);
+      },
       onError: (error) => {
         if (errorHandled) return;
         errorHandled = true;
-        return addMessage(conversationId, "assistant", buildErrorNotice(error));
+        return addMessage(conversationId, "assistant", buildErrorNotice(error, lang));
       },
     });
 
     return result.toTextStreamResponse({ headers: { "X-Conversation-Id": conversationId } });
   } catch (err: any) {
     console.error("[chatbot] erro ao gerar resposta:", err?.message || err);
-    const notice = buildErrorNotice(err);
+    const notice = buildErrorNotice(err, lang);
     await addMessage(conversationId, "assistant", notice);
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "X-Conversation-Id": conversationId },
     });
+  }
+}
+
+/**
+ * Se a conversa acumulou mensagens a mais por resumir, condensa as mais antigas e guarda
+ * o resumo — as perguntas seguintes passam a enviar esse parágrafo em vez de dezenas de
+ * mensagens.
+ *
+ * Falhar aqui é aceitável e por isso o erro é engolido: a conversa continua a funcionar
+ * com o histórico recente, e rebentar depois de a resposta já ter sido enviada ao
+ * utilizador não corrigiria nada.
+ */
+async function maybeSummarize(conversationId: string, lang: ChatbotLang, apiKey: string): Promise<void> {
+  try {
+    const { summary, summarizedUntil } = await getConversationState(conversationId);
+    const pendentes = await getMessagesAfter(conversationId, summarizedUntil);
+    if (pendentes.length <= SUMMARY_TRIGGER) return;
+
+    const aResumir = pendentes.slice(0, pendentes.length - SUMMARY_KEEP);
+    if (!aResumir.length) return;
+
+    const novo = await summarizeConversation({
+      messages: aResumir.map((m) => ({ role: m.role, content: m.content })),
+      previousSummary: summary,
+      lang,
+      apiKey,
+    });
+    if (novo) await setSummary(conversationId, novo, aResumir[aResumir.length - 1].createdAt);
+  } catch (error) {
+    console.error("[chatbot] falha na sumarização:", error);
   }
 }

@@ -15,6 +15,7 @@ import {
   Trash2,
   Pencil,
   Star,
+  RefreshCw,
 } from "lucide-react";
 
 interface Message {
@@ -39,6 +40,48 @@ const OK_FILE_TYPES = ["image/png", "image/jpeg", "image/webp", "application/pdf
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 const STORAGE_KEY = "mozai-chatbot-conversation";
 
+type LangId = "pt" | "en" | "fr";
+
+/** Idiomas do assistente. `voice` serve tanto o reconhecimento de fala como a leitura em
+ *  voz alta, que antes estavam fixos em pt-PT independentemente da língua da resposta. */
+const LANGS: Record<LangId, { label: string; voice: string }> = {
+  pt: { label: "PT", voice: "pt-PT" },
+  en: { label: "EN", voice: "en-GB" },
+  fr: { label: "FR", voice: "fr-FR" },
+};
+
+/** Rótulos da interface por idioma — de pouco servia responder em inglês com os botões
+ *  todos em português. */
+const UI_TEXT: Record<LangId, Record<string, string>> = {
+  pt: {
+    placeholder: "Escreva a sua pergunta...",
+    regenerate: "Regenerar resposta",
+    creativity: "Criatividade",
+    precise: "Preciso",
+    creative: "Criativo",
+    commError: "Erro de comunicação. Tente novamente.",
+    genericError: "Ocorreu um erro. Tente novamente.",
+  },
+  en: {
+    placeholder: "Type your question...",
+    regenerate: "Regenerate answer",
+    creativity: "Creativity",
+    precise: "Precise",
+    creative: "Creative",
+    commError: "Communication error. Please try again.",
+    genericError: "An error occurred. Please try again.",
+  },
+  fr: {
+    placeholder: "Écrivez votre question...",
+    regenerate: "Régénérer la réponse",
+    creativity: "Créativité",
+    precise: "Précis",
+    creative: "Créatif",
+    commError: "Erreur de communication. Veuillez réessayer.",
+    genericError: "Une erreur est survenue. Veuillez réessayer.",
+  },
+};
+
 export default function ChatbotWidget() {
   const [open, setOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -55,6 +98,11 @@ export default function ChatbotWidget() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [webSearchOn, setWebSearchOn] = useState(false);
   const [persona, setPersona] = useState("assistente");
+  const [lang, setLang] = useState<LangId>("pt");
+  const [temperature, setTemperature] = useState(0.5);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  /** Guardada para o botão "Regenerar" poder reenviar a mesma pergunta. */
+  const lastQuestionRef = useRef<string>("");
 
   const [recognizing, setRecognizing] = useState(false);
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
@@ -83,6 +131,22 @@ export default function ChatbotWidget() {
   useEffect(() => {
     if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight;
   }, [messages, sending]);
+
+  // Sugestões do idioma activo. Falhar aqui não é motivo para avisar ninguém — o chat
+  // continua utilizável sem elas, só sem atalhos.
+  useEffect(() => {
+    if (!open) return;
+    let cancelado = false;
+    fetch(`/api/chatbot/suggestions?lang=${lang}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelado && Array.isArray(data?.suggestions)) setSuggestions(data.suggestions);
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [open, lang]);
 
   const loadConversation = async (id: string) => {
     try {
@@ -177,7 +241,7 @@ export default function ChatbotWidget() {
       return;
     }
     const recog = new SR();
-    recog.lang = "pt-PT";
+    recog.lang = LANGS[lang].voice;
     recog.continuous = false;
     recog.interimResults = true;
     recog.onstart = () => setRecognizing(true);
@@ -204,7 +268,7 @@ export default function ChatbotWidget() {
     synth.cancel();
     const clean = text.replace(/[#*_`>~]+/g, " ").replace(/\s+/g, " ").trim();
     const u = new SpeechSynthesisUtterance(clean);
-    u.lang = "pt-PT";
+    u.lang = LANGS[lang].voice;
     u.onend = () => setSpeakingIndex(null);
     u.onerror = () => setSpeakingIndex(null);
     utterRef.current = u;
@@ -212,16 +276,31 @@ export default function ChatbotWidget() {
     synth.speak(u);
   };
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  /**
+   * Envia uma pergunta. Com `regenerate`, reenvia a última em vez de acrescentar uma nova:
+   * a bolha da resposta anterior é substituída no ecrã e o servidor apaga-a na base de
+   * dados, para a conversa não ficar com duas respostas seguidas à mesma pergunta.
+   */
+  const sendMessage = async (options?: { regenerate?: boolean; text?: string }) => {
+    const regenerate = options?.regenerate === true;
+    // `text` explícito serve os botões de sugestão: passar pelo estado `input` e disparar a
+    // seguir não funcionaria, porque esta função leria o valor antigo do closure.
+    const text = regenerate ? lastQuestionRef.current : (options?.text ?? input).trim();
     if ((!text && !pendingFile) || sending) return;
-    setInput("");
-    const fileToSend = pendingFile;
-    setPendingFile(null);
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", content: text + (fileToSend ? ` 📎 ${fileToSend.name}` : "") },
-    ]);
+
+    const fileToSend = regenerate ? null : pendingFile;
+    if (regenerate) {
+      // Retira do ecrã a resposta que vai ser substituída.
+      setMessages((prev) => (prev.length && prev[prev.length - 1].role === "assistant" ? prev.slice(0, -1) : prev));
+    } else {
+      setInput("");
+      setPendingFile(null);
+      lastQuestionRef.current = text;
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: text + (fileToSend ? ` 📎 ${fileToSend.name}` : "") },
+      ]);
+    }
     setSending(true);
 
     try {
@@ -234,6 +313,9 @@ export default function ChatbotWidget() {
           file: fileToSend || undefined,
           webSearch: webSearchOn,
           persona,
+          lang,
+          temperature,
+          regenerate,
         }),
       });
 
@@ -245,7 +327,7 @@ export default function ChatbotWidget() {
 
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
-        setMessages((prev) => [...prev, { role: "assistant", content: data.error || "Ocorreu um erro. Tente novamente." }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: data.error || UI_TEXT[lang].genericError }]);
         return;
       }
 
@@ -273,8 +355,8 @@ export default function ChatbotWidget() {
           return next;
         });
       }
-    } catch (err) {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Erro de comunicação. Tente novamente." }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", content: UI_TEXT[lang].commError }]);
     } finally {
       setSending(false);
     }
@@ -328,19 +410,52 @@ export default function ChatbotWidget() {
             </div>
           </div>
 
-          <div className="px-4 py-2 border-b border-slate-900 bg-slate-950/40 shrink-0">
-            <select
-              value={persona}
-              onChange={(e) => setPersona(e.target.value)}
-              aria-label="Escolher persona do assistente"
-              className="w-full h-7 px-2 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 cursor-pointer"
-            >
-              <option value="assistente">🤖 Assistente Geral</option>
-              <option value="mentor">🧭 Mentor</option>
-              <option value="coach_carreira">💼 Coach de Carreira</option>
-              <option value="code_reviewer">🧑‍💻 Code Reviewer</option>
-              <option value="examinador">📝 Examinador</option>
-            </select>
+          <div className="px-4 py-2 border-b border-slate-900 bg-slate-950/40 shrink-0 space-y-2">
+            <div className="flex gap-2">
+              <select
+                value={persona}
+                onChange={(e) => setPersona(e.target.value)}
+                aria-label="Escolher persona do assistente"
+                className="flex-1 h-7 px-2 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 cursor-pointer"
+              >
+                <option value="assistente">🤖 Assistente Geral</option>
+                <option value="mentor">🧭 Mentor</option>
+                <option value="coach_carreira">💼 Coach de Carreira</option>
+                <option value="code_reviewer">🧑‍💻 Code Reviewer</option>
+                <option value="examinador">📝 Examinador</option>
+              </select>
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value as LangId)}
+                aria-label="Idioma da resposta"
+                title="Idioma da resposta"
+                className="h-7 px-2 rounded-lg bg-slate-900/60 border border-slate-800 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 cursor-pointer"
+              >
+                {(Object.keys(LANGS) as LangId[]).map((id) => (
+                  <option key={id} value={id}>
+                    {LANGS[id].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="chatbot-temperature" className="text-[10px] text-slate-500 shrink-0">
+                {UI_TEXT[lang].creativity}
+              </label>
+              <input
+                id="chatbot-temperature"
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                className="flex-1 h-1 accent-indigo-500 cursor-pointer"
+              />
+              <span className="text-[10px] text-slate-500 w-14 text-right shrink-0">
+                {temperature <= 0.3 ? UI_TEXT[lang].precise : temperature >= 0.7 ? UI_TEXT[lang].creative : temperature.toFixed(1)}
+              </span>
+            </div>
           </div>
 
           {showHistory ? (
@@ -398,8 +513,21 @@ export default function ChatbotWidget() {
                   <span className="text-xs">A carregar...</span>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-xs text-slate-400 bg-slate-900/40 border border-slate-900 rounded-2xl p-3">
-                  Olá! Sou o assistente virtual da MOZAI. Em que posso ajudar?
+                <div className="space-y-2">
+                  <div className="text-xs text-slate-400 bg-slate-900/40 border border-slate-900 rounded-2xl p-3">
+                    Olá! Sou o assistente virtual da MOZAI. Em que posso ajudar?
+                  </div>
+                  {/* Uma conversa em branco não diz o que se pode perguntar — estes atalhos
+                      dizem, e são configuráveis por empresa em Configurações > ChatBot. */}
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => sendMessage({ text: s })}
+                      className="w-full text-left text-[11px] text-slate-300 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/30 rounded-xl px-3 py-2 cursor-pointer transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
                 </div>
               ) : (
                 messages.map((m, i) => (
@@ -413,17 +541,34 @@ export default function ChatbotWidget() {
                     >
                       {m.content || (sending && i === messages.length - 1 ? "…" : "")}
                     </div>
-                    {m.role === "assistant" && m.content && hasSpeechSynthesis && (
-                      <button
-                        onClick={() => speak(m.content, i)}
-                        aria-label="Ouvir"
-                        className={`mt-1 h-6 px-2 rounded-lg flex items-center gap-1 text-[10px] cursor-pointer ${
-                          speakingIndex === i ? "text-indigo-400" : "text-slate-500 hover:text-slate-300"
-                        }`}
-                      >
-                        <Volume2 className="h-3 w-3" />
-                        {speakingIndex === i ? "A ler…" : "Ouvir"}
-                      </button>
+                    {m.role === "assistant" && m.content && (
+                      <div className="mt-1 flex items-center gap-1">
+                        {hasSpeechSynthesis && (
+                          <button
+                            onClick={() => speak(m.content, i)}
+                            aria-label="Ouvir"
+                            className={`h-6 px-2 rounded-lg flex items-center gap-1 text-[10px] cursor-pointer ${
+                              speakingIndex === i ? "text-indigo-400" : "text-slate-500 hover:text-slate-300"
+                            }`}
+                          >
+                            <Volume2 className="h-3 w-3" />
+                            {speakingIndex === i ? "A ler…" : "Ouvir"}
+                          </button>
+                        )}
+                        {/* Só na última resposta: regenerar uma do meio da conversa deixaria
+                            o histórico incoerente com o que veio depois. */}
+                        {i === messages.length - 1 && !sending && lastQuestionRef.current && (
+                          <button
+                            onClick={() => sendMessage({ regenerate: true })}
+                            aria-label={UI_TEXT[lang].regenerate}
+                            title={UI_TEXT[lang].regenerate}
+                            className="h-6 px-2 rounded-lg flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            {UI_TEXT[lang].regenerate}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))
@@ -497,11 +642,11 @@ export default function ChatbotWidget() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Escreva a sua mensagem…"
+                  placeholder={UI_TEXT[lang].placeholder}
                   className="flex-1 resize-none max-h-24 px-3 py-2 rounded-xl bg-slate-900/60 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
                 <button
-                  onClick={sendMessage}
+                  onClick={() => sendMessage()}
                   disabled={sending || (!input.trim() && !pendingFile)}
                   aria-label="Enviar"
                   className="h-9 w-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"

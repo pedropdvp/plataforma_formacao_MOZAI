@@ -7,7 +7,10 @@ import { getDb } from "@/lib/mongodb";
  * criar uma nova a qualquer momento, renomear, marcar como favorita e apagar.
  */
 
-const MAX_HISTORY_MESSAGES = 12;
+/** Tecto de mensagens enviadas ao modelo como histórico. Acima disto, a memória mais
+ *  antiga entra pelo resumo (ver `setSummary`) em vez de ir mensagem a mensagem — é o que
+ *  impede o custo de uma conversa de crescer sem limite à medida que ela se alonga. */
+const MAX_HISTORY_MESSAGES = Number(process.env.CHATBOT_MAX_HISTORY || 12);
 const TITLE_MAX_LEN = 60;
 
 export interface ChatbotMessage {
@@ -15,6 +18,13 @@ export interface ChatbotMessage {
   content: string;
   createdAt: Date;
   tokens?: number;
+}
+
+/** Estado de memória de uma conversa: o resumo do que já foi dito e até quando resume. */
+export interface ChatbotConversationState {
+  summary: string | null;
+  /** Marca temporal da última mensagem já coberta pelo resumo. */
+  summarizedUntil: Date | null;
 }
 
 export interface ChatbotConversationSummary {
@@ -160,4 +170,63 @@ export async function addMessage(
     { _id: new ObjectId(conversationId) },
     { $set: { updatedAt: new Date() } }
   );
+}
+
+/** Lê o resumo acumulado de uma conversa e até que ponto do histórico ele cobre. */
+export async function getConversationState(conversationId: string): Promise<ChatbotConversationState> {
+  const _id = toObjectId(conversationId);
+  if (!_id) return { summary: null, summarizedUntil: null };
+  const db = await getDb();
+  const conv = await db.collection("chatbot_conversations").findOne({ _id });
+  return {
+    summary: conv?.summary || null,
+    summarizedUntil: conv?.summarizedUntil ? new Date(conv.summarizedUntil) : null,
+  };
+}
+
+/** Guarda o resumo e avança a marca de até onde ele cobre. */
+export async function setSummary(
+  conversationId: string,
+  summary: string,
+  summarizedUntil: Date
+): Promise<void> {
+  const _id = toObjectId(conversationId);
+  if (!_id) return;
+  const db = await getDb();
+  await db.collection("chatbot_conversations").updateOne({ _id }, { $set: { summary, summarizedUntil } });
+}
+
+/** Mensagens ainda não cobertas pelo resumo, por ordem cronológica. */
+export async function getMessagesAfter(
+  conversationId: string,
+  since: Date | null
+): Promise<ChatbotMessage[]> {
+  const db = await getDb();
+  const filtro: Record<string, unknown> = { conversationId };
+  if (since) filtro.createdAt = { $gt: since };
+  const rows = await db.collection("chatbot_messages").find(filtro).sort({ createdAt: 1 }).toArray();
+  return (rows as ChatbotMessage[]).map((r) => ({
+    role: r.role,
+    content: r.content,
+    createdAt: r.createdAt,
+    tokens: r.tokens,
+  }));
+}
+
+/**
+ * Apaga a última resposta do assistente. É o que permite "regenerar": a pergunta do
+ * utilizador continua guardada e a nova resposta ocupa o lugar da anterior, em vez de a
+ * conversa ficar com duas respostas seguidas à mesma pergunta.
+ */
+export async function deleteLastAssistantMessage(conversationId: string): Promise<boolean> {
+  const db = await getDb();
+  const ultima = await db
+    .collection("chatbot_messages")
+    .find({ conversationId, role: "assistant" })
+    .sort({ createdAt: -1 })
+    .limit(1)
+    .toArray();
+  if (!ultima.length) return false;
+  await db.collection("chatbot_messages").deleteOne({ _id: ultima[0]._id });
+  return true;
 }
