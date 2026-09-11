@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { canRoleAccessPath } from "@/lib/route-access";
 
 // Define rotas protegidas que exigem autenticação
 const isProtectedRoute = createRouteMatcher([
@@ -62,70 +63,11 @@ export default clerkMiddleware(async (auth, req) => {
       return NextResponse.redirect(url);
     }
 
-    // Se tiver perfil ativo, validar permissão de rotas administrativas específicas
-    if (activeRole) {
-      // Rota de Consola Administrativa Central
-      if (path.startsWith("/dashboard/admin")) {
-        const allowedRoles = ["ADMIN", "SUPORTE"];
-        
-        // Consola de RH específica da empresa (Gestor Empresa pode aceder ao seu próprio painel)
-        if (path.startsWith("/dashboard/admin/hr")) {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-        
-        // Content Factory (Gestor Académico e Formadores podem aceder; Aluno Individual gera cursos privados seus)
-        if (path.startsWith("/dashboard/admin/content-factory")) {
-          allowedRoles.push("GESTOR_ACADEMICO", "FORMADOR", "ALUNO");
-        }
-
-        // Backup & Restore, API's e ChatBot (Configuração): Gestor Empresa acede em âmbito só da sua empresa
-        if (
-          path.startsWith("/dashboard/admin/backups") ||
-          path.startsWith("/dashboard/admin/api-keys") ||
-          path.startsWith("/dashboard/admin/chatbot") ||
-          path.startsWith("/dashboard/admin/discord")
-        ) {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-
-        // Academia Corporativa: currículo próprio da empresa, gerido pelo Gestor Empresa
-        if (path.startsWith("/dashboard/admin/academy")) {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-
-        // Empresas (tab "Perfil da Empresa" no Marketplace): Gestor Empresa só vê essa tab,
-        // a Gestão de Empresas/Branding continua exclusiva de ADMIN/SUPORTE dentro da própria
-        // página (controlado no componente, não aqui).
-        if (path === "/dashboard/admin") {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-
-        // Vagas de Emprego (Marketplace): geridas pelo Gestor Empresa
-        if (path.startsWith("/dashboard/admin/job-postings")) {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-
-        // Plugins (Marketplace): integrações via webhook, geridas pelo Gestor Empresa
-        if (path.startsWith("/dashboard/admin/plugins")) {
-          allowedRoles.push("GESTOR_EMPRESA");
-        }
-
-        // Menus (Configuração > Menus): gestão de visibilidade é exclusiva de ADMIN/SUPORTE
-
-        // Variáveis de Ambiente: só ADMIN. Nem o SUPORTE — saber que variáveis existem e
-        // como estão preenchidas é informação de infraestrutura, e a página tem o botão
-        // que revela segredos.
-        if (path.startsWith("/dashboard/admin/env-check") && activeRole !== "ADMIN") {
-          url.pathname = "/dashboard";
-          return NextResponse.redirect(url);
-        }
-
-        if (!allowedRoles.includes(activeRole)) {
-          // Utilizador não autorizado, redireciona para a raiz do dashboard
-          url.pathname = "/dashboard";
-          return NextResponse.redirect(url);
-        }
-      }
+    // Se tiver perfil ativo, validar o acesso à rota pela tabela de lib/route-access.ts
+    if (activeRole && !canRoleAccessPath(activeRole, path)) {
+      // Perfil sem acesso a esta rota: devolve à raiz do dashboard
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
     }
   }
 

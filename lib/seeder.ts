@@ -292,7 +292,7 @@ export const PERMISSIONS_DATA = [
   { _id: "PERMISSIONS_EDIT_TECH", name: "Definir Permissões", module: "SUPPORT", description: "Editar matriz de permissões técnica" }
 ];
 
-const ROLES_DATA = [
+export const ROLES_DATA = [
   {
     _id: "ADMIN",
     name: "Administrador da Plataforma",
@@ -363,7 +363,11 @@ const ROLES_DATA = [
     name: "Formador",
     permissions: [
       "CONTENTS_CREATE", "CONTENTS_EDIT", "CONTENTS_UPDATE", "NOTIFICATIONS_RECEIVE",
-      "OCCURRENCES_REGISTER", "COMMUNICATE_ADMIN", "PERSONAL_DATA_UPDATE"
+      "OCCURRENCES_REGISTER", "COMMUNICATE_ADMIN", "PERSONAL_DATA_UPDATE",
+      // O middleware já autorizava o Formador na Fábrica de Cursos e no Gerador de
+      // Conteúdo; sem esta permissão o menu escondia-lhe as duas, e só lá chegava quem
+      // soubesse o endereço.
+      "COURSES_CREATE"
     ],
     description: "Criação de conteúdos estruturados e parágrafos semânticos para as lições."
   },

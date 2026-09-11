@@ -82,6 +82,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "certificates", groupId: "pessoal", label: "Certificados", path: "/dashboard/certificates" },
   { id: "ai-credits", groupId: "pessoal", label: "Créditos IA", path: "/dashboard/personal/ai-credits" },
   { id: "recycling", groupId: "pessoal", label: "Cursos efetuados", path: "/dashboard/recycling" },
+  { id: "history", groupId: "pessoal", label: "Histórico", path: "/dashboard/personal/history" },
   { id: "diplomas", groupId: "pessoal", label: "Diplomas", path: "/dashboard/diplomas" },
   { id: "privacy", groupId: "pessoal", label: "Privacidade & Dados", path: "/dashboard/personal/privacy" },
 
@@ -103,7 +104,6 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "rep-audit", groupId: "relatorios", label: "Auditoria", path: "/dashboard/reports/audit" },
   { id: "rep-companies", groupId: "relatorios", label: "Empresas", path: "/dashboard/reports/companies" },
   { id: "rep-employees", groupId: "relatorios", label: "Funcionários", path: "/dashboard/reports/employees" },
-  { id: "history", groupId: "relatorios", label: "Histórico", path: "/dashboard/personal/history" },
   { id: "rep-teachers", groupId: "relatorios", label: "Professores", path: "/dashboard/reports/teachers" },
 
   // Configuração

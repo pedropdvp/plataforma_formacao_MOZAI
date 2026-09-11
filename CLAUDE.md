@@ -42,15 +42,27 @@ handlers em `app/api/`) vivem no mesmo projeto e são servidos pelo mesmo servid
 5. Seguir os princípios SOLID, Clean Code e Clean Architecture, adaptados ao modelo do
    Next.js: componentes e route handlers finos, lógica de negócio isolada em `lib/`.
 6. Produzir código de nível empresarial e preparado para produção.
-7. **RBAC em todo o sistema.** Os seis perfis são `ADMIN`, `SUPORTE`, `GESTOR_EMPRESA`,
-   `GESTOR_ACADEMICO`, `FORMADOR`, `ALUNO`. O perfil ativo vive no cookie `active-role`
-   e é validado em `middleware.ts`. Qualquer rota nova protegida tem de ser acrescentada
-   ao `isProtectedRoute` e, se for administrativa, às listas `allowedRoles`.
-8. **Multi-tenancy obrigatório.** Todos os documentos têm `tenant_id`. Todo o acesso a
-   dados tem de passar pelos helpers de `lib/mongodb.ts` — `findTenantScoped`,
+7. **RBAC em todo o sistema.** Os dez perfis são `ADMIN`, `SUPORTE`, `GESTOR_EMPRESA`,
+   `GESTOR_ACADEMICO`, `PROFESSOR`, `FORMADOR`, `TUTOR`, `ALUNO`, `FINANCEIRO` e
+   `FUNCIONARIO` — definidos em `lib/seeder.ts` (`ROLES_DATA`), a par do catálogo de
+   permissões (`PERMISSIONS_DATA`). O perfil ativo vive no cookie `active-role`.
+   Quem pode abrir que rota está em `lib/route-access.ts`: uma rota nova protegida
+   acrescenta-se ao `isProtectedRoute` de `middleware.ts` e, se tiver restrição de perfil,
+   a `ROUTE_ACCESS_RULES` — não se escrevem listas de perfis dentro do middleware.
+   Esconder um item no menu não é proteger a rota: o menu é aparência, a tabela é a
+   barreira. Alterações a perfis ou permissões fazem-se no seeder e propagam-se à base de
+   dados com `npm run perms:sync -- --apply`; `seedSecurityData()` apaga os utilizadores
+   e não pode ser corrido numa base com contas reais.
+8. **Multi-tenancy obrigatório.** Os documentos de dados têm `tenant_id` e todo o acesso
+   tem de passar pelos helpers de `lib/mongodb.ts` — `findTenantScoped`,
    `findOneTenantScoped`, `insertTenantScoped`, `updateTenantScoped`,
    `deleteTenantScoped` — nunca por `db.collection(...).find()` direto. O tenant é
    resolvido no `middleware.ts` e injetado no header `x-tenant-id`.
+   Exceção: as coleções de identidade e segurança (`users`, `roles`, `permissions`) são
+   globais e **não** têm `tenant_id` — nos utilizadores, o âmbito vive no array `tenants`
+   de cada documento, porque a mesma pessoa pode ter perfis diferentes em empresas
+   diferentes. Acedem-se por `lib/users.ts`, nunca pelos helpers `*TenantScoped`, que
+   filtrariam por um campo inexistente e devolveriam sempre vazio.
 9. Segredos apenas em variáveis de ambiente, documentadas em `.env.example`. Nunca
    expor ao browser um segredo sem o prefixo `NEXT_PUBLIC_` — e nunca dar esse prefixo a
    um valor que deva permanecer secreto (ex.: `SANITY_API_WRITE_TOKEN`).

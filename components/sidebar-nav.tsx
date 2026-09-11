@@ -394,7 +394,7 @@ export default function SidebarNav() {
           openGroup === "comunicacao",
           <>
             {isItemVisible("auto-update") && (
-            <SecureRender requiredPermission="SYSTEM_AUDIT_VIEW">
+            <SecureRender requiredPermission="INTEGRATIONS_CONFIG">
               <Link href="/dashboard/admin/auto-update" className={linkClass("/dashboard/admin/auto-update")}>
                 <Settings className="h-4 w-4 text-rose-400" />
                 {t("nav_auto_update", "Atualização Automática (Daily Engine)")}
@@ -557,6 +557,12 @@ export default function SidebarNav() {
               {t("nav_completed_courses", "Cursos efetuados")}
             </Link>
             )}
+            {isItemVisible("history") && (
+            <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
+              <Clock className="h-4 w-4 text-cyan-400" />
+              {t("nav_history", "Histórico")}
+            </Link>
+            )}
             {isItemVisible("diplomas") && (
             <SecureRender requiredPermission="CERTIFICATES_VIEW">
               <Link href="/dashboard/diplomas" className={linkClass("/dashboard/diplomas")}>
@@ -615,14 +621,14 @@ export default function SidebarNav() {
               {t("nav_ai_lab", "AI Lab (Multi-Modelo)")}
             </Link>
             )}
-            {isItemVisible("config-company") && (hasPermission("TENANTS_MANAGE") || hasPermission("COMPANY_INFO_UPDATE")) && (
+            {isItemVisible("config-company") && (hasPermission("COMPANIES_EDIT") || hasPermission("COMPANY_INFO_UPDATE")) && (
               <Link href="/dashboard/admin" className={linkClass("/dashboard/admin")}>
                 <Settings className="h-4 w-4 text-slate-400" />
                 {t("nav_config_company", "Empresas")}
               </Link>
             )}
             {isItemVisible("hr-console") && (
-            <SecureRender requiredPermission="PAYMENTS_MANAGE">
+            <SecureRender requiredPermission="EMPLOYEES_MANAGE">
               <Link href="/dashboard/admin/hr" className={linkClass("/dashboard/admin/hr")}>
                 <Settings className="h-4 w-4 text-indigo-400" />
                 {t("nav_hr_console", "Gestão de RH")}
@@ -729,12 +735,6 @@ export default function SidebarNav() {
               <Link href="/dashboard/reports/employees" className={linkClass("/dashboard/reports/employees")}>
                 <Briefcase className="h-4 w-4 text-emerald-400" />
                 {t("nav_rep_employees", "Funcionários")}
-              </Link>
-              )}
-              {isItemVisible("history") && (
-              <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
-                <Clock className="h-4 w-4 text-cyan-400" />
-                {t("nav_history", "Histórico")}
               </Link>
               )}
               {isItemVisible("rep-teachers") && (

@@ -12,7 +12,8 @@
     "verify:rag": "tsx scripts/verify-rag.ts",
     "db:backup": "tsx scripts/db-backup.ts",
     "db:restore": "tsx scripts/db-restore.ts",
-    "deploy:env": "tsx scripts/vercel-env-push.ts"
+    "deploy:env": "tsx scripts/vercel-env-push.ts",
+    "perms:sync": "tsx scripts/sync-security-data.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.24",
