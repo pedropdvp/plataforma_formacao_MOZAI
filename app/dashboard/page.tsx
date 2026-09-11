@@ -16,6 +16,7 @@ import {
   Flame,
 } from "lucide-react";
 import { getDb } from "@/lib/mongodb";
+import { getUserRecord, formatUserName } from "@/lib/users";
 import { sanityClient } from "@/lib/sanity";
 import GreetingText from "@/components/greeting-text";
 import DashboardCharts from "@/components/dashboard-charts";
@@ -55,10 +56,7 @@ export default async function DashboardPage() {
       const db = await getDb();
 
       // 1. Nome do aluno
-      const userRecord = await db.collection("users").findOne({ _id: userId });
-      if (userRecord) {
-        studentName = `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || "Aluno";
-      }
+      studentName = formatUserName(await getUserRecord(userId), studentName);
 
       // 2. Perfil de gamificação (XP, nível, streak, badges) + ranking no tenant
       const profile = await db.collection("gamification_profiles").findOne({ _id: userId });

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import {
+  UserRecord,
+  formatUserName,
+  getUserRecord,
+  syncUserNameFromClerk,
+} from "@/lib/users";
 
 /**
  * GET: Obtém o perfil ativo da sessão e as permissões associadas
@@ -15,7 +21,8 @@ export async function GET(req: NextRequest) {
     const db = await getDb();
 
     // 1. Obter ou criar o registo de utilizador na base de dados
-    let userRecord = await db.collection("users").findOne({ _id: userId });
+    let userRecord: UserRecord | null = await getUserRecord(userId);
+    const hadRecord = Boolean(userRecord);
     
     if (!userRecord) {
       const user = await currentUser();
@@ -32,6 +39,7 @@ export async function GET(req: NextRequest) {
             _id: userId,
             firstName: user?.firstName || preRegistered.firstName,
             lastName: user?.lastName || preRegistered.lastName,
+            nameSyncedAt: new Date(),
             updatedAt: new Date()
           };
           await db.collection("users").insertOne(userRecord);
@@ -52,6 +60,7 @@ export async function GET(req: NextRequest) {
             email: userEmail.toLowerCase().trim(),
             firstName: user?.firstName || "Admin",
             lastName: user?.lastName || "Principal",
+            nameSyncedAt: new Date(),
             tenants: [
               {
                 tenantId: "root",
@@ -70,6 +79,7 @@ export async function GET(req: NextRequest) {
             email: userEmail.toLowerCase().trim(),
             firstName: user?.firstName || "Aluno",
             lastName: user?.lastName || "Individual",
+            nameSyncedAt: new Date(),
             tenants: [
               {
                 tenantId: "root",
@@ -85,6 +95,13 @@ export async function GET(req: NextRequest) {
       } else {
         return NextResponse.json({ error: "unregistered" }, { status: 403 });
       }
+    }
+
+    // Registo que já existia: o nome pode ter sido editado no Clerk entretanto, ou ter
+    // ficado errado na base de dados. Quem manda é o Clerk (ver lib/users.ts) — nos ramos
+    // acima o nome acabou de ser copiado de lá, por isso só os registos antigos precisam.
+    if (hadRecord && userRecord) {
+      userRecord = await syncUserNameFromClerk(userRecord);
     }
 
     // Perfis atribuídos ao utilizador: união de TODOS os perfis que tem em TODAS as empresas
@@ -117,7 +134,7 @@ export async function GET(req: NextRequest) {
       activeRole,
       assignedRoles,
       permissions,
-      userName: `${userRecord.firstName} ${userRecord.lastName}`.trim(),
+      userName: formatUserName(userRecord),
       userEmail: userRecord.email
     });
   } catch (error: any) {
