@@ -401,7 +401,7 @@ export default function HRDashboardClient({
     if (p.status === "in-progress") inProgressByLesson[p.lessonId] = (inProgressByLesson[p.lessonId] || 0) + 1;
     if (p.status === "completed") completedByLesson[p.lessonId] = (completedByLesson[p.lessonId] || 0) + 1;
   });
-  let bottlenecks = Object.entries(inProgressByLesson)
+  const bottlenecks = Object.entries(inProgressByLesson)
     .filter(([lessonId, count]) => count > (completedByLesson[lessonId] || 0))
     .map(([lessonId, count]) => ({
       lessonTitle: LESSON_TITLES[lessonId] || lessonId,
@@ -409,16 +409,9 @@ export default function HRDashboardClient({
     }))
     .sort((a, b) => b.stalledCount - a.stalledCount);
 
-  if (bottlenecks.length === 0) {
-    // Fallback rico e coerente com o comportamento anterior (completionRate < 60 ? 3 : 1)
-    bottlenecks = completionRate < 60
-      ? [
-          { lessonTitle: "Definição de Cripto", stalledCount: 8 },
-          { lessonTitle: "Blockchain e Consenso", stalledCount: 5 },
-          { lessonTitle: "Mapeamento Digital Twin", stalledCount: 3 },
-        ]
-      : [{ lessonTitle: "Blockchain e Consenso", stalledCount: 2 }];
-  }
+  // Sem lições paradas, a lista fica vazia e o painel di-lo. Havia aqui um conjunto de
+  // estrangulamentos inventados, escolhido conforme a taxa de conclusão — números que
+  // pareciam diagnóstico e não vinham de registo nenhum.
 
   // 2. Inventário de Competências — reaproveita o MESMO motor de pontuação contínua do
   // Skills OS (lib/skills-os.ts: média real de quiz + decaimento por inatividade), corrido

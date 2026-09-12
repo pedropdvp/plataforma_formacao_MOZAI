@@ -13,6 +13,8 @@ interface Company {
   name: string;
   subdomain?: string;
   employeesCount?: number;
+  /** A própria MOZAI (tenant "root"), que não é uma empresa cliente. */
+  isPlatform?: boolean;
 }
 
 interface UserRecord {
@@ -56,13 +58,18 @@ export default function CompaniesReportPage() {
         const res = await fetch("/api/admin/reports/data");
         if (res.ok) {
           const data = await res.json();
-          setCompanies(data.companies || []);
+          // Este relatório compara empresas clientes entre si; a plataforma entra na lista
+          // que a API devolve (é o tenant "root"), mas aqui distorceria as comparações.
+          const empresasClientes: Company[] = (data.companies || []).filter((c: Company) => !c.isPlatform);
+          setCompanies(empresasClientes);
           setUsers(data.users || []);
           setProgress(data.progress || []);
           setCatalog(data.catalog || []);
 
-          if (data.companies?.length > 0) {
-            setSelectedCompanyId(data.companies[0]._id);
+          // A seleção inicial sai da mesma lista que o seletor mostra — senão apontaria
+          // para a plataforma, que aqui foi retirada.
+          if (empresasClientes.length > 0) {
+            setSelectedCompanyId(empresasClientes[0]._id);
           }
         }
       } catch (err) {
@@ -91,14 +98,14 @@ export default function CompaniesReportPage() {
     try {
       const reportPromises = targetCompanies.map(async (comp) => {
         // Obter métricas de analytics
-        let metrics = {
-          totalRevenue: 2450.00,
-          totalEnrollments: 12,
-          totalCompletions: 4,
-          dropoffs: [
-            { lessonId: "lesson-1-2", title: "Definição de Cripto", count: 8 },
-            { lessonId: "lesson-1-3", title: "Blockchain e Consenso", count: 5 }
-          ]
+        // Valores neutros enquanto a API não responde. Estavam aqui uma receita de
+        // 2450,00, doze inscrições e duas lições de desistência inventadas, que ficavam
+        // no ecrã — e no ficheiro exportado — sempre que o pedido falhasse.
+        let metrics: any = {
+          totalRevenue: 0,
+          totalEnrollments: 0,
+          totalCompletions: 0,
+          dropoffs: [],
         };
 
         try {

@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const tenantUsers = allUsers.filter((u: any) =>
       u.tenants?.some((t: any) => t.tenantId === tenantId && t.roles.includes("ALUNO"))
     );
-    const totalEnrollments = tenantUsers.length || 12; // Fallback rico
+    const totalEnrollments = tenantUsers.length;
 
     const findUserName = (userId: string) => {
       const u = allUsers.find((x: any) => x._id === userId);
@@ -158,34 +158,13 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Dados simulados ricos para dropoffs se a base estiver vazia
-    const finalDropoffs = dropoffs.length > 0 ? dropoffs : [
-      { lessonId: "lesson-1-2", title: "Definição de Cripto", count: 8, students: [
-        { name: "Ana Costa", email: "ana.costa@mozai.pt" },
-        { name: "João Silva", email: "joao.silva@mozai.pt" },
-      ] },
-      { lessonId: "lesson-1-3", title: "Blockchain e Consenso", count: 5, students: [
-        { name: "Mariana Ferreira", email: "mariana.ferreira@mozai.pt" },
-      ] },
-      { lessonId: "lesson-2-1", title: "Mapeamento Digital Twin", count: 3, students: [
-        { name: "Rui Almeida", email: "rui.almeida@mozai.pt" },
-      ] },
-    ];
-
-    // Tendências mensais fictícias para gráficos de receita e inscrições
-    const revenueTrend = [
-      { month: "Jan", value: Math.round(totalRevenue * 0.15) },
-      { month: "Fev", value: Math.round(totalRevenue * 0.2) },
-      { month: "Mar", value: Math.round(totalRevenue * 0.3) },
-      { month: "Abr", value: Math.round(totalRevenue * 0.35) },
-    ];
-
-    const enrollmentTrend = [
-      { month: "Jan", value: Math.round(totalEnrollments * 0.2) },
-      { month: "Fev", value: Math.round(totalEnrollments * 0.4) },
-      { month: "Mar", value: Math.round(totalEnrollments * 0.7) },
-      { month: "Abr", value: totalEnrollments },
-    ];
+    // Sem desistências registadas, a lista vem vazia. Aqui devolviam-se lições e alunos
+    // inventados, com nomes de pessoas que não existem, indistinguíveis dos reais.
+    //
+    // As séries mensais de receita e inscrições que existiam aqui eram fabricadas a partir
+    // do total (15%, 20%, 30%, 35% por mês), uma curva que nunca aconteceu — e nenhuma
+    // página as consumia. Foram removidas em vez de reescritas: quando forem precisas,
+    // calculam-se a partir das datas reais dos pagamentos e das inscrições.
 
     return NextResponse.json({
       success: true,
@@ -193,11 +172,9 @@ export async function GET(req: NextRequest) {
         totalRevenue,
         totalEnrollments,
         totalCompletions,
-        revenueTrend,
-        enrollmentTrend,
         revenueByStudent,
         completedCourses,
-        dropoffs: finalDropoffs,
+        dropoffs,
       },
     });
   } catch (error: any) {

@@ -33,11 +33,15 @@ export async function GET(req: NextRequest) {
       if (att.userId) activeStudentIds.add(att.userId);
     });
 
+    // Sem tentativas registadas, a média é zero e diz-se que é zero. Este painel devolvia
+    // aqui valores inventados ("fallback rico e realista"), que apareciam com o mesmo
+    // aspeto dos reais e seguiam para os ficheiros exportados — um relatório que preenche
+    // buracos com números plausíveis é pior do que um relatório vazio.
     const averageQuizScore = totalAttemptsCount > 0
       ? Math.round((totalScoreSum / totalAttemptsCount) * 100)
-      : 82; // Fallback rico e realista
+      : 0;
 
-    const activeStudentsCount = activeStudentIds.size || 8;
+    const activeStudentsCount = activeStudentIds.size;
 
     // Lista detalhada dos alunos ativos (para drill-down no card)
     let activeStudents: Array<{ name: string; email: string }> = [];
@@ -50,26 +54,14 @@ export async function GET(req: NextRequest) {
         email: u.email
       }));
     }
-    if (activeStudents.length === 0) {
-      // Fallback rico e realista, coerente com activeStudentsCount = 8
-      activeStudents = [
-        { name: "Ana Costa", email: "ana.costa@mozai.pt" },
-        { name: "João Silva", email: "joao.silva@mozai.pt" },
-        { name: "Mariana Ferreira", email: "mariana.ferreira@mozai.pt" },
-        { name: "Rui Almeida", email: "rui.almeida@mozai.pt" },
-        { name: "Beatriz Nunes", email: "beatriz.nunes@mozai.pt" },
-        { name: "Tiago Rocha", email: "tiago.rocha@mozai.pt" },
-        { name: "Sofia Martins", email: "sofia.martins@mozai.pt" },
-        { name: "Diogo Pereira", email: "diogo.pereira@mozai.pt" },
-      ];
-    }
-
     // 2. Obter laboratórios práticos concluídos
     const progressList = await db.collection("user_progress").find({ tenant_id: tenantId }).toArray();
-    const completedLabs = progressList.filter((p: any) => 
-      p.status === "completed" && (p.lessonId.includes("lab") || p.lessonId.includes("coding"))
-    );
-    const completedLabsCount = completedLabs.length || 14;
+    const completedLabs = progressList.filter((p: any) => {
+      // lessonId em falta num registo antigo não pode derrubar o relatório inteiro.
+      const lessonId = String(p.lessonId || "");
+      return p.status === "completed" && (lessonId.includes("lab") || lessonId.includes("coding"));
+    });
+    const completedLabsCount = completedLabs.length;
 
     // 3. Questões com mais erros
     const questionErrorsMap: Record<string, { count: number; correctOption: string; questionText: string }> = {};
@@ -96,33 +88,17 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Se estiver vazio, fornecer dados simulados ricos para o painel
-    const finalErroredQuestions = erroredQuestions.length > 0 ? erroredQuestions : [
-      {
-        questionText: "O que garante que a Bitcoin seja descentralizada e segura contra gastos duplos?",
-        correctOption: "Mecanismo de Consenso Proof-of-Work (PoW)",
-        count: 7,
-      },
-      {
-        questionText: "Qual a função dos Smart Contracts na rede Ethereum?",
-        correctOption: "Executar acordos automáticos sem intermediários baseados em código",
-        count: 4,
-      },
-      {
-        questionText: "O que define a escassez matemática da Bitcoin?",
-        correctOption: "Limite finito de 21 milhões de unidades codificado no protocolo",
-        count: 3,
-      },
-    ];
-
     return NextResponse.json({
       success: true,
+      // Distingue "não há registos" de "os registos dão zero" — sem isto a interface não
+      // consegue explicar porque está tudo a zeros.
+      hasData: totalAttemptsCount > 0 || progressList.length > 0,
       metrics: {
         averageQuizScore,
         activeStudentsCount,
         activeStudents,
         completedLabsCount,
-        erroredQuestions: finalErroredQuestions,
+        erroredQuestions,
       },
     });
   } catch (error: any) {

@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 
+/**
+ * O tenant "root" é a própria MOZAI: não é um documento em `tenants`, é uma constante.
+ * Por isso tem de ser acrescentado à lista de empresas à mão — de outro modo, as pessoas
+ * ligadas à plataforma (e não a uma empresa cliente) aparecem nos relatórios globais sem
+ * que seja possível filtrá-las por empresa nenhuma.
+ */
+const PLATFORM_TENANT = { _id: "root", name: "MOZAI AI Education Platform Corporation", isPlatform: true };
+
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -27,6 +35,9 @@ export async function GET(req: NextRequest) {
     let companies: any[] = [];
     if (isGlobal) {
       companies = await db.collection("tenants").find({}).toArray();
+      // Admin e Suporte veem tudo — incluindo a plataforma, que era a única "empresa"
+      // ausente do seletor apesar de os seus utilizadores contarem para o total global.
+      companies.unshift({ ...PLATFORM_TENANT });
     } else {
       // Gestor da empresa: apenas empresas onde ele está associado
       const userTenantIds = (userRecord.tenants || []).map((t: any) => t.tenantId);
@@ -36,13 +47,13 @@ export async function GET(req: NextRequest) {
 
       // Adicionar root se estiver associado
       if (userTenantIds.includes("root")) {
-        companies.push({ _id: "root", name: "MOZAI AI Education Platform Corporation" });
+        companies.push({ ...PLATFORM_TENANT });
       }
     }
 
     const companyIds = companies.map((c: any) => c._id.toString());
     const companyNames: Record<string, string> = {
-      root: "MOZAI AI Education Platform Corporation"
+      root: PLATFORM_TENANT.name,
     };
     companies.forEach((c: any) => {
       companyNames[c._id.toString()] = c.name;
