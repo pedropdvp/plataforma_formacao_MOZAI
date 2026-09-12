@@ -53,6 +53,9 @@ export const PERSONAL_DATA_SOURCES: PersonalDataSource[] = [
   { collection: "simulation_lab_attempts", userField: "userId", exportKey: "simulationAttempts", onErase: "delete" },
   { collection: "cognitive_logs", userField: "userId", exportKey: "tutorAiInteractions", onErase: "delete" },
   { collection: "study_history", userField: "userId", exportKey: "studyHistory", onErase: "delete" },
+  // Quem é responsável por acompanhar esta pessoa é informação sobre ela: sai na exportação e
+  // desaparece no apagamento, senão ficariam atribuições a apontar para uma conta que já não existe.
+  { collection: "academic_assignments", userField: "studentId", exportKey: "academicTutoring", onErase: "delete" },
   { collection: "project_submissions", userField: "userId", exportKey: "projectSubmissions", onErase: "anonymize", nameField: "studentName" },
   { collection: "community_posts", userField: "authorId", exportKey: "communityPosts", onErase: "anonymize", nameField: "authorName" },
 ];

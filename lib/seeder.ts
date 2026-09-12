@@ -309,6 +309,9 @@ export const ROLES_DATA = [
     _id: "GESTOR_EMPRESA",
     name: "Gestor Empresa",
     permissions: [
+      // ACADEMICS_ASSIGN: o gestor da empresa atribui os docentes da sua própria empresa aos
+      // cursos, no ecrã Corpo Docente — é dele a decisão de quem acompanha quem lá dentro.
+      "ACADEMICS_ASSIGN",
       "STUDENTS_MANAGE", "EMPLOYEES_MANAGE", "COURSES_SCHEDULE", "PAYMENTS_VIEW_ALL",
       "PAYMENTS_VALIDATE", "PAYMENTS_NOTIFY", "DOCS_MANAGE", "REPORTS_VIEW",
       "COMPANY_INFO_UPDATE", "MESSAGES_SEND_COMPANY",
@@ -342,7 +345,9 @@ export const ROLES_DATA = [
     permissions: [
       "COURSES_CREATE", "COURSES_EDIT", "COURSES_ARCHIVE", "COURSES_PUBLISH",
       "ACADEMICS_ASSIGN", "HISTORY_VIEW_ALL", "DOCS_VIEW", "NOTIFICATIONS_RECEIVE",
-      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE"
+      "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE",
+      // Ver o desempenho dos alunos à sua responsabilidade (relatório "Os Meus Alunos").
+      "PROGRESS_VIEW"
       // Nota: a avaliação de projetos (PROJECTS_REVIEW) é exclusiva de ADMIN e PROFESSOR —
       // o Gestor Académico não avalia projetos por decisão de negócio.
     ],
@@ -354,7 +359,7 @@ export const ROLES_DATA = [
     permissions: [
       "COURSES_TEACH", "COURSES_ASSIGNED_VIEW", "HISTORY_VIEW_ALL", "DOCS_VIEW",
       "COMMUNICATE_COMPANIES", "COMMUNICATE_ADMIN", "OCCURRENCES_REGISTER", "PERSONAL_DATA_UPDATE",
-      "PROJECTS_REVIEW"
+      "PROJECTS_REVIEW", "PROGRESS_VIEW"
     ],
     description: "Lecionar turmas, propor avaliações e responder a dúvidas pedagógicas."
   },
@@ -367,7 +372,9 @@ export const ROLES_DATA = [
       // O middleware já autorizava o Formador na Fábrica de Cursos e no Gerador de
       // Conteúdo; sem esta permissão o menu escondia-lhe as duas, e só lá chegava quem
       // soubesse o endereço.
-      "COURSES_CREATE"
+      "COURSES_CREATE",
+      // Ver o desempenho dos alunos à sua responsabilidade (relatório "Os Meus Alunos").
+      "PROGRESS_VIEW"
     ],
     description: "Criação de conteúdos estruturados e parágrafos semânticos para as lições."
   },

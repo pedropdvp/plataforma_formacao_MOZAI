@@ -71,6 +71,13 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // Academia Corporativa: currículo próprio da empresa, gerido pelo Gestor Empresa.
   { prefix: "/dashboard/admin/academy", roles: COMPANY_SCOPE },
 
+  // Corpo Docente: quem atribui cursos e alunos aos docentes. O Gestor Académico entra aqui
+  // e em mais nada da consola administrativa — é a única página que o seu perfil justifica.
+  {
+    prefix: "/dashboard/admin/academics",
+    roles: [...PLATFORM_AND_COMPANY, "GESTOR_ACADEMICO"],
+  },
+
   // Vagas de Emprego e Plugins (Marketplace): geridos pelo Gestor Empresa.
   { prefix: "/dashboard/admin/job-postings", roles: COMPANY_SCOPE },
   { prefix: "/dashboard/admin/plugins", roles: PLATFORM_AND_COMPANY },
@@ -89,6 +96,14 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
 
   // Auditoria: registos de toda a plataforma, incluindo ações de outras empresas.
   { prefix: "/dashboard/reports/audit", roles: PLATFORM },
+
+  // "Os Meus Alunos" é um relatório do docente sobre a sua própria responsabilidade, e não um
+  // relatório de gestão — daí escapar à regra de /dashboard/reports abaixo. Quem entra vê apenas
+  // os seus alunos: a API resolve a lista a partir de quem está autenticado, não de um parâmetro.
+  {
+    prefix: "/dashboard/reports/my-students",
+    roles: [...PLATFORM_AND_COMPANY, "PROFESSOR", "FORMADOR", "TUTOR", "GESTOR_ACADEMICO"],
+  },
 
   // Relatórios: mostram alunos, professores, funcionários e empresas — dados de terceiros.
   // O menu já os escondia a quem não é gestor, mas a página abria a quem soubesse o

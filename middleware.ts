@@ -12,6 +12,8 @@ const isProtectedRoute = createRouteMatcher([
   "/api/career(.*)",
   "/api/coding-lab(.*)",
   "/api/admin(.*)",
+  // A lista é explícita: uma rota de API fora dela fica acessível sem sessão.
+  "/api/reports(.*)",
   "/api/content-factory(.*)",
   "/api/gamification(.*)",
   "/api/quiz(.*)"

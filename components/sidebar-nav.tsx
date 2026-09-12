@@ -53,6 +53,7 @@ import {
   CalendarDays,
   MessageSquareText,
   Users2,
+  UserCheck,
   Network,
   Handshake,
   UsersRound,
@@ -208,6 +209,22 @@ export default function SidebarNav() {
               <Link href="/dashboard/admin/academy" className={linkClass("/dashboard/admin/academy")}>
                 <GraduationCap className="h-4 w-4 text-emerald-400" />
                 {t("nav_academy_corp", "Academia Corporativa")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("academics") && (
+            <SecureRender requiredPermission="ACADEMICS_ASSIGN">
+              <Link href="/dashboard/admin/academics" className={linkClass("/dashboard/admin/academics")}>
+                <Users2 className="h-4 w-4 text-emerald-400" />
+                {t("nav_academics", "Corpo Docente")}
+              </Link>
+            </SecureRender>
+            )}
+            {isItemVisible("my-students") && (
+            <SecureRender requiredPermission="PROGRESS_VIEW">
+              <Link href="/dashboard/reports/my-students" className={linkClass("/dashboard/reports/my-students")}>
+                <UserCheck className="h-4 w-4 text-emerald-400" />
+                {t("nav_my_students", "Os Meus Alunos")}
               </Link>
             </SecureRender>
             )}

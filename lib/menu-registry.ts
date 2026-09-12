@@ -44,6 +44,8 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "projects", groupId: "aprendizagem", label: "Projetos", path: "/dashboard/projects" },
   { id: "avatar-training", groupId: "aprendizagem", label: "Treino com Avatares", path: "/dashboard/avatar-training" },
   { id: "academy", groupId: "aprendizagem", label: "Academia Corporativa", path: "/dashboard/admin/academy" },
+  { id: "academics", groupId: "aprendizagem", label: "Corpo Docente", path: "/dashboard/admin/academics" },
+  { id: "my-students", groupId: "aprendizagem", label: "Os Meus Alunos", path: "/dashboard/reports/my-students" },
   { id: "project-review", groupId: "aprendizagem", label: "Avaliação de Projetos", path: "/dashboard/admin/projects" },
   { id: "blockchain-lab", groupId: "aprendizagem", label: "Blockchain Lab", path: "/dashboard/blockchain-lab" },
   { id: "cyber-lab", groupId: "aprendizagem", label: "Cyber Lab", path: "/dashboard/cyber-lab" },

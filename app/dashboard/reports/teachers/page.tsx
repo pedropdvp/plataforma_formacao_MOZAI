@@ -7,6 +7,7 @@ import {
 import { useAccess } from "@/hooks/use-access";
 import { exportToCSV, exportToXLSX } from "@/lib/export-utils";
 import { DetailModal, DetailModalColumn } from "@/components/ui/detail-modal";
+import { TEACHING_ROLE_LABELS as ROLE_LABELS, isTeachingRole } from "@/lib/academic-roles";
 
 interface Company {
   _id: string;
@@ -71,32 +72,64 @@ export default function TeachersReportPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          setTeacherMetrics(data.metrics);
+          // hasData distingue "não há registos" de "os registos dão zero" — sem isso, um
+          // painel todo a zeros parece avaria e não ausência de atividade.
+          setTeacherMetrics({ ...data.metrics, hasData: data.hasData });
         }
       }
     } catch (e) {
       console.warn("Erro ao obter métricas acadêmicas do professor:", e);
     }
 
-    // Obter professores
-    const teachers = users.filter((u) => 
-      u.tenants?.some((t) => 
-        (selectedCompanyId === "all" ? true : t.tenantId === selectedCompanyId) && 
-        t.roles.includes("PROFESSOR")
+    // Corpo docente: os quatro perfis que podem ter alunos à responsabilidade. Contar apenas
+    // PROFESSOR devolvia zero em plataformas onde a docência está atribuída como FORMADOR ou
+    // TUTOR — que é o caso mais comum.
+    const isDocente = (roles: string[]) => roles.some(isTeachingRole);
+
+    const teachers = users.filter((u) =>
+      u.tenants?.some(
+        (t) =>
+          (selectedCompanyId === "all" ? true : t.tenantId === selectedCompanyId) &&
+          isDocente(t.roles)
       )
     );
 
+    // Cursos e alunos à responsabilidade de cada docente. Só numa empresa de cada vez: somar
+    // responsabilidades de empresas diferentes daria um número sem significado, porque o mesmo
+    // docente pode dar o mesmo curso em duas empresas a alunos distintos.
+    let responsibility: Record<string, { courses: number; students: number }> = {};
+    if (selectedCompanyId !== "all" && teachers.length > 0) {
+      try {
+        const ids = teachers.map((t) => t._id).join(",");
+        const res = await fetch(
+          `/api/admin/academics/responsibility?tenantId=${selectedCompanyId}&staffIds=${encodeURIComponent(ids)}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          responsibility = data.counts || {};
+        }
+      } catch (e) {
+        console.warn("Erro ao obter as responsabilidades do corpo docente:", e);
+      }
+    }
+
     const reportData = teachers.map((teacher) => {
-      const tenantAssoc = teacher.tenants.find((t) => 
-        selectedCompanyId === "all" ? t.roles.includes("PROFESSOR") : t.tenantId === selectedCompanyId
-      );
+      // O vínculo a mostrar é o da empresa filtrada; em modo global, o primeiro onde a pessoa
+      // é docente (e não um qualquer, que podia ser o de aluno noutra empresa).
+      const tenantAssoc =
+        selectedCompanyId === "all"
+          ? teacher.tenants.find((t) => isDocente(t.roles))
+          : teacher.tenants.find((t) => t.tenantId === selectedCompanyId);
+
+      const perfisDocentes = (tenantAssoc?.roles || []).filter(isTeachingRole);
 
       return {
         _id: teacher._id,
         name: `${teacher.firstName} ${teacher.lastName}`,
         email: teacher.email,
         companyName: tenantAssoc?.companyName || "MOZAI",
-        roles: tenantAssoc?.roles || []
+        roles: perfisDocentes.length > 0 ? perfisDocentes : tenantAssoc?.roles || [],
+        responsibility: responsibility[teacher._id] || null,
       };
     });
 
@@ -198,12 +231,16 @@ export default function TeachersReportPage() {
             disabled={!generatedReport}
             onClick={async () => {
               if (!generatedReport) return;
-              const headers = ["Professor", "E-mail", "Empresa Associada", "Papéis Atribuídos"];
+              // rep.name/rep.email: o relatório nunca teve um campo `user`, e lê-lo rebentava
+              // a exportação com um TypeError assim que se carregava no botão.
+              const headers = ["Docente", "E-mail", "Empresa Associada", "Perfil Docente", "Cursos", "Alunos"];
               const rows = generatedReport.map((rep: any) => [
-                `${rep.user.firstName} ${rep.user.lastName}`,
-                rep.user.email,
+                rep.name,
+                rep.email,
                 rep.companyName,
-                rep.roles.join(", ")
+                rep.roles.map((r: string) => ROLE_LABELS[r] || r).join(", "),
+                rep.responsibility ? String(rep.responsibility.courses) : "—",
+                rep.responsibility ? String(rep.responsibility.students) : "—",
               ]);
               await exportToXLSX(headers, rows, `relatorio_professores_${new Date().toISOString().split("T")[0]}`);
             }}
@@ -220,12 +257,16 @@ export default function TeachersReportPage() {
             disabled={!generatedReport}
             onClick={async () => {
               if (!generatedReport) return;
-              const headers = ["Professor", "E-mail", "Empresa Associada", "Papéis Atribuídos"];
+              // rep.name/rep.email: o relatório nunca teve um campo `user`, e lê-lo rebentava
+              // a exportação com um TypeError assim que se carregava no botão.
+              const headers = ["Docente", "E-mail", "Empresa Associada", "Perfil Docente", "Cursos", "Alunos"];
               const rows = generatedReport.map((rep: any) => [
-                `${rep.user.firstName} ${rep.user.lastName}`,
-                rep.user.email,
+                rep.name,
+                rep.email,
                 rep.companyName,
-                rep.roles.join(", ")
+                rep.roles.map((r: string) => ROLE_LABELS[r] || r).join(", "),
+                rep.responsibility ? String(rep.responsibility.courses) : "—",
+                rep.responsibility ? String(rep.responsibility.students) : "—",
               ]);
               await exportToCSV(headers, rows, `relatorio_professores_${new Date().toISOString().split("T")[0]}`);
             }}
@@ -256,6 +297,13 @@ export default function TeachersReportPage() {
                   <BookOpen className="h-4 w-4 text-indigo-400 print:text-black" />
                   Métricas de Desempenho dos Alunos
                 </h3>
+
+                {!teacherMetrics.hasData && (
+                  <p className="text-[11px] text-amber-400/90 bg-amber-500/5 border border-amber-500/20 rounded-xl px-3 py-2 print:text-black print:border-black">
+                    Ainda não há tentativas de quiz nem progresso registado nesta empresa. Os valores
+                    abaixo estão a zero porque não existem dados — não por falha do relatório.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-slate-950 border border-slate-900 p-4 rounded-xl print:border-black">
@@ -315,7 +363,8 @@ export default function TeachersReportPage() {
                        <th className="p-2.5">Professor</th>
                        <th className="p-2.5">E-mail</th>
                        <th className="p-2.5">Empresa Associada</th>
-                       <th className="p-2.5 text-center">Papéis Atribuídos</th>
+                       <th className="p-2.5 text-center">Perfil Docente</th>
+                       <th className="p-2.5 text-center">À responsabilidade</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-900/40 print:divide-slate-200 text-slate-300 print:text-black">
@@ -331,11 +380,24 @@ export default function TeachersReportPage() {
                           <div className="flex flex-wrap gap-1.5 justify-center">
                              {t.roles.map((r: string) => (
                               <span key={r} className="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 print:text-black print:border-black whitespace-nowrap">
-                                 {r}
+                                 {ROLE_LABELS[r] || r}
                                </span>
                              ))}
                            </div>
                          </td>
+                        <td className="p-2.5 text-center whitespace-nowrap text-slate-400 print:text-black">
+                          {t.responsibility ? (
+                            <>
+                              {t.responsibility.courses} curso(s)
+                              <span className="text-slate-600"> · </span>
+                              {t.responsibility.students} aluno(s)
+                            </>
+                          ) : (
+                            <span className="text-slate-600" title="Escolha uma empresa para ver a responsabilidade de cada docente">
+                              —
+                            </span>
+                          )}
+                        </td>
                        </tr>
                      ))}
                    </tbody>

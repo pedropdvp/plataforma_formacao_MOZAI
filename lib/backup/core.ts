@@ -54,6 +54,7 @@ const TENANT_SCOPE_FIELD: Record<string, string> = {
   course_generation_jobs: "tenant_id",
   gamification_profiles: "tenant_id",
   tenant_settings: "tenant_id",
+  academic_assignments: "tenant_id",
   media_library: "tenantId",
   assigned_courses: "tenantId",
   uploaded_chunks: "tenantId",
