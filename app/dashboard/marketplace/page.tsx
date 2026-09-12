@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Store,
   Layers,
@@ -83,34 +84,53 @@ const STATUS_CONFIG: Record<MentorshipRequest["status"], { label: string; color:
   declined: { label: "Recusado", color: "text-slate-400 bg-slate-500/10 border-slate-500/20", icon: XCircle },
 };
 
+/** Abas do Marketplace. A lista é também o que valida o `?tab=` vindo da URL. */
+type MarketplaceTab =
+  | "courses"
+  | "mentors"
+  | "companies"
+  | "datasets"
+  | "models"
+  | "prompts"
+  | "templates"
+  | "projects"
+  | "labs"
+  | "agents"
+  | "apis";
+
+const VALID_TABS: MarketplaceTab[] = [
+  "courses", "mentors", "companies", "datasets", "models",
+  "prompts", "templates", "projects", "labs", "agents", "apis",
+];
+
 export default function MarketplacePage() {
   const { showToast } = useToast();
   const { userId, activeRole } = useAccess();
   const confirmDialog = useConfirm();
   const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
-  const [tab, setTab] = useState<
-    | "courses"
-    | "mentors"
-    | "companies"
-    | "datasets"
-    | "models"
-    | "prompts"
-    | "templates"
-    | "projects"
-    | "labs"
-    | "agents"
-    | "apis"
-  >("courses");
+  const [tab, setTab] = useState<MarketplaceTab>("courses");
 
-  // Permite abrir diretamente numa aba específica via URL (ex: /dashboard/marketplace?tab=mentors),
-  // usado pelo link "Mentorias" na Comunidade — evita duplicar o sistema de mentoria.
+  // A aba vive na URL (ex: /dashboard/marketplace?tab=mentors), e não apenas no estado:
+  // é assim que o item "Mentorias" do menu abre esta página já na aba certa, e que o
+  // endereço fica partilhável e reversível com o botão "retroceder" do browser.
+  //
+  // Ler a query uma única vez na montagem não chegava: o menu aponta para a mesma rota
+  // que esta página, e o App Router não remonta o componente quando só muda a query —
+  // quem já estivesse no Marketplace clicava em "Mentorias" e não acontecia nada.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   useEffect(() => {
-    const tabParam = new URLSearchParams(window.location.search).get("tab");
-    const validTabs = ["courses", "mentors", "companies", "datasets", "models", "prompts", "templates", "projects", "labs", "agents", "apis"];
-    if (tabParam && validTabs.includes(tabParam)) {
-      setTab(tabParam as typeof tab);
-    }
-  }, []);
+    const tabParam = searchParams.get("tab");
+    setTab(tabParam && VALID_TABS.includes(tabParam as MarketplaceTab) ? (tabParam as MarketplaceTab) : "courses");
+  }, [searchParams]);
+
+  /** Muda de aba mantendo a URL a par — sem isto, o endereço deixaria de descrever o ecrã. */
+  const selecionarTab = (novaTab: MarketplaceTab) => {
+    setTab(novaTab);
+    router.replace(novaTab === "courses" ? pathname : `${pathname}?tab=${novaTab}`, { scroll: false });
+  };
 
   // --- CURSOS ---
   const [listings, setListings] = useState<MarketplaceListing[]>([]);
@@ -1648,7 +1668,7 @@ export default function MarketplacePage() {
 
       <div className="flex gap-2 p-1 rounded-2xl bg-slate-900 border border-slate-800 w-fit">
         <button
-          onClick={() => setTab("courses")}
+          onClick={() => selecionarTab("courses")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "courses" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1656,7 +1676,7 @@ export default function MarketplacePage() {
           <Store className="h-3.5 w-3.5" /> Cursos
         </button>
         <button
-          onClick={() => setTab("mentors")}
+          onClick={() => selecionarTab("mentors")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "mentors" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1664,7 +1684,7 @@ export default function MarketplacePage() {
           <Users className="h-3.5 w-3.5" /> Mentores
         </button>
         <button
-          onClick={() => setTab("companies")}
+          onClick={() => selecionarTab("companies")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "companies" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1672,7 +1692,7 @@ export default function MarketplacePage() {
           <Building2 className="h-3.5 w-3.5" /> Empresas
         </button>
         <button
-          onClick={() => setTab("datasets")}
+          onClick={() => selecionarTab("datasets")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "datasets" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1680,7 +1700,7 @@ export default function MarketplacePage() {
           <Database className="h-3.5 w-3.5" /> Datasets
         </button>
         <button
-          onClick={() => setTab("models")}
+          onClick={() => selecionarTab("models")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "models" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1688,7 +1708,7 @@ export default function MarketplacePage() {
           <Bot className="h-3.5 w-3.5" /> Modelos IA
         </button>
         <button
-          onClick={() => setTab("prompts")}
+          onClick={() => selecionarTab("prompts")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "prompts" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1696,7 +1716,7 @@ export default function MarketplacePage() {
           <ScrollText className="h-3.5 w-3.5" /> Prompts
         </button>
         <button
-          onClick={() => setTab("templates")}
+          onClick={() => selecionarTab("templates")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "templates" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1704,7 +1724,7 @@ export default function MarketplacePage() {
           <LayoutTemplate className="h-3.5 w-3.5" /> Templates
         </button>
         <button
-          onClick={() => setTab("projects")}
+          onClick={() => selecionarTab("projects")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "projects" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1712,7 +1732,7 @@ export default function MarketplacePage() {
           <Briefcase className="h-3.5 w-3.5" /> Projetos
         </button>
         <button
-          onClick={() => setTab("labs")}
+          onClick={() => selecionarTab("labs")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "labs" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1720,7 +1740,7 @@ export default function MarketplacePage() {
           <FlaskConical className="h-3.5 w-3.5" /> Laboratórios
         </button>
         <button
-          onClick={() => setTab("agents")}
+          onClick={() => selecionarTab("agents")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "agents" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
@@ -1728,7 +1748,7 @@ export default function MarketplacePage() {
           <Workflow className="h-3.5 w-3.5" /> Agentes IA
         </button>
         <button
-          onClick={() => setTab("apis")}
+          onClick={() => selecionarTab("apis")}
           className={`h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors ${
             tab === "apis" ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
           }`}
