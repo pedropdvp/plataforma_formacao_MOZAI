@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
     const requests = await db
       .collection("data_deletion_requests")
-      .find({ tenant_id: tenantId, userId })
+      .find({ userId })
       .sort({ requestedAt: -1 })
       .toArray();
 
@@ -45,7 +45,10 @@ export async function POST(req: NextRequest) {
     const tenantId = req.headers.get("x-tenant-id") || "root";
     const db = await getDb();
 
-    const existing = await db.collection("data_deletion_requests").findOne({ tenant_id: tenantId, userId, status: "pending" });
+    // Um pedido pendente por pessoa, não por empresa: a eliminação abrange a conta
+    // inteira, pelo que abrir um pedido em cada empresa onde se está inscrito seria pedir
+    // várias vezes a mesma coisa.
+    const existing = await db.collection("data_deletion_requests").findOne({ userId, status: "pending" });
     if (existing) {
       return NextResponse.json({ error: "Já tem um pedido de eliminação pendente." }, { status: 409 });
     }
@@ -54,7 +57,10 @@ export async function POST(req: NextRequest) {
 
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const result = await db.collection("data_deletion_requests").insertOne({
+      // Empresa onde o pedido foi feito — serve de contexto a quem o revê; o apagamento
+      // em si abrange todas as empresas do titular.
       tenant_id: tenantId,
+      scope: "all-tenants",
       userId,
       userEmail: userRecord?.email || null,
       userName: userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() : null,

@@ -3,20 +3,18 @@ import { ObjectId } from "mongodb";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { erasePersonalData } from "@/lib/compliance";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE"];
-const ANONYMIZED_NAME = "Utilizador Removido (RGPD)";
 
 // PATCH — Aprova (executa a eliminação real) ou rejeita um pedido de eliminação de
-// conta. Âmbito explícito da eliminação (para não prometer mais do que cumpre):
-// - Remove por completo o registo do utilizador (users) e os seus dados pessoais mais
-//   sensíveis e sem valor de retenção para terceiros: progresso, tentativas de quiz,
-//   logs cognitivos do Tutor de IA, tentativas de laboratório.
-// - Anonimiza (em vez de apagar) registos onde outras pessoas têm interesse legítimo
-//   em manter o histórico: publicações na Comunidade e submissões de projetos já
-//   avaliadas — o nome do autor passa a "Utilizador Removido (RGPD)", mas o conteúdo
-//   em si (ex: nota de um projeto já avaliado) mantém-se para integridade de registos
-//   pedagógicos/financeiros da empresa.
+// conta. O que é apagado e o que é anonimizado está declarado numa única lista, em
+// lib/compliance.ts, partilhada com a exportação: o que a plataforma mostra no direito de
+// acesso é exatamente o que elimina no direito ao apagamento.
+//
+// O âmbito é a pessoa, em todas as empresas onde a conta existe. Antes, o registo de
+// utilizador (que é global) era removido, mas os dados só eram limpos na empresa ativa do
+// revisor — nas outras ficavam registos órfãos a apontar para alguém que já não existia.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { userId } = await auth();
@@ -39,7 +37,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const db = await getDb();
     const requestObjectId = new ObjectId(id);
 
-    const deletionRequest = await db.collection("data_deletion_requests").findOne({ _id: requestObjectId, tenant_id: tenantId });
+    // Sem filtro de empresa, pelo mesmo motivo da listagem: quem revê são perfis da
+    // plataforma, e o pedido pode ter sido feito dentro de qualquer empresa.
+    const deletionRequest = await db.collection("data_deletion_requests").findOne({ _id: requestObjectId });
     if (!deletionRequest) {
       return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
     }
@@ -51,27 +51,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const reviewerName = `${reviewer?.firstName || ""} ${reviewer?.lastName || ""}`.trim() || "Revisor";
     const targetUserId = deletionRequest.userId;
 
+    let erased: Record<string, number> | null = null;
     if (action === "approve") {
-      await Promise.all([
-        db.collection("users").deleteOne({ _id: targetUserId }),
-        db.collection("user_progress").deleteMany({ tenant_id: tenantId, userId: targetUserId }),
-        db.collection("quiz_attempts").deleteMany({ tenant_id: tenantId, userId: targetUserId }),
-        db.collection("cognitive_logs").deleteMany({ tenant_id: tenantId, userId: targetUserId }),
-        db.collection("coding_lab_attempts").deleteMany({ tenant_id: tenantId, userId: targetUserId }),
-        db.collection("simulation_lab_attempts").deleteMany({ tenant_id: tenantId, userId: targetUserId }),
-        db.collection("gamification_profiles").deleteOne({ _id: targetUserId }),
-      ]);
-
-      // Anonimização (não eliminação) — mantém a integridade de registos onde terceiros
-      // têm interesse legítimo (avaliação de projetos, publicações na Comunidade).
-      const communityPosts = await db.collection("community_posts").find({ tenant_id: tenantId, authorId: targetUserId }).toArray();
-      for (const post of communityPosts) {
-        await db.collection("community_posts").updateOne({ _id: post._id }, { $set: { authorName: ANONYMIZED_NAME } });
-      }
-      const projectSubmissions = await db.collection("project_submissions").find({ tenant_id: tenantId, userId: targetUserId }).toArray();
-      for (const submission of projectSubmissions) {
-        await db.collection("project_submissions").updateOne({ _id: submission._id }, { $set: { studentName: ANONYMIZED_NAME } });
-      }
+      erased = await erasePersonalData(targetUserId);
     }
 
     await db.collection("data_deletion_requests").updateOne(
@@ -83,6 +65,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       tenantId,
       targetUserId,
       requestId: id,
+      scope: "all-tenants",
+      // Contagem por coleção do que foi apagado e anonimizado: é a prova de execução do
+      // pedido, e sem ela ficava só o registo de que alguém carregou no botão.
+      erased,
     });
 
     return NextResponse.json({

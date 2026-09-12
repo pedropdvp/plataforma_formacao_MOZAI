@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { collectPersonalData } from "@/lib/compliance";
 
 // GET — Direito de acesso e portabilidade (RGPD Art. 15/20): devolve TODOS os dados
 // pessoais reais do utilizador autenticado, num único JSON descarregável. Cada secção
 // vem diretamente das coleções reais — nada é resumido ou fabricado.
+//
+// O âmbito é o titular, não a empresa ativa: quem existe em várias empresas leva num só
+// ficheiro os dados de todas elas (ver lib/compliance.ts). Antes exportava apenas a fatia
+// da empresa em que tinha a sessão aberta, o que não é o direito que o artigo consagra.
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -13,47 +17,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
-    const db = await getDb();
+    const exportPayload = await collectPersonalData(userId);
 
-    const [
-      userRecord,
-      progress,
-      quizAttempts,
-      codingLabAttempts,
-      simulationAttempts,
-      projectSubmissions,
-      cognitiveLogs,
-      communityPosts,
-      gamificationProfile,
-    ] = await Promise.all([
-      db.collection("users").findOne({ _id: userId }),
-      db.collection("user_progress").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("quiz_attempts").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("coding_lab_attempts").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("simulation_lab_attempts").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("project_submissions").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("cognitive_logs").find({ tenant_id: tenantId, userId }).toArray(),
-      db.collection("community_posts").find({ tenant_id: tenantId, authorId: userId }).toArray(),
-      db.collection("gamification_profiles").findOne({ _id: userId }),
-    ]);
-
-    await logAuditEvent(userId, "PERSONAL_DATA_EXPORTED", { tenantId });
-
-    const exportPayload = {
-      exportedAt: new Date().toISOString(),
-      profile: userRecord
-        ? { firstName: userRecord.firstName, lastName: userRecord.lastName, email: userRecord.email, tenants: userRecord.tenants }
-        : null,
-      gamification: gamificationProfile || null,
-      courseProgress: progress,
-      quizAttempts,
-      codingLabAttempts,
-      simulationAttempts,
-      projectSubmissions,
-      tutorAiInteractions: cognitiveLogs,
-      communityPosts,
-    };
+    await logAuditEvent(userId, "PERSONAL_DATA_EXPORTED", {
+      tenantId: req.headers.get("x-tenant-id") || "root",
+      scope: "all-tenants",
+    });
 
     return new NextResponse(JSON.stringify(exportPayload, null, 2), {
       headers: {

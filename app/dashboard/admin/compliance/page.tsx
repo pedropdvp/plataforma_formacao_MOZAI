@@ -14,6 +14,7 @@ interface DeletionRequest {
   userEmail: string | null;
   userName: string | null;
   reason: string | null;
+  tenantName?: string;
   status: "pending" | "approved" | "rejected";
   requestedAt: string;
   reviewedAt: string | null;
@@ -160,6 +161,11 @@ export default function CompliancePage() {
                   <div>
                     <h4 className="font-bold text-sm text-white">{request.userName || "Utilizador"}</h4>
                     <span className="text-[11px] text-slate-500">{request.userEmail}</span>
+                    {request.tenantName && (
+                      <span className="text-[10px] text-slate-500 block mt-1">
+                        Pedido feito em <span className="text-slate-400 font-semibold">{request.tenantName}</span> · elimina a conta em todas as empresas
+                      </span>
+                    )}
                   </div>
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border self-start sm:self-auto flex items-center gap-1.5 ${cfg.color}`}>
                     <StatusIcon className="h-3.5 w-3.5" />
