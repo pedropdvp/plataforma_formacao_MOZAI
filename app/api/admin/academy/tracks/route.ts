@@ -6,7 +6,7 @@ import { TRACK_AREAS } from "@/lib/academy";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
-// GET — Lista as trilhas da Academia Corporativa do tenant (uma por área — Técnica,
+// GET — Lista os percursos da Academia Corporativa do tenant (um por área — Técnica,
 // Comercial, RH, Liderança, ou Personalizada) e os colaboradores disponíveis para as
 // atribuir. Antes só existia UM currículo único por empresa; agora cada área pode ter
 // o seu próprio percurso de cursos, com colaboradores diferentes em cada uma.
@@ -35,12 +35,12 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error: any) {
-    console.error("Erro ao listar trilhas da Academia Corporativa:", error);
+    console.error("Erro ao listar percursos da Academia Corporativa:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// POST — Cria uma nova trilha (nome + área + cursos reais do catálogo).
+// POST — Cria um novo percurso (nome + área + cursos reais do catálogo).
 export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { name, area, courseIds } = await req.json();
     if (!name || !name.trim()) {
-      return NextResponse.json({ error: "O nome da trilha é obrigatório." }, { status: 400 });
+      return NextResponse.json({ error: "O nome do percurso é obrigatório." }, { status: 400 });
     }
     if (!Array.isArray(courseIds)) {
       return NextResponse.json({ error: "'courseIds' deve ser uma lista de IDs de curso." }, { status: 400 });
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, track: { ...track, _id: result.insertedId?.toString() } });
   } catch (error: any) {
-    console.error("Erro ao criar trilha da Academia Corporativa:", error);
+    console.error("Erro ao criar percurso da Academia Corporativa:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

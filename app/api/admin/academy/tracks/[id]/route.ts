@@ -7,7 +7,7 @@ import { TRACK_AREAS } from "@/lib/academy";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
-// PATCH — Atualiza nome, área e/ou cursos de uma trilha existente.
+// PATCH — Atualiza nome, área e/ou cursos de um percurso existente.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { userId } = await auth();
@@ -35,12 +35,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Erro ao atualizar trilha da Academia Corporativa:", error);
+    console.error("Erro ao atualizar percurso da Academia Corporativa:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-// DELETE — Remove uma trilha (não remove atribuições de cursos já feitas aos colaboradores).
+// DELETE — Remove um percurso (não remove atribuições de cursos já feitas aos colaboradores).
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { userId } = await auth();
@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Erro ao eliminar trilha da Academia Corporativa:", error);
+    console.error("Erro ao eliminar percurso da Academia Corporativa:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

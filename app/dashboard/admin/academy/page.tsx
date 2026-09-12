@@ -91,7 +91,7 @@ export default function AcademyPage() {
 
   const handleCreateTrack = async () => {
     if (!newTrackName.trim()) {
-      showToast("Indique um nome para a nova trilha.", "error");
+      showToast("Indique um nome para o novo percurso.", "error");
       return;
     }
     setCreating(true);
@@ -103,14 +103,14 @@ export default function AcademyPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`Trilha "${newTrackName.trim()}" criada.`, "success");
+        showToast(`Percurso "${newTrackName.trim()}" criado.`, "success");
         setNewTrackName("");
         loadData();
       } else {
-        showToast(data.error || "Erro ao criar a trilha.", "error");
+        showToast(data.error || "Erro ao criar o percurso.", "error");
       }
     } catch {
-      showToast("Erro de comunicação ao criar a trilha.", "error");
+      showToast("Erro de comunicação ao criar o percurso.", "error");
     } finally {
       setCreating(false);
     }
@@ -118,8 +118,8 @@ export default function AcademyPage() {
 
   const handleDeleteTrack = async (track: Track) => {
     const confirmed = await confirmDialog({
-      title: `Eliminar Trilha "${track.name}"`,
-      message: "Isto elimina a trilha, mas não remove os cursos já atribuídos aos colaboradores. Continuar?",
+      title: `Eliminar Percurso "${track.name}"`,
+      message: "Isto elimina o percurso, mas não remove os cursos já atribuídos aos colaboradores. Continuar?",
       confirmLabel: "Eliminar",
       destructive: true,
     });
@@ -127,12 +127,12 @@ export default function AcademyPage() {
     try {
       const res = await fetch(`/api/admin/academy/tracks/${track._id}`, { method: "DELETE" });
       if (res.ok) {
-        showToast("Trilha eliminada.", "success");
+        showToast("Percurso eliminado.", "success");
         if (editingTrackId === track._id) setEditingTrackId(null);
         loadData();
       }
     } catch {
-      showToast("Erro ao eliminar a trilha.", "error");
+      showToast("Erro ao eliminar o percurso.", "error");
     }
   };
 
@@ -164,7 +164,7 @@ export default function AcademyPage() {
         body: JSON.stringify({ courseIds: Array.from(selectedCourseIds) }),
       });
       if (res.ok) {
-        showToast("Cursos da trilha guardados.", "success");
+        showToast("Cursos do percurso guardados.", "success");
         loadData();
       }
     } catch {
@@ -177,13 +177,13 @@ export default function AcademyPage() {
   const handleApply = async () => {
     if (!editingTrackId) return;
     if (selectedCourseIds.size === 0) {
-      showToast("Adicione pelo menos um curso à trilha antes de aplicar.", "error");
+      showToast("Adicione pelo menos um curso ao percurso antes de aplicar.", "error");
       return;
     }
     const targetLabel = selectedEmployeeIds.size > 0 ? `${selectedEmployeeIds.size} colaborador(es) selecionado(s)` : "TODOS os colaboradores da empresa";
     const confirmed = await confirmDialog({
-      title: "Aplicar Trilha",
-      message: `Isto atribui os cursos desta trilha a ${targetLabel} que ainda não os tenham. Não remove nenhuma atribuição existente. Continuar?`,
+      title: "Aplicar Percurso",
+      message: `Isto atribui os cursos deste percurso a ${targetLabel} que ainda não os tenham. Não remove nenhuma atribuição existente. Continuar?`,
       confirmLabel: "Aplicar",
     });
     if (!confirmed) return;
@@ -199,10 +199,10 @@ export default function AcademyPage() {
       if (res.ok) {
         showToast(data.message, "success", 6000);
       } else {
-        showToast(data.error || "Erro ao aplicar a trilha.", "error");
+        showToast(data.error || "Erro ao aplicar o percurso.", "error");
       }
     } catch {
-      showToast("Erro de comunicação ao aplicar a trilha.", "error");
+      showToast("Erro de comunicação ao aplicar o percurso.", "error");
     } finally {
       setIsApplying(false);
     }
@@ -239,7 +239,7 @@ export default function AcademyPage() {
           Academia Corporativa
         </h1>
         <p className="text-sm text-slate-400">
-          Crie trilhas distintas por área (Técnica, Comercial, RH, Liderança) — cada uma com o seu próprio percurso de cursos e colaboradores atribuídos.
+          Crie percursos distintos por área (Técnica, Comercial, RH, Liderança) — cada um com o seu próprio conjunto de cursos e colaboradores atribuídos.
         </p>
       </div>
 
@@ -250,12 +250,12 @@ export default function AcademyPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Criar nova trilha */}
+          {/* Criar novo percurso */}
           <div className="border border-slate-900 bg-slate-950/40 rounded-3xl p-6 flex flex-col sm:flex-row gap-3">
             <input
               value={newTrackName}
               onChange={(e) => setNewTrackName(e.target.value)}
-              placeholder="Nome da trilha (ex: Trilha de Vendas Consultivas)"
+              placeholder="Nome do Percurso (ex: Percurso de Vendas Consultivas)"
               className="flex-1 h-10 px-3 rounded-xl bg-slate-950 border border-slate-900 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50"
             />
             <select
@@ -273,14 +273,14 @@ export default function AcademyPage() {
               className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all flex items-center gap-2 cursor-pointer disabled:opacity-55 shrink-0"
             >
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Nova Trilha
+              Novo Percurso
             </button>
           </div>
 
-          {/* Lista de trilhas */}
+          {/* Lista de percursos */}
           {tracks.length === 0 ? (
             <div className="border border-slate-900 border-dashed rounded-3xl p-10 text-center">
-              <span className="text-xs text-slate-500">Ainda não criou nenhuma trilha. Comece por criar uma acima.</span>
+              <span className="text-xs text-slate-500">Ainda não criou nenhum percurso. Comece por criar um acima.</span>
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-4">
@@ -309,7 +309,7 @@ export default function AcademyPage() {
             </div>
           )}
 
-          {/* Editor de trilha selecionada */}
+          {/* Editor do percurso selecionado */}
           {editingTrack && (
             <div className="border border-indigo-500/20 bg-slate-900/10 rounded-3xl p-6 space-y-6">
               <div className="flex items-center justify-between">
@@ -322,7 +322,7 @@ export default function AcademyPage() {
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Cursos */}
                 <div className="space-y-3">
-                  <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cursos da Trilha ({selectedCourseIds.size})</h4>
+                  <h4 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cursos do Percurso ({selectedCourseIds.size})</h4>
                   <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                     {courses.map((course) => {
                       const isSelected = selectedCourseIds.has(course.id);
@@ -383,7 +383,7 @@ export default function AcademyPage() {
                     )}
                   </div>
                   <p className="text-[9px] text-slate-600">
-                    Não selecione ninguém para aplicar a trilha a todos os colaboradores atuais da empresa.
+                    Não selecione ninguém para aplicar o percurso a todos os colaboradores atuais da empresa.
                   </p>
                   <button
                     onClick={handleApply}
@@ -391,7 +391,7 @@ export default function AcademyPage() {
                     className="w-full h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-xs font-semibold text-emerald-400 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-55"
                   >
                     {isApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                    Aplicar Trilha
+                    Aplicar Percurso
                   </button>
                 </div>
               </div>

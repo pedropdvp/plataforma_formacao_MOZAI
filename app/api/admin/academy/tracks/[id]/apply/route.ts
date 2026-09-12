@@ -6,9 +6,9 @@ import { logAuditEvent } from "@/lib/audit";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
-// POST — Aplica os cursos de UMA trilha a colaboradores específicos (ou a todos, se
-// 'employeeIds' vier vazio/omitido) — é o que permite trilhas verdadeiramente distintas
-// por área: a trilha Técnica vai só para a equipa técnica, a de Liderança só para
+// POST — Aplica os cursos de UM percurso a colaboradores específicos (ou a todos, se
+// 'employeeIds' vier vazio/omitido) — é o que permite percursos verdadeiramente distintos
+// por área: o percurso Técnico vai só para a equipa técnica, o de Liderança só para
 // gestores, etc., em vez de um único currículo igual para toda a empresa. Aditivo —
 // nunca remove atribuições já feitas individualmente na Gestão de RH.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const activeRole = req.cookies.get("active-role")?.value;
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
-      return NextResponse.json({ error: "Só Admin, Suporte ou Gestor de Empresa podem aplicar trilhas da Academia." }, { status: 403 });
+      return NextResponse.json({ error: "Só Admin, Suporte ou Gestor de Empresa podem aplicar percursos da Academia." }, { status: 403 });
     }
 
     const { id } = await params;
@@ -30,11 +30,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const track = await db.collection("academy_tracks").findOne({ _id: new ObjectId(id), tenant_id: tenantId });
     if (!track) {
-      return NextResponse.json({ error: "Trilha não encontrada." }, { status: 404 });
+      return NextResponse.json({ error: "Percurso não encontrado." }, { status: 404 });
     }
     const courseIds: string[] = track.courseIds || [];
     if (courseIds.length === 0) {
-      return NextResponse.json({ error: "Esta trilha ainda não tem nenhum curso definido." }, { status: 400 });
+      return NextResponse.json({ error: "Este percurso ainda não tem nenhum curso definido." }, { status: 400 });
     }
 
     let targetEmployees: any[];
@@ -77,10 +77,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
       success: true,
-      message: `Trilha "${track.name}" aplicada a ${targetEmployees.length} colaborador(es). ${created} nova(s) atribuição(ões) criada(s).`,
+      message: `Percurso "${track.name}" aplicado a ${targetEmployees.length} colaborador(es). ${created} nova(s) atribuição(ões) criada(s).`,
     });
   } catch (error: any) {
-    console.error("Erro ao aplicar trilha da Academia Corporativa:", error);
+    console.error("Erro ao aplicar percurso da Academia Corporativa:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
