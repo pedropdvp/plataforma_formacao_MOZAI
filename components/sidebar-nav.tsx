@@ -574,10 +574,10 @@ export default function SidebarNav() {
               {t("nav_completed_courses", "Cursos efetuados")}
             </Link>
             )}
-            {isItemVisible("history") && (
+            {isItemVisible("personal-history") && (
             <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
               <Clock className="h-4 w-4 text-cyan-400" />
-              {t("nav_history", "Histórico")}
+              {t("nav_personal_history", "O Meu Histórico")}
             </Link>
             )}
             {isItemVisible("diplomas") && (
@@ -752,6 +752,12 @@ export default function SidebarNav() {
               <Link href="/dashboard/reports/employees" className={linkClass("/dashboard/reports/employees")}>
                 <Briefcase className="h-4 w-4 text-emerald-400" />
                 {t("nav_rep_employees", "Funcionários")}
+              </Link>
+              )}
+              {isItemVisible("history") && (
+              <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
+                <Clock className="h-4 w-4 text-cyan-400" />
+                {t("nav_history", "Histórico")}
               </Link>
               )}
               {isItemVisible("rep-teachers") && (
