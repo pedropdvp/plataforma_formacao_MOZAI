@@ -58,6 +58,18 @@ Projecto Vercel já ligado: `plataforma-formacao-mozai` (ver `.vercel/project.js
    `app/api/admin/media/route.ts`.
 5. **Stripe / WorkOS**: actualizar webhooks e redirect URIs para o novo host.
 
+   **Pagamentos.** Enquanto `STRIPE_SECRET_KEY` for o texto de exemplo, a compra de cursos
+   avulsos usa o simulador — modo de demonstração, com a compra registada como
+   `source: "simulator"` na coleção `course_purchases`. Para cobrar a sério:
+   1. chave verdadeira em `STRIPE_SECRET_KEY`;
+   2. no painel do Stripe, um webhook para `https://<host>/api/stripe/webhook` com os eventos
+      `checkout.session.completed` e `checkout.session.async_payment_succeeded`;
+   3. o *Signing secret* desse webhook em `STRIPE_WEBHOOK_SECRET`;
+   4. redeploy.
+
+   A partir daí o simulador fica desligado e só um pagamento confirmado pelo Stripe abre o
+   curso. O regresso do utilizador ao site depois do checkout não conta como prova.
+
 ---
 
 ## 2. Variáveis de ambiente (ambiente Production)

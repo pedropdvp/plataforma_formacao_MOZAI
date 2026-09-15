@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import Stripe from "stripe";
 import { findPurchasableCourse } from "@/lib/catalog-courses";
+import { hasPurchasedCourse } from "@/lib/course-purchases";
+import { isStripeConfigured } from "@/lib/payments";
 import { getTenantId } from "@/lib/session";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "dummy_stripe_secret_key", {
@@ -9,9 +11,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "dummy_stripe_secret_
 });
 
 export async function POST(req: NextRequest) {
-  // Fora do try: o catch abaixo devolve o simulador de checkout para qualquer erro, e uma
-  // falha de autenticação não pode acabar nesse caminho. A rota criava sessões de pagamento
-  // para pedidos anónimos.
+  // Fora do try: uma falha de autenticação não pode acabar noutro caminho. A rota criava
+  // sessões de pagamento para pedidos anónimos.
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
@@ -26,24 +27,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Este curso não está disponível para compra avulsa." }, { status: 404 });
   }
 
-  const simulatorUrl =
-    `${req.nextUrl.origin}/dashboard/catalog?simulate_checkout=true` +
-    `&courseId=${encodeURIComponent(course.courseId)}` +
-    `&courseTitle=${encodeURIComponent(course.title)}` +
-    `&price=${course.priceCents / 100}`;
-
   try {
     const tenantId = await getTenantId();
+    if (await hasPurchasedCourse(tenantId, userId, course.courseId)) {
+      return NextResponse.json({ error: "Já adquiriu este curso." }, { status: 409 });
+    }
 
-    // Caso a chave seja dummy ou ausente, usar o simulador local
-    if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.includes("...") || process.env.STRIPE_SECRET_KEY.startsWith("dummy")) {
-      console.warn("Stripe API key ausente ou inválida. Redirecionando para o simulador local.");
+    // Modo de demonstração: sem Stripe configurado, o catálogo abre o simulador, que regista a
+    // compra em /api/checkout/simulate. Com o Stripe configurado, o simulador deixa de existir.
+    if (!isStripeConfigured()) {
+      const simulatorUrl =
+        `${req.nextUrl.origin}/dashboard/catalog?simulate_checkout=true` +
+        `&courseId=${encodeURIComponent(course.courseId)}` +
+        `&courseTitle=${encodeURIComponent(course.title)}` +
+        `&price=${course.priceCents / 100}`;
       return NextResponse.json({ url: simulatorUrl });
     }
 
-    // Configurar a sessão de Checkout real no Stripe
     const session = await stripe.checkout.sessions.create({
+      mode: "payment",
       payment_method_types: ["card"],
+      client_reference_id: userId,
+      // É com estes dados que o webhook (/api/stripe/webhook) regista a compra depois de o Stripe
+      // confirmar o pagamento — o regresso do utilizador ao site não conta como prova.
+      metadata: {
+        courseId: course.courseId,
+        tenantId,
+        userId,
+      },
       line_items: [
         {
           price_data: {
@@ -60,9 +71,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      mode: "payment",
-      success_url: `${req.nextUrl.origin}/dashboard?success=true&purchasedCourseId=${encodeURIComponent(course.courseId)}`,
-      cancel_url: `${req.nextUrl.origin}/dashboard/catalog?canceled=true`,
+      success_url: `${req.nextUrl.origin}/dashboard/catalog`,
+      cancel_url: `${req.nextUrl.origin}/dashboard/catalog`,
       payment_intent_data: {
         transfer_group: `course_buy_${course.courseId}_${Date.now()}`,
       },
@@ -70,9 +80,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error: any) {
-    console.warn("Erro ao contactar o Stripe API. Ativando simulador de checkout local:", error.message);
-
-    // Retornar o simulador local como robustez máxima
-    return NextResponse.json({ url: simulatorUrl });
+    // Antes, qualquer erro aqui abria o simulador — e o simulador dava o curso sem cobrar. Um
+    // erro do Stripe é agora só um erro.
+    console.error("Erro ao iniciar o checkout:", error?.message);
+    return NextResponse.json(
+      { error: "Não foi possível iniciar o pagamento. Tente novamente dentro de momentos." },
+      { status: 502 }
+    );
   }
 }

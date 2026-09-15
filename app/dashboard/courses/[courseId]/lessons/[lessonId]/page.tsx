@@ -12,7 +12,8 @@ import { CourseMapButton } from "@/components/lesson-blocks/CourseMapCanvas";
 import { getOrMigrateBlocks } from "@/lib/lesson-blocks";
 import { parseVideoEmbed } from "@/lib/video-embed";
 import { PdfViewer } from "@/components/lesson-blocks/PdfViewer";
-import { getTenantId } from "@/lib/session";
+import { getActiveRole, getTenantId } from "@/lib/session";
+import { canAccessCourse } from "@/lib/course-purchases";
 
 // ---------------------------------------------------------------------------
 // Fallback estático para os cursos-demo que ainda não existem no Sanity.
@@ -193,6 +194,25 @@ export default async function LessonPage({ params }: LessonPageProps) {
         </div>
       );
     }
+  }
+
+  // Curso de compra avulsa: só abre com a compra registada (lib/course-purchases.ts). Antes, a
+  // página não verificava nada — bastava conhecer o endereço da lição.
+  if (userId && !(await canAccessCourse({ tenantId, userId, courseId, activeRole: await getActiveRole() }))) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] flex-col items-center justify-center text-center space-y-4 px-6">
+        <div className="p-4 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <ShieldAlert className="h-8 w-8" />
+        </div>
+        <h1 className="text-xl font-bold text-white">Curso Não Adquirido</h1>
+        <p className="text-sm text-slate-400 max-w-[450px]">
+          Este curso é de compra avulsa. Adquira-o no catálogo para começar a estudar.
+        </p>
+        <Link href="/dashboard/catalog" className="inline-flex h-10 px-6 items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all">
+          Ir para o Catálogo
+        </Link>
+      </div>
+    );
   }
 
   // 1. Tentar carregar o curso REAL do Sanity

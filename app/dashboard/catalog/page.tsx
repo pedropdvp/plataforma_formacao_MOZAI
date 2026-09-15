@@ -120,16 +120,15 @@ function CatalogContent() {
     loadCatalog();
   }, []);
 
-  // Carregar os cursos comprados anteriormente do progresso
+  // Cursos avulsos comprados: vêm do registo de compras do servidor, não do progresso — antes,
+  // qualquer progresso num curso bastava para o mostrar como "Comprado".
   useEffect(() => {
     async function loadPurchased() {
       try {
-        const res = await fetch("/api/progress");
+        const res = await fetch("/api/purchases");
         if (res.ok) {
           const data = await res.json();
-          const list = data.progress || [];
-          const uniqueIds = Array.from(new Set(list.map((p: any) => p.courseId))) as string[];
-          setPurchasedCourses(uniqueIds);
+          setPurchasedCourses(Array.isArray(data.courseIds) ? data.courseIds : []);
         }
       } catch (err) {
         console.error(err);
@@ -180,7 +179,8 @@ function CatalogContent() {
           window.location.href = data.url;
         }
       } else {
-        showToast("Não foi possível iniciar o checkout de pagamentos.", "error");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Não foi possível iniciar o checkout de pagamentos.", "error");
       }
     } catch (err) {
       console.error(err);
@@ -197,21 +197,30 @@ function CatalogContent() {
 
     setIsPaying(true);
     try {
-      // Registrar no progresso o início da primeira aula para desbloquear o curso no dashboard
-      const res = await fetch("/api/progress", {
+      // A compra fica registada no servidor — só em modo de demonstração, sem Stripe configurado
+      // (ver /api/checkout/simulate). Antes, "pagar" era gravar progresso na primeira lição.
+      const res = await fetch("/api/checkout/simulate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          courseId: simulatorData.courseId,
-          lessonId: "lesson-1-1",
-          status: "in-progress",
-          watchTime: 0,
-        }),
+        body: JSON.stringify({ courseId: simulatorData.courseId }),
       });
 
       if (res.ok) {
+        // Primeira lição em curso, para o curso aparecer em "Os Meus Cursos" no dashboard.
+        await fetch("/api/progress", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            courseId: simulatorData.courseId,
+            lessonId: "lesson-1-1",
+            status: "in-progress",
+            watchTime: 0,
+          }),
+        }).catch(() => undefined);
         showToast(`Pagamento simulado efetuado! O curso "${simulatorData.courseTitle}" foi matriculado.`, "success", 5000);
         
         // Limpar parâmetros da URL e fechar simulator
@@ -220,6 +229,9 @@ function CatalogContent() {
         setCardName("");
         setCardNumber("");
         router.push("/dashboard");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Não foi possível registar a compra simulada.", "error");
       }
     } catch (err) {
       console.error(err);

@@ -38,6 +38,7 @@ const API_ROUTES_WITHOUT_SESSION: Record<string, { reason: string; check: RegExp
   "cron/backup": { reason: "Vercel Cron, validado pelo CRON_SECRET", check: /CRON_SECRET/ },
   "public/v1/prompts/[id]/run": { reason: "API pública, validada pela chave de developer", check: /authenticateApiKey/ },
   "sanity-webhook": { reason: "webhook do Sanity, validado pelo segredo", check: /secret/i },
+  "stripe/webhook": { reason: "webhook do Stripe, validado pela assinatura", check: /constructEvent\(/ },
 };
 
 const SESSION_CHECK = /\bauth\(\)|auth\.protect\(|currentUser\(|getAuthorizedSession\(|getActiveRole\(/;
@@ -159,5 +160,17 @@ describe("rotas de administração", () => {
       .filter(({ file }) => !read(file).includes("canActiveRoleOpen("))
       .map(({ id }) => id);
     assert.deepEqual(unguarded, [], `Rotas de geração sem controlo de perfil: ${unguarded.join(", ")}`);
+  });
+});
+
+describe("cursos pagos", () => {
+  it("o progresso e as lições verificam a compra", () => {
+    for (const file of ["app/api/progress/route.ts", "app/dashboard/courses/[courseId]/lessons/[lessonId]/page.tsx"]) {
+      assert.match(read(join(ROOT, file)), /canAccessCourse\(/, file);
+    }
+  });
+
+  it("o simulador de checkout só funciona sem o Stripe configurado", () => {
+    assert.match(read(join(ROOT, "app/api/checkout/simulate/route.ts")), /isStripeConfigured\(\)/);
   });
 });

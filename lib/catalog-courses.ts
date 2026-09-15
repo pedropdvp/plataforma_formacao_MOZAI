@@ -115,3 +115,8 @@ export function findPurchasableCourse(courseId: unknown): PurchasableCourse | nu
   if (!course.priceCents || course.priceCents <= 0) return null;
   return { courseId: course._id, title: course.title, priceCents: course.priceCents };
 }
+
+/** Curso que só se abre depois de comprado (ver lib/course-purchases.ts). */
+export function requiresPurchase(courseId: string): boolean {
+  return CATALOG_COURSES.some((course) => course._id === courseId && course.paymentType === "single_purchase");
+}

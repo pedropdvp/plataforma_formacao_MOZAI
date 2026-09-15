@@ -3,7 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { computeLearningSignals } from "@/lib/adaptive-learning";
-import { getTenantId } from "@/lib/session";
+import { getActiveRole, getTenantId } from "@/lib/session";
+import { canAccessCourse } from "@/lib/course-purchases";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,6 +25,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Campos 'courseId', 'lessonId' e 'status' são obrigatórios." },
         { status: 400 }
+      );
+    }
+
+    // Um curso pago só ganha progresso depois de comprado. Era gravando progresso que o
+    // simulador de checkout "desbloqueava" o curso, e qualquer utilizador podia fazer o mesmo.
+    if (!(await canAccessCourse({ tenantId, userId, courseId, activeRole: await getActiveRole() }))) {
+      return NextResponse.json(
+        { error: "Este curso tem de ser adquirido antes de começar." },
+        { status: 403 }
       );
     }
 
