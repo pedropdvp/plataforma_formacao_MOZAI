@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { executeCode, getPistonRuntimes } from "@/lib/coding-lab/piston";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "'testCases' deve ser uma lista com 1 a 10 casos." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     // Limite de cadência: rejeita se a última tentativa deste utilizador foi há menos de

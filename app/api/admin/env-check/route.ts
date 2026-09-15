@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { inspectEnv, parseEnvExampleKeys } from "@/lib/env-check";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN") {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }

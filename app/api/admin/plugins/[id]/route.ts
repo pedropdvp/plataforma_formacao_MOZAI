@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
@@ -14,14 +15,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para gerir plugins." }, { status: 403 });
     }
 
     const { id } = await params;
     const { isActive, webhookUrl, events } = await req.json();
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const setFields: any = { updatedAt: new Date() };
@@ -47,13 +48,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para gerir plugins." }, { status: 403 });
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     await db.collection("installed_plugins").deleteOne({ _id: new ObjectId(id), tenant_id: tenantId });

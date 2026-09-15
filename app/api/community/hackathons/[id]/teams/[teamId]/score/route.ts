@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // POST — Atribui pontuação e feedback reais à submissão de uma equipa. Só o organizador do
 // hackathon ou ADMIN/SUPORTE podem avaliar.
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "A pontuação deve ser um número entre 0 e 100." }, { status: 400 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
     const hackathon = await db.collection("hackathons").findOne({ _id: new ObjectId(id) });
     if (!hackathon) {

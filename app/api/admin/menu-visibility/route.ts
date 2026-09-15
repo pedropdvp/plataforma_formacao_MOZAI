@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getHiddenMenuIdsForTenant, setHiddenMenuIdsForTenant } from "@/lib/menu-visibility";
+import { getActiveRole } from "@/lib/session";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPORTE"];
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }

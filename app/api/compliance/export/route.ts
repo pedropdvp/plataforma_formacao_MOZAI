@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { logAuditEvent } from "@/lib/audit";
 import { collectPersonalData } from "@/lib/compliance";
+import { getTenantId } from "@/lib/session";
 
 // GET — Direito de acesso e portabilidade (RGPD Art. 15/20): devolve TODOS os dados
 // pessoais reais do utilizador autenticado, num único JSON descarregável. Cada secção
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const exportPayload = await collectPersonalData(userId);
 
     await logAuditEvent(userId, "PERSONAL_DATA_EXPORTED", {
-      tenantId: req.headers.get("x-tenant-id") || "root",
+      tenantId: await getTenantId(),
       scope: "all-tenants",
     });
 

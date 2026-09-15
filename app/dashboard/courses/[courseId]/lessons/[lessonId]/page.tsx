@@ -7,12 +7,12 @@ import { sanityClient, urlFor, GET_COURSE_BY_ID_QUERY, GET_LESSON_QUERY } from "
 import { ArrowLeft, Play, FileText, ExternalLink, CheckCircle2, ShieldAlert } from "lucide-react";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
-import { headers } from "next/headers";
 import { BlockRenderer } from "@/components/lesson-blocks/BlockRenderer";
 import { CourseMapButton } from "@/components/lesson-blocks/CourseMapCanvas";
 import { getOrMigrateBlocks } from "@/lib/lesson-blocks";
 import { parseVideoEmbed } from "@/lib/video-embed";
 import { PdfViewer } from "@/components/lesson-blocks/PdfViewer";
+import { getTenantId } from "@/lib/session";
 
 // ---------------------------------------------------------------------------
 // Fallback estático para os cursos-demo que ainda não existem no Sanity.
@@ -170,8 +170,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
   const { courseId, lessonId } = await params;
 
   const { userId } = await auth();
-  const headersList = await headers();
-  const tenantId = headersList.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
 
   // Se o aluno pertence a uma empresa B2B (tenantId !== 'root')
   // garantimos que o curso está explicitamente atribuído a este utilizador

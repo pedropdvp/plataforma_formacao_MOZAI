@@ -6,6 +6,7 @@ import { fillPromptTemplate } from "@/lib/prompts";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Prompt não encontrado." }, { status: 404 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     if (!prompt.isPublic && prompt.ownerId !== userId) {
       return NextResponse.json({ error: "Este Prompt é privado." }, { status: 403 });

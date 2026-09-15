@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { triggerPluginEvent } from "@/lib/plugins";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 // Regra de negócio: só Admin e Professor podem avaliar projetos (não pares, não Suporte).
 const REVIEWER_ROLES = ["ADMIN", "PROFESSOR"];
@@ -18,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para avaliar projetos." }, { status: 403 });
     }
@@ -30,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Estado de avaliação inválido." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const submissionObjectId = new ObjectId(id);
 

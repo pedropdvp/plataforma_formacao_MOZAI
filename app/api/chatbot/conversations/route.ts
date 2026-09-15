@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { listConversations, createConversation } from "@/lib/chatbot-conversation";
+import { getTenantId } from "@/lib/session";
 
 /** GET — Lista as conversas do utilizador com o ChatBot (mais recentes/favoritas primeiro). */
 export async function GET(req: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const conversations = await listConversations(tenantId, userId);
   return NextResponse.json({ success: true, conversations });
 }
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const conversationId = await createConversation(tenantId, userId);
   return NextResponse.json({ success: true, conversationId });
 }

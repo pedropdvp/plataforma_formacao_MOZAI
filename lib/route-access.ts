@@ -4,14 +4,14 @@
  * Antes, estas regras viviam como uma cascata de `if (path.startsWith(...)) allowedRoles.push(...)`
  * dentro do middleware, e só cobriam `/dashboard/admin`. Tudo o resto ficava protegido
  * apenas por o item não aparecer no menu — o que esconde, mas não impede: bastava escrever
- * o endereço. Tê-las aqui, em dados, permite que o middleware as aplique e que outras
- * camadas (menu, testes, documentação da matriz de acessos) leiam as mesmas regras em vez
- * de reconstruírem cada uma a sua versão.
+ * o endereço. Tê-las aqui, em dados, permite que a guarda das páginas (requirePageAccess, em
+ * lib/page-access.ts) as aplique e que outras camadas (menu, testes, documentação da matriz
+ * de acessos) leiam as mesmas regras em vez de reconstruírem cada uma a sua versão.
  *
- * Este módulo é propositadamente puro — sem acesso a base de dados — porque corre no
- * middleware (edge runtime). O que aqui se decide é ao nível do PERFIL ativo; as
- * permissões finas de cada perfil vivem na coleção `roles` e são aplicadas dentro das
- * páginas e das rotas de API.
+ * Este módulo é propositadamente puro — sem acesso a base de dados — para ser partilhado por
+ * essas camadas e testado isoladamente (tests/route-access.test.ts). O que aqui se decide é
+ * ao nível do PERFIL ativo; as permissões finas de cada perfil vivem na coleção `roles` e
+ * são aplicadas dentro das páginas e das rotas de API.
  */
 
 export interface RouteAccessRule {

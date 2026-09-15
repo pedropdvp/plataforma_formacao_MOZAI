@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const CREATE_ROLES = ["ADMIN", "GESTOR_ACADEMICO", "FORMADOR"];
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [classes, myReservations] = await Promise.all([
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !CREATE_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para agendar aulas ao vivo." }, { status: 403 });
     }
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Título, formador, data, horário e link da sessão são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const result = await db.collection("live_classes").insertOne({

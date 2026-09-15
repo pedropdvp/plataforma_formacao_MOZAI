@@ -12,7 +12,7 @@ externos, por isso não há nada a migrar do disco local:
 | Camada | Serviço | Configuração |
 |---|---|---|
 | Base de dados | MongoDB Atlas | `lib/mongodb.ts` (`MONGODB_URI`, `MONGODB_DB`) |
-| Autenticação + RBAC + multi-tenancy | Clerk | `middleware.ts` |
+| Autenticação + RBAC + multi-tenancy | Clerk | `proxy.ts` (tenant), `lib/session.ts` e `lib/page-access.ts` (autorização) |
 | SSO B2B | WorkOS | `lib/workos.ts`, callback `/sso-callback` |
 | CMS de conteúdos | Sanity (Studio em `/studio`) | `lib/sanity.ts` |
 | Ficheiros / uploads | Vercel Blob | `@vercel/blob` |
@@ -37,11 +37,19 @@ Projecto Vercel já ligado: `plataforma-formacao-mozai` (ver `.vercel/project.js
    *"Development mode"* no fundo do formulário e o tecto de utilizadores do plano de
    desenvolvimento. Nada disto impede uma apresentação.
 
-   Um aviso para quem for diagnosticar: com `curl`, `/dashboard` responde **404** com
-   `X-Clerk-Auth-Reason: protect-rewrite, dev-browser-missing`. **Não é uma avaria** —
-   é o Clerk a exigir o *dev browser token*, que só o Clerk JS estabelece. Num browser
-   a rota reencaminha para o login como deve. Testar autenticação com `curl` numa
-   instância de desenvolvimento dá sempre um falso negativo.
+   Um aviso para quem for diagnosticar com `curl`: sem sessão, as páginas do dashboard
+   respondem **307** para `/sign-in` e as rotas de API **401** — é o comportamento certo.
+   Num browser, o Clerk de desenvolvimento faz antes um *handshake* (vai a
+   `clerk.accounts.dev` e volta), por isso o percurso tem mais um salto do que no `curl`.
+   Até à migração para `proxy.ts`, o `curl` recebia **404** (`protect-rewrite`) nas rotas
+   protegidas; se voltar a aparecer um 404 em rotas que existem, ver a nota seguinte.
+
+   **404 em rotas que existem, em `next dev`.** A cache persistente do Turbopack
+   (`.next/dev`, ativa por omissão no Next 16) pode ficar com o mapa de rotas antigo depois
+   de se mudar o nome, mover ou apagar ficheiros de rotas, ou de trocar o `middleware.ts`
+   pelo `proxy.ts`. Sintoma: páginas e APIs que existem — incluindo `/sign-in` — respondem
+   404, com `x-middleware-rewrite` a apontar para o próprio caminho. Solução: parar o
+   `next dev`, apagar a pasta `.next/dev` e voltar a arrancar.
 
 3. **Sanity → API → CORS Origins**: adicionar `https://<host>.vercel.app` com
    *Allow credentials*, senão o Studio em `/studio` e as queries de conteúdo falham.
@@ -122,7 +130,7 @@ a acontecer.
 `C:/Area de Trabalho/.../SOFTWARE/Git/sign-in`. Um valor que começa por `/` é
 convertido em caminho do Windows quando passa por um shell MSYS, e o Clerk ficou a
 reencaminhar para um caminho inexistente. As rotas de login deixaram de vir do
-ambiente por causa disto (ver `app/layout.tsx` e `middleware.ts`), mas a armadilha
+ambiente por causa disto (ver `app/layout.tsx` e `proxy.ts`), mas a armadilha
 continua de pé para qualquer variável nova que comece por `/`: definir essas no painel
 da Vercel, ou pelo `npm run deploy:env`, que passa os valores por stdin e escapa à
 conversão.
@@ -189,7 +197,17 @@ Fazer **num PC diferente**, em rede diferente (hotspot do telemóvel), em janela
 - [ ] Abrir um curso, um **PDF** (valida `pdf-parse`/`pdfjs-dist` com
       `serverExternalPackages` em serverless) e um **vídeo Mux**.
 - [ ] Perguntar algo ao **Tutor de IA** (valida `OPENAI_API_KEY` + vector store).
-- [ ] Como `ALUNO`, tentar `/dashboard/admin` → deve ser bloqueado (RBAC do middleware).
+- [ ] Como `ALUNO`, tentar `/dashboard/admin` → deve voltar a `/dashboard` (guarda
+      `requirePageAccess` da própria página).
+- [ ] Como `ALUNO`, mudar a cookie `active-role` para `ADMIN` nas ferramentas do browser e
+      abrir `/dashboard/admin/env-check` → deve continuar bloqueado (o perfil é validado
+      contra os perfis atribuídos, não lido da cookie).
+- [ ] Como `GESTOR_EMPRESA`, mudar a cookie `x-tenant-id` para o id de outra empresa → os
+      dados mostrados continuam a ser os da própria empresa (`getTenantId()` valida a
+      pertença).
+- [ ] `MUX_WEBHOOK_SECRET` definida no painel da Vercel e igual à do webhook no Mux. Sem ela
+      o webhook responde **503** a tudo; os vídeos continuam a ficar prontos, porque o painel
+      de media consulta o Mux diretamente, mas deixa de haver atualização em segundo plano.
 - [ ] Login como `ADMIN` → consola administrativa acessível.
 - [ ] **Upload** de ficheiro no admin (valida os tokens do Vercel Blob).
 - [ ] Recarregar a página: os dados **persistem** (prova que o Atlas está ligado).

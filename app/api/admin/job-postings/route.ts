@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
@@ -14,12 +15,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para gerir vagas." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [jobs, applications] = await Promise.all([
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para criar vagas." }, { status: 403 });
     }
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Título e descrição da vaga são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const result = await db.collection("job_postings").insertOne({

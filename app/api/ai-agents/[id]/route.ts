@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // GET — Detalhe completo de um Agente IA (nome, descrição, categoria e passos), para a ficha
 // de "Visualizar"/"Editar". Só o autor pode ver o detalhe de gestão.
@@ -107,7 +108,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
 
     const agent = await db.collection("ai_agents").findOne({ _id: new ObjectId(id) });

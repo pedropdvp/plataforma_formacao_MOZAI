@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os requisitos de projeto (obrigatoriedade + prazo de entrega) definidos por
 // curso, para o tenant atual. Usado tanto pela página de submissão do aluno (para mostrar
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const requirements = await db

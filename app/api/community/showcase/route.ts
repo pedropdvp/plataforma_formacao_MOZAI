@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getTenantId } from "@/lib/session";
 
 // GET — Galeria de projetos partilhados pela comunidade (portefólio/showcase — distinto dos
 // Projetos-freelance do Marketplace e das entregas de curso), mais recentes primeiro.
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const projects = await db.collection("community_showcase_projects").find({ tenant_id: tenantId }).sort({ createdAt: -1 }).toArray();
 
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Título e descrição são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const authorName = userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || userRecord.email : "Utilizador";

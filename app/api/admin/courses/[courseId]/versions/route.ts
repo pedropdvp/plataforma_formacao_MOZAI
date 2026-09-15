@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cour
     }
 
     const { courseId } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const versions = await db
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cou
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO", "SUPORTE"];
     if (!allowedRoles.includes(activeRole || "")) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cou
       return NextResponse.json({ error: "versionNumber é obrigatório." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const targetVersion = await db.collection("course_versions").findOne({ courseId, tenantId, versionNumber });

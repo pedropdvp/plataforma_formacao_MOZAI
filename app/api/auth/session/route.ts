@@ -7,6 +7,7 @@ import {
   getUserRecord,
   syncUserNameFromClerk,
 } from "@/lib/users";
+import { getAuthorizedSession, getTenantId } from "@/lib/session";
 
 /**
  * GET: Obtém o perfil ativo da sessão e as permissões associadas
@@ -113,13 +114,11 @@ export async function GET(req: NextRequest) {
     );
     if (assignedRoles.length === 0) assignedRoles.push("ALUNO");
 
-    // 2. Obter o cookie de papel ativo
-    let activeRole = req.cookies.get("active-role")?.value || null;
-
-    // Se o papel ativo não pertencer aos papéis atribuídos, anula-o
-    if (activeRole && !assignedRoles.includes(activeRole)) {
-      activeRole = null;
-    }
+    // 2. Perfil ativo, com a mesma validação de todas as rotas (lib/session.ts): a cookie só vale
+    // se o perfil estiver atribuído, ou se for um Administrador a experimentar outro perfil que
+    // exista — exatamente o que o POST abaixo aceita escrever. Antes, este GET recusava o perfil
+    // experimentado pelo Administrador que o próprio POST tinha acabado de aceitar.
+    const activeRole = (await getAuthorizedSession())?.activeRole ?? null;
 
     // 3. Se tiver papel ativo, procurar as suas permissões associadas
     let permissions: string[] = [];
@@ -190,7 +189,7 @@ export async function POST(req: NextRequest) {
       }
       // Admin a "testar" um perfil que não tem atribuído em empresa nenhuma: mantém-se na
       // empresa em que já estava (normalmente "root"), nunca inventa uma empresa nova.
-      resolvedTenantId = req.headers.get("x-tenant-id") || "root";
+      resolvedTenantId = await getTenantId();
     }
 
     // Definir cookies com validade de 24h

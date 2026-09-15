@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { PERMISSIONS_DATA } from "@/lib/seeder";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * Perfis de acesso (roles) e respetivo catálogo de permissões — usado tanto pelo ecrã
@@ -23,8 +24,8 @@ async function getAssignedRoles(userId: string, tenantId: string): Promise<strin
 /** Leitura: permite se o utilizador é ADMIN/SUPORTE atualmente OU se ainda não escolheu
  * perfil ativo nesta sessão mas "ADMIN" está entre os seus perfis atribuídos (fluxo
  * /choose-role). */
-async function canRead(req: NextRequest, userId: string, tenantId: string): Promise<boolean> {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function canRead(userId: string, tenantId: string): Promise<boolean> {
+  const activeRole = await getActiveRole();
   if (activeRole === "ADMIN" || activeRole === "SUPORTE") return true;
   if (!activeRole) {
     const assignedRoles = await getAssignedRoles(userId, tenantId);
@@ -33,8 +34,8 @@ async function canRead(req: NextRequest, userId: string, tenantId: string): Prom
   return false;
 }
 
-function canWrite(req: NextRequest): boolean {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function canWrite(): Promise<boolean> {
+  const activeRole = await getActiveRole();
   return activeRole === "ADMIN" || activeRole === "SUPORTE";
 }
 
@@ -45,8 +46,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
-    if (!(await canRead(req, userId, tenantId))) {
+    const tenantId = await getTenantId();
+    if (!(await canRead(userId, tenantId))) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
@@ -67,7 +68,7 @@ export async function PATCH(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!canWrite(req)) {
+    if (!(await canWrite())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
@@ -110,7 +111,7 @@ export async function DELETE(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!canWrite(req)) {
+    if (!(await canWrite())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 

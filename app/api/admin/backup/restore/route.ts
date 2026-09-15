@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { restoreBackup } from "@/lib/backup/core";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,13 +19,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
     if (activeRole !== "ADMIN" && !isCompanyScoped) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+    const tenantId = isCompanyScoped ? await getTenantId() : undefined;
     if (isCompanyScoped && !tenantId) {
       return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
     }

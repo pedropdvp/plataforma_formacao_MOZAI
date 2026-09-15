@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { encryptSecret } from "@/lib/crypto";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // GET — Indica apenas SE o utilizador já tem um Personal Access Token do GitHub guardado
 // (nunca devolve o valor — só é usado internamente, encriptado, para criar Gists).
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const record = await db.collection("user_integrations").findOne({ tenant_id: tenantId, userId, provider: "github" });
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Introduza um Personal Access Token do GitHub válido (começa por 'ghp_' ou 'github_pat_')." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     await db.collection("user_integrations").updateOne(
@@ -63,7 +64,7 @@ export async function DELETE(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     await db.collection("user_integrations").deleteOne({ tenant_id: tenantId, userId, provider: "github" });
     return NextResponse.json({ success: true });

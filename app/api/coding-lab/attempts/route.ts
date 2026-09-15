@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTenantId } from "@/lib/session";
 
 // GET — Histórico das últimas execuções do próprio aluno para um exercício específico
 // (ou todas, se 'exerciseId' não for indicado), mais recentes primeiro.
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { searchParams } = new URL(req.url);
     const exerciseId = searchParams.get("exerciseId");
 

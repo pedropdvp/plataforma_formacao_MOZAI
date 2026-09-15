@@ -132,7 +132,7 @@ export default function ChooseRolePage() {
         body: JSON.stringify({ role }),
       });
       if (res.ok) {
-        // Navegação completa (não router.push) — o middleware precisa de reavaliar a cookie
+        // Navegação completa (não router.push) — o layout do dashboard precisa de reavaliar a cookie
         // "active-role" recém-definida numa requisição de servidor real; um push client-side
         // podia deixar o utilizador "preso" nesta página até um reload manual.
         window.location.href = "/dashboard";

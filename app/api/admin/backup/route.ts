@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createBackup, listBlobBackups, pruneOldBackups } from "@/lib/backup/core";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,13 +18,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
-    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+    const tenantId = isCompanyScoped ? await getTenantId() : undefined;
 
     const backups = await listBlobBackups(tenantId);
     return NextResponse.json({ success: true, backups });
@@ -43,13 +44,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
-    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || undefined : undefined;
+    const tenantId = isCompanyScoped ? await getTenantId() : undefined;
     if (isCompanyScoped && !tenantId) {
       return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
     }

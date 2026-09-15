@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole } from "@/lib/session";
 
 /**
  * GET: Obtém a lista de tickets.
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const isAdminOrSupport = activeRole === "ADMIN" || activeRole === "SUPORTE";
 
     const db = await getDb();
@@ -108,7 +109,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Validar se o utilizador atual é Admin ou Suporte
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Apenas a equipa de Suporte/Administradores pode responder a pedidos." }, { status: 403 });
     }

@@ -6,6 +6,7 @@ import { generateObject, jsonSchema } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 90; // Permitir tempo para matching e geração híbrida
 
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { goal, duration } = body;
 

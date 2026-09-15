@@ -6,6 +6,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Avatar não encontrado." }, { status: 404 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 1);
     if (newBalance === null) {
       return NextResponse.json({ error: "Saldo de Créditos IA insuficiente. Recarregue em Créditos IA para continuar." }, { status: 402 });

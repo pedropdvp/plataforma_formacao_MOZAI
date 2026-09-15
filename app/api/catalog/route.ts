@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sanityClient } from "@/lib/sanity";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
-import { headers } from "next/headers";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * Devolve os cursos publicados no Sanity filtrados de acordo com a atribuição B2B,
@@ -25,8 +25,7 @@ const CATALOG_QUERY = `
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
-    const headersList = await headers();
-    const tenantId = headersList.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     let courses = await sanityClient.fetch(CATALOG_QUERY);
     courses = Array.isArray(courses) ? courses : [];
@@ -47,7 +46,7 @@ export async function GET(req: NextRequest) {
       const queryConds: any = { tenant_id: tenantId };
 
       if (userId) {
-        const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+        const activeRole = await getActiveRole() || "ALUNO";
         if (activeRole === "ALUNO") {
           queryConds.$or = [
             { status: "PUBLISHED", isPrivate: false },

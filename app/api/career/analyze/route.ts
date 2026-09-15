@@ -5,6 +5,7 @@ import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 45; // Permitir tempo suficiente para a chamada de IA B2B
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     // 2. Catálogo REAL de cursos (Sanity + IA), para a IA só recomendar cursos que
     // realmente existem na plataforma neste momento — antes estava fixo a 4 cursos-demo

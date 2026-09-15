@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os pedidos de ligação enviados e recebidos pelo utilizador autenticado.
 export async function GET(req: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [sent, received] = await Promise.all([
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Alvo do pedido de ligação inválido." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const targetProfile = await db.collection("network_profiles").findOne({ tenant_id: tenantId, userId: targetUserId, visible: true });

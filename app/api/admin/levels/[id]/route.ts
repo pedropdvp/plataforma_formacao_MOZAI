@@ -4,9 +4,10 @@ import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getGamificationLevels } from "@/lib/gamification-levels";
+import { getActiveRole } from "@/lib/session";
 
-function canWrite(req: NextRequest): boolean {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function canWrite(): Promise<boolean> {
+  const activeRole = await getActiveRole();
   return activeRole === "ADMIN" || activeRole === "SUPORTE";
 }
 
@@ -17,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!canWrite(req)) {
+    if (!(await canWrite())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
@@ -55,7 +56,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!canWrite(req)) {
+    if (!(await canWrite())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 

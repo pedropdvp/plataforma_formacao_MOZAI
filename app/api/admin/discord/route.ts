@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { logAuditEvent } from "@/lib/audit";
 import { getTenantDiscordStatus, setTenantDiscordWebhook, removeTenantDiscordWebhook } from "@/lib/discord";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const ALLOWED_ROLES = ["ADMIN", "GESTOR_EMPRESA"];
 
@@ -12,12 +13,12 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const status = await getTenantDiscordStatus(tenantId);
     return NextResponse.json({ success: true, ...status });
   } catch (error: any) {
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Introduza um URL de Webhook do Discord válido (discord.com/api/webhooks/...)." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     await setTenantDiscordWebhook(tenantId, webhookUrl.trim());
     await logAuditEvent(userId, "DISCORD_WEBHOOK_SAVED", { tenantId });
 
@@ -62,11 +63,11 @@ export async function DELETE(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     await removeTenantDiscordWebhook(tenantId);
     await logAuditEvent(userId, "DISCORD_WEBHOOK_REMOVED", { tenantId });
     return NextResponse.json({ success: true });

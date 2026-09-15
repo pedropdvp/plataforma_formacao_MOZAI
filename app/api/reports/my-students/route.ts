@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { getStudentsForStaff } from "@/lib/academics";
+import { getTenantId } from "@/lib/session";
 
 /**
  * GET — Os alunos pelos quais o docente autenticado é responsável, com o desempenho de cada um.
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const pedido = req.nextUrl.searchParams.get("studentId");
     const db = await getDb();
 

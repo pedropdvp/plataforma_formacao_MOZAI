@@ -6,6 +6,7 @@ import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Parâmetro 'messages' é obrigatório." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 1);
     if (newBalance === null) {
       return NextResponse.json(

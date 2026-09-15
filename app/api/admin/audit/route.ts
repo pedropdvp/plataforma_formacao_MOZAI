@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getActiveRole } from "@/lib/session";
 
 /**
  * GET /api/admin/audit: Obtém a listagem de logs de auditoria
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Validar se o papel ativo é ADMIN ou SUPORTE
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });
     }

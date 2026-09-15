@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista as Equipas deste tenant: grupos de trabalho persistentes (distintos das equipas
 // de um Hackathon, que só existem enquanto esse evento durar).
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const teams = await db.collection("community_teams").find({ tenant_id: tenantId }).sort({ createdAt: -1 }).toArray();
     const pendingRequests = await db.collection("team_join_requests").find({ tenant_id: tenantId, status: "pending" }).toArray();
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nome e descrição da equipa são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const leaderName = userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || userRecord.email : "Utilizador";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getCreditBalance, addCredits } from "@/lib/ai-credits";
+import { getTenantId } from "@/lib/session";
 
 /** Pacotes de recarga disponíveis (mesmos valores já mostrados na página Créditos IA). */
 const REFILL_PACKS: Record<string, { amount: number; price: string }> = {
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const balance = await getCreditBalance(tenantId, userId);
     return NextResponse.json({ success: true, balance });
   } catch (error: any) {
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Pacote de recarga inválido." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const balance = await addCredits(tenantId, userId, selected.amount);
     return NextResponse.json({ success: true, balance, added: selected.amount, price: selected.price });
   } catch (error: any) {

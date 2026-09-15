@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTenantId } from "@/lib/session";
 
 // GET — Diretório de Networking: só membros que ativaram explicitamente "Visível na Rede",
 // excluindo o próprio utilizador, com o estado real da ligação entre ambos.
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const q = req.nextUrl.searchParams.get("q")?.trim();
     const db = await getDb();
 

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // PATCH — Alterna a visibilidade (público/privado) de um Template. Só o autor pode gerir.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +46,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
 
     const template = await db.collection("content_templates").findOne({ _id: new ObjectId(id) });

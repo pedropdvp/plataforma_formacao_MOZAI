@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@clerk/nextjs/server";
+import { canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+  }
+  if (!(await canActiveRoleOpen("/dashboard/admin/content-factory", "/dashboard/admin/chatbot"))) {
+    return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
   }
 
   const body = (await req.json()) as HandleUploadBody;

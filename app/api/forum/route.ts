@@ -3,9 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getForums, createForum } from "@/lib/forum";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
-async function canManageForums(req: NextRequest): Promise<boolean> {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function canManageForums(): Promise<boolean> {
+  const activeRole = await getActiveRole();
   if (!activeRole) return false;
   if (activeRole === "ADMIN" || activeRole === "SUPORTE") return true;
   const db = await getDb();
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const forums = await getForums(tenantId);
     return NextResponse.json({ success: true, forums });
   } catch (error: any) {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!(await canManageForums(req))) {
+    if (!(await canManageForums())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "A categoria do fórum é obrigatória." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const id = await createForum(tenantId, title.trim(), category.trim());
 
     await logAuditEvent(userId, "FORUM_CREATED", { tenantId, title: title.trim() });

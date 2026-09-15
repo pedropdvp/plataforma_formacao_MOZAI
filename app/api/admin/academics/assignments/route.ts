@@ -9,6 +9,7 @@ import {
   listAssignments,
   removeAssignment,
 } from "@/lib/academics";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /** Confirma que a pessoa existe e pertence a este tenant — o isolamento entre empresas
  *  não pode depender de o cliente enviar só ids legítimos. */
@@ -20,8 +21,8 @@ async function membroDoTenant(userId: string, tenantId: string) {
   return vinculo ? { user, roles: (vinculo.roles || []) as string[] } : null;
 }
 
-function autorizado(req: NextRequest) {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function autorizado() {
+  const activeRole = await getActiveRole();
   return activeRole && ASSIGNER_ROLES.includes(activeRole) ? activeRole : null;
 }
 
@@ -33,11 +34,11 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    if (!autorizado(req)) {
+    if (!(await autorizado())) {
       return NextResponse.json({ error: "Sem permissão para gerir o corpo docente." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [assignments, membros] = await Promise.all([
@@ -79,11 +80,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    if (!autorizado(req)) {
+    if (!(await autorizado())) {
       return NextResponse.json({ error: "Sem permissão para gerir o corpo docente." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { staffId, scope, courseId, studentId } = await req.json();
 
     if (!staffId || !scope || !["course", "student"].includes(scope)) {
@@ -152,11 +153,11 @@ export async function DELETE(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    if (!autorizado(req)) {
+    if (!(await autorizado())) {
       return NextResponse.json({ error: "Sem permissão para gerir o corpo docente." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const assignmentId = req.nextUrl.searchParams.get("id");
     if (!assignmentId) {
       return NextResponse.json({ error: "Indique a atribuição a remover." }, { status: 400 });

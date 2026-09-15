@@ -7,6 +7,7 @@ import {
   sortearTipos,
   toPublicChallenge,
 } from "@/lib/cyber-lab/ctf-challenges";
+import { getTenantId } from "@/lib/session";
 
 /** Um registo de `ctf_solves`, na medida em que esta rota o usa. */
 interface CtfSolve {
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const solves = await lerSolves(db, tenantId, userId);
 
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const solves = await lerSolves(db, tenantId, userId);
     const conjunto = await criarConjunto(db, tenantId, userId, solves);

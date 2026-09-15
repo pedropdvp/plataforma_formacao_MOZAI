@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { computeSkillNodes, CURATED_SKILL_DEFS, ScoredSkillNode } from "@/lib/skills-os";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     // 2. Buscar progresso e desempenho reais de todos os utilizadores deste tenant
@@ -146,7 +147,7 @@ export async function GET(req: NextRequest) {
     });
 
     // 7. Estatísticas Globais de Acessos para ADMIN/SUPORTE (Requisito do Utilizador)
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const isAdminOrSupport = activeRole === "ADMIN" || activeRole === "SUPORTE";
 
     let globalStats = null;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const ALLOWED_ROLES = ["ADMIN", "GESTOR_EMPRESA"];
 
@@ -12,12 +13,12 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const result = await sendDiscordNotification(
       tenantId,
       "Mensagem de Teste",

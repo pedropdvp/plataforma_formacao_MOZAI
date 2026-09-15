@@ -1,6 +1,5 @@
 import React from "react";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import {
   Star,
@@ -22,6 +21,7 @@ import GreetingText from "@/components/greeting-text";
 import DashboardCharts from "@/components/dashboard-charts";
 import AdaptiveLearningPanel from "@/components/adaptive-learning-panel";
 import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
+import { getTenantId } from "@/lib/session";
 
 // Nº de lições + título por curso: cursos reais do Sanity + fallback dos cursos-demo
 const DEMO_COURSES: Record<string, { title: string; lessonsCount: number }> = {
@@ -32,8 +32,7 @@ const DEMO_COURSES: Record<string, { title: string; lessonsCount: number }> = {
 const COURSE_COUNTS_QUERY = `*[_type == "course"]{ _id, title, "lessonsCount": count(modules[]->lessons[]) }`;
 
 export default async function DashboardPage() {
-  const headersList = await headers();
-  const tenantId = headersList.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
 
   const { userId } = await auth();
 

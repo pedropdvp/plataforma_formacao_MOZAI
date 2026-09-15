@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // GET — Lista o feed real de itens detetados (mais recentes primeiro).
 export async function GET(req: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }

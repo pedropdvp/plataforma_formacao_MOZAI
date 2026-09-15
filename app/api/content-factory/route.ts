@@ -3,13 +3,14 @@ import { findTenantScoped, insertTenantScoped, deleteTenantScoped } from "@/lib/
 import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * GET: Lista todas as gerações de conteúdo do tenant ativo
  */
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     
     // Obter todas as gerações do banco de dados ordenadas por data de criação descrescente
     const generations = await findTenantScoped("content_factory_generations", tenantId);
@@ -28,13 +29,13 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "GESTOR_ACADEMICO", "FORMADOR"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para esta ação." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
 
     const { topic, script, slides, quiz, lab } = body;
@@ -77,13 +78,13 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "GESTOR_ACADEMICO", "FORMADOR"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para esta ação." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 

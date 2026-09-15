@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { triggerPluginEvent } from "@/lib/plugins";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os pedidos de mentoria relacionados com o utilizador autenticado: os que
 // enviou (como mentee) e os que recebeu (como mentor).
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [sent, received] = await Promise.all([
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não pode pedir mentoria a si próprio." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const mentorProfile = await db.collection("mentor_profiles").findOne({ tenant_id: tenantId, userId: mentorUserId, isActive: true });

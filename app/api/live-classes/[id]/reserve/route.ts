@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 // POST — Reserva um lugar real numa aula ao vivo (bloqueia novas reservas do mesmo utilizador
 // para a mesma aula) e cria uma notificação real ligada a essa reserva.
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     let liveClass: any;
@@ -69,7 +70,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     await db.collection("live_class_reservations").deleteOne({ tenant_id: tenantId, classId: new ObjectId(id), userId });

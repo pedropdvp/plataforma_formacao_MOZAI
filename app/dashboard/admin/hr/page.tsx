@@ -1,19 +1,17 @@
 import React from "react";
-import { headers, cookies } from "next/headers";
 import { getActiveTenantBranding } from "@/lib/tenant";
 import { getDb } from "@/lib/mongodb";
-import { auth } from "@clerk/nextjs/server";
+import { requirePageAccess } from "@/lib/page-access";
 import HRDashboardClient from "./hr-client";
+import { getTenantId } from "@/lib/session";
 
 export default async function HRDashboardPage() {
-  const headersList = await headers();
-  const tenantId = headersList.get("x-tenant-id") || "root";
-  const branding = await getActiveTenantBranding(tenantId);
-  const { userId } = await auth();
+  // Antes de qualquer consulta: a página lê dados de todo o tenant — e, para a plataforma, de
+  // todos os tenants —, por isso a guarda tem de correr primeiro.
+  const { userId, activeRole } = await requirePageAccess("/dashboard/admin/hr");
 
-  // Ler o cookie de papel ativo
-  const cookiesList = await cookies();
-  const activeRole = cookiesList.get("active-role")?.value || "ALUNO";
+  const tenantId = await getTenantId();
+  const branding = await getActiveTenantBranding(tenantId);
 
   // 1. Conetar à Base de Dados e carregar dados reais do Inquilino
   const db = await getDb();

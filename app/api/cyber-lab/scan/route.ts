@@ -6,6 +6,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { debitCredits } from "@/lib/ai-credits";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     let aiReview = null;
     if (includeAiReview) {
-      const tenantId = req.headers.get("x-tenant-id") || "root";
+      const tenantId = await getTenantId();
       const newBalance = await debitCredits(tenantId, userId, 1);
       if (newBalance === null) {
         return NextResponse.json({ error: "Saldo de Créditos IA insuficiente para a revisão de IA." }, { status: 402 });

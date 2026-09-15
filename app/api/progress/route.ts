@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { computeLearningSignals } from "@/lib/adaptive-learning";
+import { getTenantId } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Extrair cabeçalhos e corpo do pedido
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { courseId, lessonId, status, watchTime } = await req.json();
 
     if (!courseId || !lessonId || !status) {
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { searchParams } = new URL(req.url);
     const courseId = searchParams.get("courseId");
 

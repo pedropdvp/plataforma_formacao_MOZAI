@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getResponsibilityCounts } from "@/lib/academics";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
 
@@ -19,12 +20,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.nextUrl.searchParams.get("tenantId") || req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId(req.nextUrl.searchParams.get("tenantId"));
     if (tenantId === "all") {
       return NextResponse.json({ error: "Indique uma empresa." }, { status: 400 });
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -12,14 +13,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const activeRole = await getActiveRole() || "ALUNO";
     const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "SUPORTE"];
     if (!allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Não autorizado." }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId") || req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId(searchParams.get("tenantId"));
     const db = await getDb();
 
     // 1. Receita: Agrega pagamentos do inquilino.

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { AUTO_UPDATE_SOURCES, fetchSourceItems } from "@/lib/auto-update-sources";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }

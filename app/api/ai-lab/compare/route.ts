@@ -5,6 +5,7 @@ import { AI_LAB_PROVIDERS, getAiLabProvider } from "@/lib/ai-lab-providers";
 import { searchRelevantContext } from "@/lib/vector-store";
 import { debitCredits } from "@/lib/ai-credits";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 45;
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Escolha pelo menos um fornecedor de IA." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     let groundingContext = "";
     if (useRag && courseId) {

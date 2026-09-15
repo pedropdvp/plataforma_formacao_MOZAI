@@ -6,6 +6,7 @@ import { z } from "zod";
 import { debitCredits } from "@/lib/ai-credits";
 import { saveContentFactoryAsset } from "@/lib/content-factory-tools";
 import { executeCode } from "@/lib/coding-lab/piston";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const maxDuration = 45;
 
@@ -30,11 +31,12 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory-tools"))) return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
     const { sourceText, title } = await req.json();
     if (!sourceText?.trim()) return NextResponse.json({ error: "Cole o conteúdo para gerar o laboratório." }, { status: 400 });
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 2);
     if (newBalance === null) return NextResponse.json({ error: "Saldo de Créditos IA insuficiente (laboratório custa 2 Créditos IA)." }, { status: 402 });
 

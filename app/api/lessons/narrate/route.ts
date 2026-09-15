@@ -4,6 +4,7 @@ import { put } from "@vercel/blob";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { generateNarration, isNarrationConfigured } from "@/lib/ai/narration";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 40;
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Falha ao gerar a narração." }, { status: 502 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const pathname = `narration/${tenantId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`;
     // Store dedicado a conteúdo público (ver app/api/admin/media/route.ts) — o token normal
     // é do store privado partilhado com os backups da BD e rejeita pedidos "public".

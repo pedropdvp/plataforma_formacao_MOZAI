@@ -4,6 +4,7 @@ import { extractPdfContent } from "@/lib/pdf-extract";
 import { ingestExtractedPages } from "@/lib/ai/ingest";
 import { getChatbotBriefingId, setChatbotDocument, clearChatbotDocument } from "@/lib/chatbot-documents";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,13 +26,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
-    const targetTenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || "" : "root";
+    const targetTenantId = isCompanyScoped ? await getTenantId() : "root";
     if (isCompanyScoped && !targetTenantId) {
       return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
     }

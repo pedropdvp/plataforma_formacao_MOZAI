@@ -7,6 +7,7 @@ import { generateLesson, generateLessonImage, searchUploadedMaterials, ContextCh
 import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
 import { logAuditEvent } from "@/lib/audit";
 import { LessonBlock, blocksToPlainText, newBlockId } from "@/lib/lesson-blocks";
+import { getActiveRole, getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 /**
  * Converte um data URI base64 (imagem gerada por IA) num blob público persistente,
@@ -241,8 +242,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { jobId, outline } = body;
 
@@ -265,7 +269,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Determinar visibilidade (alunos geram privado, professores geram rascunho de inquilino)
-    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const activeRole = await getActiveRole() || "ALUNO";
     const isPrivate = activeRole === "ALUNO";
 
     // Criar o documento de curso rascunho pendente de revisão

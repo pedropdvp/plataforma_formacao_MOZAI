@@ -4,6 +4,7 @@ import { getDb } from "@/lib/mongodb";
 import { generateOutline, searchUploadedMaterials } from "@/lib/ai/generator-engine";
 import { resolveOpenAIKeyForTenant } from "@/lib/ai/tenant-api-key";
 import { ObjectId } from "mongodb";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const maxDuration = 60; // Permitir até 60 segundos para gerar outline robusto
 
@@ -13,8 +14,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { topic, level, duration, objectives, targetAudience, briefingId } = body;
 

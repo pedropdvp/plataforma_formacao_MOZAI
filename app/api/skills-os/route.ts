@@ -5,6 +5,7 @@ import { sanityClient } from "@/lib/sanity";
 import { computeSkillNodes, ScoredSkillNode } from "@/lib/skills-os";
 import { computeLearningSignals } from "@/lib/adaptive-learning";
 import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
+import { getTenantId } from "@/lib/session";
 
 const CURATED_COURSE_IDS = new Set(["course-1", "course-2", "course-3", "course-4", "course-criptomoedas-n1"]);
 const COURSE_COUNTS_QUERY = `*[_type == "course"]{ _id, title, "lessonsCount": count(modules[]->lessons[]) }`;
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [progressList, quizAttempts, signals, gamificationProfile, approvedProjects, levels] = await Promise.all([

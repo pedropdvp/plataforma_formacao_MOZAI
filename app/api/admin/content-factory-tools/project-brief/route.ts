@@ -5,6 +5,7 @@ import { generateObject } from "ai";
 import { z } from "zod";
 import { debitCredits } from "@/lib/ai-credits";
 import { saveContentFactoryAsset } from "@/lib/content-factory-tools";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -23,11 +24,12 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory-tools"))) return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
     const { sourceText, title } = await req.json();
     if (!sourceText?.trim()) return NextResponse.json({ error: "Cole o conteúdo da lição/curso para gerar o projeto." }, { status: 400 });
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 1);
     if (newBalance === null) return NextResponse.json({ error: "Saldo de Créditos IA insuficiente." }, { status: 402 });
 

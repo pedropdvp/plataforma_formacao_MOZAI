@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { decryptSecret } from "@/lib/crypto";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // POST — Cria um Gist REAL na conta de GitHub do utilizador (chamada genuína à API do GitHub,
 // com o Personal Access Token que ele próprio configurou) a partir do código do Coding Lab.
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nome do ficheiro e código são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const integration = await db.collection("user_integrations").findOne({ tenant_id: tenantId, userId, provider: "github" });
     if (!integration) {

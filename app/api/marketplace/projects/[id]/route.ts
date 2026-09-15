@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // PATCH — Marca o projeto como concluído ou reabre-o. Só o autor pode gerir o estado.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -48,7 +49,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
 
     const project = await db.collection("marketplace_projects").findOne({ _id: new ObjectId(id) });

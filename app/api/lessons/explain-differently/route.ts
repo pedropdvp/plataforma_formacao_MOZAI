@@ -4,6 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (courseId && lessonKey && blockId) {
-      const tenantId = req.headers.get("x-tenant-id") || "root";
+      const tenantId = await getTenantId();
       await tryPersistAlternateText(tenantId, courseId, lessonKey, blockId, explanation);
     }
 

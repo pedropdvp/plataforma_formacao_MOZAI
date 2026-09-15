@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -38,13 +39,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO", "SUPORTE"];
     if (!allowedRoles.includes(activeRole || "")) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json().catch(() => ({}));
     const filename = body?.filename || "video";
     const replaceId: string | undefined = body?.id;

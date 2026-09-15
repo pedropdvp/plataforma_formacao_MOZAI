@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { generateChallengeSet, hashFlag } from "@/lib/cyber-lab/ctf-challenges";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // POST — Submete uma flag para um desafio CTF. A comparação é feita por hash (SHA-256) — a
 // flag correta nunca viaja para o cliente em nenhum momento. Pontos só são atribuídos uma vez
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Submeta uma flag." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     // O desafio é reconstruído a partir da semente guardada para este utilizador. Como cada

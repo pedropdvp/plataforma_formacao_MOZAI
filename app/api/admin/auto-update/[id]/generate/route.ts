@@ -6,6 +6,7 @@ import { generateText } from "ai";
 import { debitCredits } from "@/lib/ai-credits";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Item não encontrado." }, { status: 404 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 1);
     if (newBalance === null) {
       return NextResponse.json({ error: "Saldo de Créditos IA insuficiente." }, { status: 402 });

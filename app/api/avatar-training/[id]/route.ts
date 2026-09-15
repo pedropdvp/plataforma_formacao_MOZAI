@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole } from "@/lib/session";
 
 // GET — Devolve os detalhes completos de um avatar (para a ficha de "Visualizar").
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Nome, papel, tema e cenário são obrigatórios." }, { status: 400 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
     const avatar = await db.collection("training_avatars").findOne({ _id: new ObjectId(id) });
     if (!avatar) {
@@ -81,7 +82,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
     const { id } = await params;
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const db = await getDb();
     const avatar = await db.collection("training_avatars").findOne({ _id: new ObjectId(id) });
     if (!avatar) {

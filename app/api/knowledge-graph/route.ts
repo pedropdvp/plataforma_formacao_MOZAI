@@ -5,6 +5,7 @@ import { sanityClient } from "@/lib/sanity";
 import { extractConceptsFromCourse } from "@/lib/knowledge-graph";
 import { debitCredits } from "@/lib/ai-credits";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const COURSES_QUERY = `*[_type == "course"]{ _id, title, description }`;
 
@@ -50,12 +51,12 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (activeRole !== "ADMIN" && activeRole !== "SUPORTE") {
       return NextResponse.json({ error: "Apenas ADMIN/SUPORTE podem reindexar o Knowledge Graph." }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const courses: any[] = await sanityClient.fetch(COURSES_QUERY).catch(() => []);

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os eventos da Comunidade deste tenant, futuros primeiro, com contagem real de
 // inscritos e se o próprio utilizador já está inscrito.
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const events = await db.collection("community_events").find({ tenant_id: tenantId }).sort({ startsAt: 1 }).toArray();
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "A data de início tem de ser uma data futura válida." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const userRecord = await db.collection("users").findOne({ _id: userId });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // GET — Catálogo de Laboratórios de código: exercícios públicos de qualquer organização
 // (cross-tenant, tal como Mentores/Datasets) + os próprios.
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const q = req.nextUrl.searchParams.get("q")?.trim();
     const db = await getDb();
 
@@ -70,7 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Título, enunciado e linguagem são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const userRecord = await db.collection("users").findOne({ _id: userId });

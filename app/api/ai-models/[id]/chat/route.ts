@@ -6,6 +6,7 @@ import { searchRelevantContext } from "@/lib/vector-store";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 30;
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Modelo IA não encontrado." }, { status: 404 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     // Só pode usar se for público, ou o próprio autor a testá-lo (mesmo antes de o publicar).
     if (!model.isPublic && model.ownerId !== userId) {

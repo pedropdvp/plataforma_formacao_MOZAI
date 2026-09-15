@@ -5,6 +5,7 @@ import { decryptSecret } from "@/lib/crypto";
 import { ethers } from "ethers";
 import { BLOCKCHAIN_LAB_NETWORK } from "@/lib/blockchain/networks";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "ABI e bytecode são obrigatórios (compile o código primeiro)." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const record = await db.collection("user_integrations").findOne({ tenant_id: tenantId, userId, provider: "blockchain_testnet_wallet" });
     if (!record) {

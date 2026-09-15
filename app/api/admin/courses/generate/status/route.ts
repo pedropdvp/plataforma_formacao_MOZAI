@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+    }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -16,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "O parâmetro jobId é obrigatório." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const job = await db.collection("course_generation_jobs").findOne({

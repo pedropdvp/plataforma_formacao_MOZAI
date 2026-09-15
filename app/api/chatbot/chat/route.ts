@@ -23,6 +23,7 @@ import {
   deleteLastAssistantMessage,
 } from "@/lib/chatbot-conversation";
 import { getCachedAnswer, putCachedAnswer, isCacheable } from "@/lib/chatbot-cache";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -135,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const body = await req.json().catch(() => ({}));
   const message = typeof body.message === "string" ? body.message.trim() : "";
   const webSearch = body.webSearch === true;

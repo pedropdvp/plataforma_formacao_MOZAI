@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // GET — Bolsa de Projetos: projetos em aberto de qualquer organização (cross-tenant, tal como
 // Mentores/Datasets), mais os próprios (de qualquer estado), para o autor poder geri-los.
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tipo de orçamento inválido." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const userRecord = await db.collection("users").findOne({ _id: userId });

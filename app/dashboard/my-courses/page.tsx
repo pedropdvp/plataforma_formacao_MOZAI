@@ -1,10 +1,9 @@
 import React from "react";
-import { headers } from "next/headers";
 import CoursesGrid from "@/components/courses-grid";
+import { getTenantId } from "@/lib/session";
 
 export default async function MyCoursesPage() {
-  const headersList = await headers();
-  const tenantId = headersList.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
 
   return (
     <div className="space-y-6">

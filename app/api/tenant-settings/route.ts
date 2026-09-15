@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { findOneTenantScoped, updateTenantScoped } from "@/lib/mongodb";
+import { getActiveRole, getTenantId } from "@/lib/session";
+
+/**
+ * Branding e SSO da empresa ativa. Esta rota respondia a qualquer pedido, com ou sem sessão:
+ * bastava escolher a empresa na cookie x-tenant-id para lhe mudar o nome, o logótipo, o domínio
+ * e o SSO. Consultar exige sessão; alterar fica para a plataforma, que é quem a página de
+ * administração já deixava editar (`isGlobalAdmin` em app/dashboard/admin).
+ */
+const BRANDING_EDITORS = ["ADMIN", "SUPORTE"];
 
 /**
  * GET: Retorna as configurações do tenant ativo (com base no cabeçalho x-tenant-id)
  */
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const tenantId = await getTenantId();
 
     // Buscar no MongoDB
     const settings = await findOneTenantScoped("tenant_settings", tenantId);
@@ -34,7 +49,17 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    const activeRole = await getActiveRole();
+    if (!activeRole || !BRANDING_EDITORS.includes(activeRole)) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    const tenantId = await getTenantId();
     const body = await req.json();
 
     const { companyName, brandColor, customDomain, logoUrl, ssoActive } = body;

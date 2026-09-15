@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getEffectiveAgentPersona } from "@/lib/ai-agents-catalog";
+import { getActiveRole } from "@/lib/session";
 
 const MANAGE_ROLES = ["ADMIN", "GESTOR_ACADEMICO", "FORMADOR"];
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !MANAGE_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes." }, { status: 403 });
     }
@@ -41,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !MANAGE_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para editar o catálogo de Agentes IA." }, { status: 403 });
     }
@@ -91,7 +92,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !MANAGE_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para remover Agentes IA do catálogo." }, { status: 403 });
     }

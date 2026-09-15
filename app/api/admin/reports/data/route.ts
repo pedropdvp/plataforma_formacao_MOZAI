@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getActiveRole } from "@/lib/session";
 
 /**
  * O tenant "root" é a própria MOZAI: não é um documento em `tenants`, é uma constante.
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso não autorizado" }, { status: 403 });

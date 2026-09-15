@@ -3,9 +3,10 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getGamificationLevels } from "@/lib/gamification-levels";
+import { getActiveRole } from "@/lib/session";
 
-function canWrite(req: NextRequest): boolean {
-  const activeRole = req.cookies.get("active-role")?.value;
+async function canWrite(): Promise<boolean> {
+  const activeRole = await getActiveRole();
   return activeRole === "ADMIN" || activeRole === "SUPORTE";
 }
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
-    if (!canWrite(req)) {
+    if (!(await canWrite())) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 

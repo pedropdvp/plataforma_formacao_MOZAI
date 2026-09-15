@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export const maxDuration = 120; // Permitir tempo para indexar todas as lições em RAG
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Parâmetro courseId é obrigatório." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const course = await db.collection("courses").findOne({
       _id: new ObjectId(courseId),
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { courseId, action } = body; // action: "approve" | "reject"
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // Curadoria para todo o catálogo do inquilino: ADMIN, GESTOR_EMPRESA, GESTOR_ACADEMICO.
     // Um Aluno Individual pode aprovar/rejeitar apenas o seu PRÓPRIO rascunho privado.
-    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const activeRole = await getActiveRole() || "ALUNO";
     const curatorRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
     const isCurator = curatorRoles.includes(activeRole);
     const isOwnPrivateDraft = course.isPrivate && course.generatedByUserId === userId;
@@ -137,7 +138,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "courseId é obrigatório." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     let objectId: ObjectId;
@@ -159,7 +160,7 @@ export async function DELETE(req: NextRequest) {
 
     // ADMIN/GESTOR_EMPRESA/GESTOR_ACADEMICO apagam qualquer curso do tenant; o criador do
     // curso (generatedByUserId) pode apagar o seu próprio, publicado ou ainda em rascunho.
-    const activeRole = req.cookies.get("active-role")?.value || "ALUNO";
+    const activeRole = await getActiveRole() || "ALUNO";
     const curatorRoles = ["ADMIN", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
     const isCurator = curatorRoles.includes(activeRole);
     const isOwner = course.generatedByUserId === userId;
@@ -189,7 +190,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { courseId, title, description, modules, videoUrl, isPublicMarketplace, marketplaceDescription } = body;
 

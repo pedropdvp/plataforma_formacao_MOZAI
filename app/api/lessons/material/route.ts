@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "courseId e lessonSlug são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     let queryId: any = courseId;

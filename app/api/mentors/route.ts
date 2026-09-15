@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os mentores ativos do tenant (exclui o próprio utilizador), com pesquisa
 // opcional por área de especialidade (?q=).
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get("q") || "").trim().toLowerCase();
 

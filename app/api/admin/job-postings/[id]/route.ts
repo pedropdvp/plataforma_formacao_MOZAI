@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const REVIEWER_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
@@ -14,14 +15,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para gerir vagas." }, { status: 403 });
     }
 
     const { id } = await params;
     const { isActive } = await req.json();
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     await db.collection("job_postings").updateOne(
@@ -46,13 +47,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !REVIEWER_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Sem permissão para ver candidaturas." }, { status: 403 });
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const applications = await db.collection("job_applications").find({ tenant_id: tenantId, jobId: id }).sort({ appliedAt: -1 }).toArray();

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * GET: Lista utilizadores vinculados ao tenant ativo (excluindo os administradores)
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = [
       "ADMIN", "SUPORTE", "GESTOR_EMPRESA", "FUNCIONARIO", 
       "GESTOR_ACADEMICO", "PROFESSOR", "FORMADOR", "TUTOR", "FINANCEIRO"
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     // Obter todas as empresas e as configurações do root
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = [
       "ADMIN", "SUPORTE", "GESTOR_EMPRESA", "FUNCIONARIO",
       "GESTOR_ACADEMICO", "PROFESSOR", "FORMADOR", "TUTOR", "FINANCEIRO"
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const requestTenantId = req.headers.get("x-tenant-id") || "root";
+    const requestTenantId = await getTenantId();
     const body = await req.json();
     const { name, email, role, registerAsIndividual } = body;
 
@@ -198,13 +199,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA", "GESTOR_ACADEMICO"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { targetUserId, name, email, role } = body;
 
@@ -283,13 +284,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const targetUserId = req.nextUrl.searchParams.get("targetUserId");
 
     if (!targetUserId) {

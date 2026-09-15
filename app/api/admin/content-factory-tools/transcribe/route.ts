@@ -6,6 +6,7 @@ import { put } from "@vercel/blob";
 import { debitCredits } from "@/lib/ai-credits";
 import { saveContentFactoryAsset } from "@/lib/content-factory-tools";
 import { buildSrtFromSegments } from "@/lib/srt";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,11 +19,12 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory-tools"))) return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
     const { audioUrl, title } = await req.json();
     if (!audioUrl?.trim()) return NextResponse.json({ error: "Carregue um ficheiro de áudio/vídeo primeiro." }, { status: 400 });
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 2);
     if (newBalance === null) return NextResponse.json({ error: "Saldo de Créditos IA insuficiente (transcrição custa 2 Créditos IA)." }, { status: 402 });
 

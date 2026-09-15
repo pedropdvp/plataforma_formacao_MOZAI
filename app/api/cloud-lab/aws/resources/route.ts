@@ -4,6 +4,7 @@ import { S3Client, ListBucketsCommand } from "@aws-sdk/client-s3";
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { getAwsCredentials } from "@/lib/cloud-lab/aws-client";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 20;
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const creds = await getAwsCredentials(tenantId, userId);
     if (!creds) {
       return NextResponse.json({ error: "Ligue primeiro a sua conta AWS." }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getHiddenMenuIdsForTenant } from "@/lib/menu-visibility";
+import { getTenantId } from "@/lib/session";
 
 /**
  * GET — Ids de menus ocultos para o tenant ATIVO do utilizador autenticado (derivado do
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const hiddenIds = await getHiddenMenuIdsForTenant(tenantId);
     return NextResponse.json({ success: true, hiddenIds });
   } catch (error: any) {

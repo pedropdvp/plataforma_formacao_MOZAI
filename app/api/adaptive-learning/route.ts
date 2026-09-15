@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { sanityClient } from "@/lib/sanity";
 import { computeLearningSignals, getWeakAreas, buildAdaptiveRecommendations, CourseProgressSummary } from "@/lib/adaptive-learning";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [signals, weakAreas, progressList] = await Promise.all([

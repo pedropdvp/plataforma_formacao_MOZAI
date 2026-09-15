@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os hackathons deste tenant, mais recentes primeiro, com contagem real de equipas.
 export async function GET(req: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const hackathons = await db.collection("hackathons").find({ tenant_id: tenantId }).sort({ startsAt: -1 }).toArray();
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Título, descrição, data de início e prazo de submissão são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const organizerName = userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || userRecord.email : "Utilizador";

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { computeSkillNodes } from "@/lib/skills-os";
+import { getTenantId } from "@/lib/session";
 
 // GET — Digital Twin real: traços DERIVADOS de dados reais de atividade (nunca inventados).
 // Os objetivos/motivação/hábitos definidos pelo próprio utilizador vivem agora como registos
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const [gamification, quizAttempts, cognitiveLogs, codingAttempts, progressList] = await Promise.all([

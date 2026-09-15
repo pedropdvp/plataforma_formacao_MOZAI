@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { findOneTenantScoped, getDb } from "@/lib/mongodb";
 import { isChatbotLang, type ChatbotLang } from "@/lib/ai/chatbot-engine";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * Perguntas sugeridas que o widget mostra numa conversa vazia.
@@ -58,7 +59,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const lang: ChatbotLang = isChatbotLang(req.nextUrl.searchParams.get("lang"))
     ? (req.nextUrl.searchParams.get("lang") as ChatbotLang)
     : "pt";
@@ -82,12 +83,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
   }
 
-  const activeRole = req.cookies.get("active-role")?.value;
+  const activeRole = await getActiveRole();
   if (!activeRole || !["ADMIN", "SUPORTE", "GESTOR_EMPRESA"].includes(activeRole)) {
     return NextResponse.json({ error: "Sem permissão." }, { status: 403 });
   }
 
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const body = await req.json().catch(() => ({}));
   const sugestoes = limparSugestoes(body.suggestions);
 

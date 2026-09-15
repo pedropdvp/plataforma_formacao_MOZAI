@@ -6,6 +6,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { debitCredits } from "@/lib/ai-credits";
 import { z } from "zod";
+import { getTenantId } from "@/lib/session";
 
 const cognitiveLogSchema = z.object({
   topic: z.string().describe("O tópico/conceito técnico principal da pergunta, em 1 a 3 palavras (ex: 'Embeddings', 'Server Components', 'Gestão de Estado')"),
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { messages, courseId } = await req.json();
 
     if (!messages || messages.length === 0 || !courseId) {

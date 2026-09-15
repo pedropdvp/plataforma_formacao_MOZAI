@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ingestExtractedPages } from "@/lib/ai/ingest";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -14,8 +15,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { url, briefingId: rawBriefingId } = body;
     const briefingId = rawBriefingId || Math.random().toString(36).substring(7);

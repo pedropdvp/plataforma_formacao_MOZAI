@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { sendDiscordNotification } from "@/lib/discord";
+import { getTenantId } from "@/lib/session";
 
 // GET — Lista os grupos de Meetup deste tenant, com contagem real de membros e se o próprio
 // utilizador já pertence ao grupo.
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const groups = await db.collection("meetup_groups").find({ tenant_id: tenantId }).sort({ createdAt: -1 }).toArray();
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Nome e descrição do grupo são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const userRecord = await db.collection("users").findOne({ _id: userId });
     const organizerName = userRecord ? `${userRecord.firstName || ""} ${userRecord.lastName || ""}`.trim() || userRecord.email : "Utilizador";

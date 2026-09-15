@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { headers, cookies } from "next/headers";
+import { cookies } from "next/headers";
 import { GraduationCap } from "lucide-react";
 import UserProfileButton from "@/components/user-profile-button";
 import SidebarNav from "@/components/sidebar-nav";
@@ -13,15 +13,19 @@ import { getActiveTenantBranding } from "@/lib/tenant";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { redirect } from "next/navigation";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
+  const { userId, redirectToSignIn } = await auth();
   if (!userId) {
-    redirect("/sign-in");
+    // Leva o endereço pedido como destino de regresso — era o middleware que o fazia, antes
+    // do proxy.ts. O caminho do login vem das opções do clerkMiddleware (proxy.ts), não do
+    // ambiente: ver a nota sobre o MSYS em app/layout.tsx.
+    return redirectToSignIn();
   }
 
   const db = await getDb();
@@ -71,13 +75,16 @@ export default async function DashboardLayout({
     redirect("/unauthorized");
   }
 
-  // Ler o tenant_id injetado no middleware
-  const headersList = await headers();
-  const tenantId = headersList.get("x-tenant-id") || "root";
-  
-  // Ler o perfil ativo da sessão nos cookies
+  // Empresa ativa, validada contra as empresas do utilizador (a cookie, sozinha, pode ser forjada)
+  const tenantId = await getTenantId();
+
+  // Perfil ativo validado contra os perfis atribuídos — a cookie, sozinha, pode ser forjada.
+  // Sem perfil aceite vai-se escolher um: era o middleware que o fazia, antes do proxy.ts.
+  const activeRole = await getActiveRole();
+  if (!activeRole) {
+    redirect("/choose-role");
+  }
   const cookiesList = await cookies();
-  const activeRole = cookiesList.get("active-role")?.value || "ALUNO";
   const language = cookiesList.get("language")?.value || "PT";
 
   // Obter papéis atribuídos ao utilizador no tenant ativo

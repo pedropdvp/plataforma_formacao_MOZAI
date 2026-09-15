@@ -5,6 +5,7 @@ import { debitCredits } from "@/lib/ai-credits";
 import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { ObjectId } from "mongodb";
+import { getTenantId } from "@/lib/session";
 
 export const maxDuration = 60;
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Agente IA não encontrado." }, { status: 404 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
 
     if (!agent.isPublic && agent.ownerId !== userId) {
       return NextResponse.json({ error: "Este Agente IA é privado." }, { status: 403 });

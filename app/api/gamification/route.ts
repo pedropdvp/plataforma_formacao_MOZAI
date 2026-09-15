@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { getGamificationLevels, computeLevelInfo } from "@/lib/gamification-levels";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     // 1. Obter ou inicializar o perfil do aluno
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { action, bonusXp } = await req.json(); // action: "lesson_completed" | "quiz_passed" | "lab_completed"
 
     let xpToAward = 0;

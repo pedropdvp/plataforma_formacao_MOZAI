@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 // PATCH — O mentor aceita ou recusa um pedido de mentoria recebido. Ao aceitar, o
 // e-mail do mentee é revelado ao mentor (e vice-versa) para combinarem os detalhes da
@@ -20,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const requestObjectId = new ObjectId(id);
 

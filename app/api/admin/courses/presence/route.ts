@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -25,8 +26,11 @@ export async function POST(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { courseId, lessonKey } = await req.json();
     if (!courseId || !lessonKey) {
       return NextResponse.json({ error: "courseId e lessonKey são obrigatórios." }, { status: 400 });
@@ -59,8 +63,11 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const { searchParams } = new URL(req.url);
     const courseId = searchParams.get("courseId");
     const lessonKey = searchParams.get("lessonKey");

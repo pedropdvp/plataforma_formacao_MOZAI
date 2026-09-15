@@ -7,84 +7,7 @@ import { Library, Check, Play, ShoppingCart, ShieldAlert, Award, ArrowRight, Cre
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-
-interface CatalogCourse {
-  _id: string;
-  title: string;
-  description: string;
-  category: string;
-  duration: string;
-  lessonsCount: number;
-  paymentType: "basic_subscription" | "single_purchase" | "enterprise";
-  price?: string;
-  gradient: string;
-  isAvailable: boolean;
-  firstLesson?: string;
-  generatedByUserId?: string | null;
-}
-
-const CATALOG_COURSES: CatalogCourse[] = [
-  // 1. Cursos incluídos na subscrição do utilizador (MOZAI - Basic)
-  {
-    _id: "course-1",
-    title: "Engenharia de IA e RAG Avançado",
-    description: "Domine a integração de LLMs, chunking semântico, embeddings vetoriais e orquestração de agentes com LangChain e Vercel AI SDK.",
-    category: "Inteligência Artificial",
-    duration: "24h de conteúdo",
-    lessonsCount: 18,
-    paymentType: "basic_subscription",
-    gradient: "from-violet-500 to-indigo-500",
-    isAvailable: true,
-  },
-  {
-    _id: "course-2",
-    title: "Next.js 16 e Arquiteturas Composable SaaS",
-    description: "Construa aplicações SaaS escaláveis utilizando Next.js 16 App Router, Clerk auth, WorkOS SSO, Sanity CMS e Stripe Connect.",
-    category: "Programação / Frontend",
-    duration: "18h de conteúdo",
-    lessonsCount: 14,
-    paymentType: "basic_subscription",
-    gradient: "from-indigo-500 to-cyan-500",
-    isAvailable: true,
-  },
-  // 2. Compra Avulsa
-  {
-    _id: "course-3",
-    title: "Smart Contracts e Criptografia com Solidity",
-    description: "Crie tokens ERC-20, NFTs dinâmicos, contratos seguros de DeFi e explore o desenvolvimento na blockchain Ethereum e Polygon.",
-    category: "Crypto & Blockchain",
-    duration: "30h de conteúdo",
-    lessonsCount: 22,
-    paymentType: "single_purchase",
-    price: "199,00 €",
-    gradient: "from-cyan-500 to-emerald-500",
-    isAvailable: true,
-  },
-  {
-    _id: "course-5",
-    title: "Zero-Knowledge Proofs (ZKP) Avançado",
-    description: "Introdução à criptografia de conhecimento zero, zk-SNARKs, zk-STARKs e sua aplicação em escalabilidade e privacidade de blockchains.",
-    category: "Crypto & Blockchain",
-    duration: "40h de conteúdo",
-    lessonsCount: 28,
-    paymentType: "single_purchase",
-    price: "299,00 €",
-    gradient: "from-amber-500 to-rose-500",
-    isAvailable: true,
-  },
-  // 3. Enterprise B2B (Bloqueados para conta Basic)
-  {
-    _id: "course-6",
-    title: "Liderança Tecnológica & AI Org Adoption",
-    description: "Estratégia corporativa para diretores de tecnologia introduzirem IA generativa de forma segura, ética e regulada nas equipas.",
-    category: "Liderança / Gestão",
-    duration: "12h de conteúdo",
-    lessonsCount: 10,
-    paymentType: "enterprise",
-    gradient: "from-blue-600 to-indigo-800",
-    isAvailable: false,
-  },
-];
+import { CATALOG_COURSES, type CatalogCourse } from "@/lib/catalog-courses";
 
 // Componente principal contendo Suspense para Next.js 16 build requirements
 // Gradientes atribuídos ciclicamente aos cursos vindos do Sanity
@@ -241,20 +164,13 @@ function CatalogContent() {
   // Manipular clique de aquisição
   const handleAcquire = async (course: CatalogCourse) => {
     try {
-      const priceVal = parseFloat(course.price?.replace(/[^0-9,.]/g, "").replace(",", ".") || "0");
-      
+      // Só o identificador: título e preço são lidos no servidor (lib/catalog-courses.ts).
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          courseId: course._id,
-          courseTitle: course.title,
-          price: priceVal,
-          creatorAccountId: "acct_creator_moza_123",
-          affiliateAccountId: "acct_affiliate_moza_456"
-        }),
+        body: JSON.stringify({ courseId: course._id }),
       });
 
       if (res.ok) {

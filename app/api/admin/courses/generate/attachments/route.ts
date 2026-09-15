@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { deleteIngestedSource } from "@/lib/ai/ingest";
+import { canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ export async function DELETE(req: NextRequest) {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
+    }
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory"))) {
+      return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const { searchParams } = new URL(req.url);

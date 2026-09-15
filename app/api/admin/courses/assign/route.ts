@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 /**
  * POST: Atribui ou remove a inscrição de um curso para um estudante do tenant
@@ -13,13 +14,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const allowedRoles = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA", "FUNCIONARIO"];
     if (!activeRole || !allowedRoles.includes(activeRole)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
     const { studentId, courseId, action } = body; // action: "assign" | "unassign"
 

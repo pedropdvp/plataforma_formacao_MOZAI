@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole } from "@/lib/session";
 
 /**
  * POST: Cria um novo utilizador pré-registado com o papel de SUPORTE global no tenant 'root'
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     // 1. Validar se o solicitante existe na BD e é um administrador global ativo
     const caller = await db.collection("users").findOne({ _id: userId });
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
 
     if (!caller || activeRole !== "ADMIN") {
       return NextResponse.json({ error: "Apenas administradores globais podem criar utilizadores de suporte." }, { status: 403 });

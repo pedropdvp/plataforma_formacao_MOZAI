@@ -4,6 +4,7 @@ import { getDb } from "@/lib/mongodb";
 import { encryptSecret, decryptSecret } from "@/lib/crypto";
 import { STSClient, GetCallerIdentityCommand } from "@aws-sdk/client-sts";
 import { logAuditEvent } from "@/lib/audit";
+import { getTenantId } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 15;
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const record = await db.collection("user_integrations").findOne({ tenant_id: tenantId, userId, provider: "aws" });
 
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Access Key ID e Secret Access Key são obrigatórios." }, { status: 400 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     await db.collection("user_integrations").updateOne(
@@ -89,7 +90,7 @@ export async function DELETE(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     await db.collection("user_integrations").deleteOne({ tenant_id: tenantId, userId, provider: "aws" });
     return NextResponse.json({ success: true });

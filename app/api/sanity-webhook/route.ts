@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "next-sanity";
 import { indexLessonContent } from "@/lib/vector-store";
+import { getTenantId } from "@/lib/session";
 
 /**
  * Webhook de reindexação: o Sanity chama esta rota quando uma lição/curso é
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Segredo inválido." }, { status: 401 });
     }
 
-    const tenantId = req.headers.get("x-tenant-id") || process.env.TENANT_ID || "root";
+    const tenantId = await getTenantId();
     const body = await req.json();
 
     // O Sanity envia o documento alterado. Aceitamos _type + _id.

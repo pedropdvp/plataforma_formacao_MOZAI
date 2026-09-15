@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 // DELETE — Remove uma publicação: o próprio autor, ou ADMIN/SUPORTE por moderação.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
     const postObjectId = new ObjectId(id);
 
@@ -22,7 +23,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Publicação não encontrada." }, { status: 404 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
     if (post.authorId !== userId && !isModerator) {
       return NextResponse.json({ error: "Sem permissão para eliminar esta publicação." }, { status: 403 });

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { getChatbotDocumentStatus, clearChatbotDocument } from "@/lib/chatbot-documents";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const ALLOWED_ROLES = ["ADMIN", "SUPORTE", "GESTOR_EMPRESA"];
 
@@ -18,12 +19,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
-    const tenantId = activeRole === "GESTOR_EMPRESA" ? req.headers.get("x-tenant-id") || "root" : "root";
+    const tenantId = activeRole === "GESTOR_EMPRESA" ? await getTenantId() : "root";
     const own = await getChatbotDocumentStatus(tenantId);
 
     let companies: any[] = [];
@@ -53,13 +54,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Autenticação necessária." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !ALLOWED_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 
     const isCompanyScoped = activeRole === "GESTOR_EMPRESA";
-    const tenantId = isCompanyScoped ? req.headers.get("x-tenant-id") || "" : "root";
+    const tenantId = isCompanyScoped ? await getTenantId() : "root";
     if (isCompanyScoped && !tenantId) {
       return NextResponse.json({ error: "Empresa não identificada." }, { status: 400 });
     }

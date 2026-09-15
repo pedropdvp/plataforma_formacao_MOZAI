@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
+import { getActiveRole } from "@/lib/session";
 
 // DELETE — Remove um dataset do Marketplace: o próprio autor, ou ADMIN/SUPORTE por
 // moderação (mesmo modelo já usado nos posts da Comunidade).
@@ -22,7 +23,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Dataset não encontrado." }, { status: 404 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     const isModerator = activeRole === "ADMIN" || activeRole === "SUPORTE";
     if (dataset.uploadedBy !== userId && !isModerator) {
       return NextResponse.json({ error: "Sem permissão para eliminar este dataset." }, { status: 403 });

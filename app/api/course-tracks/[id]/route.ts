@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDb } from "@/lib/mongodb";
 import { logAuditEvent } from "@/lib/audit";
 import { ObjectId } from "mongodb";
+import { getActiveRole, getTenantId } from "@/lib/session";
 
 const MANAGE_ROLES = ["ADMIN", "GESTOR_ACADEMICO", "FORMADOR"];
 
@@ -15,13 +16,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
     }
 
-    const activeRole = req.cookies.get("active-role")?.value;
+    const activeRole = await getActiveRole();
     if (!activeRole || !MANAGE_ROLES.includes(activeRole)) {
       return NextResponse.json({ error: "Permissões insuficientes para remover percursos." }, { status: 403 });
     }
 
     const { id } = await params;
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const db = await getDb();
 
     const track = await db.collection("course_tracks").findOne({ _id: new ObjectId(id), tenant_id: tenantId });

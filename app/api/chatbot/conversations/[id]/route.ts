@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getOwnedConversation, getAllMessages, renameConversation, setFavorite, deleteConversation } from "@/lib/chatbot-conversation";
+import { getTenantId } from "@/lib/session";
 
 /** GET — Mensagens completas de uma conversa (só se pertencer ao próprio utilizador/tenant). */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const conv = await getOwnedConversation(id, tenantId, userId);
   if (!conv) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
@@ -28,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const conv = await getOwnedConversation(id, tenantId, userId);
   if (!conv) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });
@@ -54,7 +55,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   }
 
   const { id } = await params;
-  const tenantId = req.headers.get("x-tenant-id") || "root";
+  const tenantId = await getTenantId();
   const deleted = await deleteConversation(id, tenantId, userId);
   if (!deleted) {
     return NextResponse.json({ error: "Conversa não encontrada." }, { status: 404 });

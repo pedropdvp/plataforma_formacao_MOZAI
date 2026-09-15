@@ -6,6 +6,7 @@ import { z } from "zod";
 import { put } from "@vercel/blob";
 import { debitCredits } from "@/lib/ai-credits";
 import { saveContentFactoryAsset } from "@/lib/content-factory-tools";
+import { getTenantId, canActiveRoleOpen } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -34,11 +35,12 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Autenticação obrigatória." }, { status: 401 });
+    if (!(await canActiveRoleOpen("/dashboard/admin/content-factory-tools"))) return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
 
     const { sourceText, title } = await req.json();
     if (!sourceText?.trim()) return NextResponse.json({ error: "Cole o conteúdo para gerar o roteiro de vídeo." }, { status: 400 });
 
-    const tenantId = req.headers.get("x-tenant-id") || "root";
+    const tenantId = await getTenantId();
     const newBalance = await debitCredits(tenantId, userId, 3);
     if (newBalance === null) return NextResponse.json({ error: "Saldo de Créditos IA insuficiente (roteiro de vídeo custa 3 Créditos IA)." }, { status: 402 });
 
