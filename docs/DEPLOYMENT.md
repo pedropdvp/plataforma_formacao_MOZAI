@@ -95,7 +95,7 @@ específicas do deployment:
 
 | Variável | Valor |
 |---|---|
-| `NEXT_PUBLIC_BASE_DOMAIN` | host do deployment, ex.: `mozai-demo.vercel.app` |
+| `NEXT_PUBLIC_BASE_DOMAIN` | host de produção: `plataforma-formacao-mozai.vercel.app` |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | `/dashboard` |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | `/dashboard` |
 
@@ -157,8 +157,10 @@ Notas:
   localmente poupa ciclos de deploy falhados.
 - O `.npmrc` com `legacy-peer-deps=true` está versionado, logo o `npm install` da Vercel
   já o respeita. Não é preciso *Install Command* personalizado.
-- **Criar um alias estável** (Settings → Domains), ex.: `mozai-demo.vercel.app`, para o
-  link da apresentação não mudar a cada deploy.
+- **Alias estável de produção:** `https://plataforma-formacao-mozai.vercel.app`. Já existe e
+  aponta sempre para o último deployment de produção — é o link a usar na apresentação, e não
+  o endereço próprio de cada deployment (`plataforma-formacao-mozai-<hash>.vercel.app`), que
+  muda a cada deploy.
 
 ---
 

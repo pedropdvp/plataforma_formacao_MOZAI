@@ -85,7 +85,7 @@ if (!vars.has("NEXT_PUBLIC_BASE_DOMAIN")) {
   console.warn(
     "⚠ NEXT_PUBLIC_BASE_DOMAIN não está em .env.local. Sem ela o proxy\n" +
       "  assume mozai.education e pode ler o host do deployment como um tenant.\n" +
-      "  Acrescenta-a com o host real (ex.: mozai-demo.vercel.app).\n",
+      "  Acrescenta-a com o host de produção (plataforma-formacao-mozai.vercel.app).\n",
   );
 }
 
