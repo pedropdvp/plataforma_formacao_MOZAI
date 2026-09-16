@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { ingestExtractedPages } from "@/lib/ai/ingest";
 import { getTenantId, canActiveRoleOpen } from "@/lib/session";
+import { fetchPublicUrl } from "@/lib/safe-fetch";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,22 +25,25 @@ export async function POST(req: NextRequest) {
     const { url, briefingId: rawBriefingId } = body;
     const briefingId = rawBriefingId || Math.random().toString(36).substring(7);
 
-    if (!url || !/^https?:\/\//i.test(url)) {
-      return NextResponse.json({ error: "URL inválido — deve começar por http:// ou https://." }, { status: 400 });
+    // O endereço vem de quem cria o curso: sem validação, a plataforma faria pedidos à rede
+    // interna por conta de terceiros (SSRF). Ver lib/safe-fetch.ts.
+    const attempt = await fetchPublicUrl((url || "").trim(), {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MozAIBot/1.0; +https://plataforma-formacao-mozai.vercel.app)" },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!attempt.ok) {
+      return NextResponse.json({ error: attempt.reason }, { status: 400 });
     }
 
     let html: string;
     try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; MozAIBot/1.0; +https://plataforma-formacao-mozai.vercel.app)" },
-        signal: AbortSignal.timeout(20000),
-      });
+      const res = attempt.response;
       if (!res.ok) {
         return NextResponse.json({ error: `Não foi possível aceder ao URL (HTTP ${res.status}).` }, { status: 400 });
       }
       html = await res.text();
-    } catch (err: any) {
-      return NextResponse.json({ error: "Não foi possível aceder ao URL indicado. Verifique se está correto e acessível publicamente." }, { status: 400 });
+    } catch {
+      return NextResponse.json({ error: "Não foi possível ler o conteúdo deste endereço." }, { status: 400 });
     }
 
     const { JSDOM } = await import("jsdom");

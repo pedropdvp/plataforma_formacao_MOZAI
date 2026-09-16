@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { logAuditEvent } from "@/lib/audit";
+import { fetchPublicUrl } from "@/lib/safe-fetch";
 
 const SECURITY_HEADERS = [
   { key: "strict-transport-security", label: "Strict-Transport-Security (HSTS)" },
@@ -22,16 +23,15 @@ export async function POST(req: NextRequest) {
     }
 
     const { url } = await req.json();
-    if (!url?.trim() || !/^https?:\/\/\S+$/i.test(url.trim())) {
-      return NextResponse.json({ error: "Introduza um URL válido (http:// ou https://)." }, { status: 400 });
-    }
+    const target = (url || "").trim();
 
-    let res: Response;
-    try {
-      res = await fetch(url.trim(), { method: "GET", redirect: "follow", signal: AbortSignal.timeout(10000) });
-    } catch (err: any) {
-      return NextResponse.json({ error: `Não foi possível contactar este URL: ${err.message}` }, { status: 502 });
+    // O alvo é escrito por quem usa a ferramenta: sem validação, a plataforma faria pedidos à
+    // rede interna por conta de terceiros (SSRF). Ver lib/safe-fetch.ts.
+    const attempt = await fetchPublicUrl(target, { method: "GET", signal: AbortSignal.timeout(10000) });
+    if (!attempt.ok) {
+      return NextResponse.json({ error: attempt.reason }, { status: attempt.status });
     }
+    const res = attempt.response;
 
     const results = SECURITY_HEADERS.map((h) => ({
       key: h.key,

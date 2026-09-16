@@ -102,8 +102,9 @@ function CatalogContent() {
     }
   };
 
-  // Carrega só os cursos criados na Fábrica de Cursos (IA) — os cursos-demo fixos
-  // ficam só como reserva, exibidos apenas quando ainda não existir nenhum curso real.
+  // Os cursos criados na Fábrica de Cursos (IA) juntam-se aos cursos de compra avulsa, em vez
+  // de substituírem a lista: os únicos cursos pagos são de demonstração e desapareciam do
+  // catálogo — e com eles a compra — assim que existisse um curso gerado por IA.
   useEffect(() => {
     async function loadCatalog() {
       try {
@@ -112,7 +113,10 @@ function CatalogContent() {
         const data = await res.json();
         const aiCourses = (data.courses || []).filter((c: any) => c.category === "IA Custom");
         const real: CatalogCourse[] = aiCourses.map(mapSanityCourse);
-        if (real.length > 0) setCourses(real);
+        if (real.length > 0) {
+          const paidDemos = CATALOG_COURSES.filter((course) => course.paymentType === "single_purchase");
+          setCourses([...real, ...paidDemos]);
+        }
       } catch (err) {
         console.error("Erro ao carregar catálogo dinâmico:", err);
       }

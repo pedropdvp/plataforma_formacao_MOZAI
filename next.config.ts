@@ -25,6 +25,32 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // O cabeçalho que anuncia "Next.js" em cada resposta não ajuda quem usa a plataforma e
+  // ajuda quem procura alvos por versão de framework.
+  poweredByHeader: false,
+  // Da Vercel só vinha o HSTS. O /widget existe para ser embebido noutros sites, por isso é o
+  // único caminho onde o embebimento continua permitido.
+  async headers() {
+    const baseline = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+    ];
+    return [
+      {
+        source: "/widget/:path*",
+        headers: [...baseline, { key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
+      {
+        source: "/((?!widget).*)",
+        headers: [
+          ...baseline,
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+    ];
+  },
   // "Perfil de Empresa & Vagas" foi dividido em duas páginas (tab "Perfil da Empresa" em
   // /dashboard/admin, e o novo submenu "Vagas de Emprego" em /dashboard/admin/job-postings) —
   // este redirecionamento evita que marcadores/links antigos para a página combinada fiquem
