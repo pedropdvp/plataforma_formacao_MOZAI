@@ -212,22 +212,6 @@ export default function SidebarNav() {
               </Link>
             </SecureRender>
             )}
-            {isItemVisible("academics") && (
-            <SecureRender requiredPermission="ACADEMICS_ASSIGN">
-              <Link href="/dashboard/admin/academics" className={linkClass("/dashboard/admin/academics")}>
-                <Users2 className="h-4 w-4 text-emerald-400" />
-                {t("nav_academics", "Corpo Docente")}
-              </Link>
-            </SecureRender>
-            )}
-            {isItemVisible("my-students") && (
-            <SecureRender requiredPermission="PROGRESS_VIEW">
-              <Link href="/dashboard/reports/my-students" className={linkClass("/dashboard/reports/my-students")}>
-                <UserCheck className="h-4 w-4 text-emerald-400" />
-                {t("nav_my_students", "Os Meus Alunos")}
-              </Link>
-            </SecureRender>
-            )}
             {isItemVisible("live-classes") && (
             <Link href="/dashboard/live-classes" className={linkClass("/dashboard/live-classes")}>
               <Video className="h-4 w-4 text-cyan-400" />
@@ -271,6 +255,14 @@ export default function SidebarNav() {
               <Terminal className="h-4 w-4 text-emerald-400" />
               {t("nav_coding_lab", "Coding Lab (Prática)")}
             </Link>
+            )}
+            {isItemVisible("academics") && (
+            <SecureRender requiredPermission="ACADEMICS_ASSIGN">
+              <Link href="/dashboard/admin/academics" className={linkClass("/dashboard/admin/academics")}>
+                <Users2 className="h-4 w-4 text-emerald-400" />
+                {t("nav_academics", "Corpo Docente")}
+              </Link>
+            </SecureRender>
             )}
             {isItemVisible("cyber-lab") && (
             <Link href="/dashboard/cyber-lab" className={linkClass("/dashboard/cyber-lab")}>
@@ -354,6 +346,14 @@ export default function SidebarNav() {
               {t("nav_notifications", "Notificações")}
             </Link>
             )}
+            {isItemVisible("my-students") && (
+            <SecureRender requiredPermission="PROGRESS_VIEW">
+              <Link href="/dashboard/reports/my-students" className={linkClass("/dashboard/reports/my-students")}>
+                <UserCheck className="h-4 w-4 text-emerald-400" />
+                {t("nav_my_students", "Os Meus Alunos")}
+              </Link>
+            </SecureRender>
+            )}
             {isItemVisible("projects") && (
             <Link href="/dashboard/projects" className={linkClass("/dashboard/projects")}>
               <FolderKanban className="h-4 w-4 text-cyan-400" />
@@ -424,6 +424,14 @@ export default function SidebarNav() {
               {t("nav_community", "Comunidade")}
             </Link>
             )}
+            {isItemVisible("discord") && (
+            <SecureRender requiredPermission="CHATBOT_MANAGE">
+              <Link href="/dashboard/admin/discord" className={linkClass("/dashboard/admin/discord")}>
+                <MessageSquareText className="h-4 w-4 text-orange-400" />
+                {t("nav_discord", "Discord")}
+              </Link>
+            </SecureRender>
+            )}
             {isItemVisible("teams") && (
             <Link href="/dashboard/teams" className={linkClass("/dashboard/teams")}>
               <UserSquare2 className="h-4 w-4 text-indigo-400" />
@@ -434,12 +442,6 @@ export default function SidebarNav() {
             <Link href="/dashboard/events" className={linkClass("/dashboard/events")}>
               <CalendarDays className="h-4 w-4 text-emerald-400" />
               {t("nav_events", "Eventos")}
-            </Link>
-            )}
-            {isItemVisible("forum") && (
-            <Link href="/dashboard/forum" className={linkClass("/dashboard/forum")}>
-              <MessageSquare className="h-4 w-4 text-indigo-400" />
-              {t("nav_forum", "Fórum")}
             </Link>
             )}
             {isItemVisible("groups") && (
@@ -536,16 +538,16 @@ export default function SidebarNav() {
         {sidebarSection(
           openGroup === "pessoal",
           <>
-            {isItemVisible("change-password") && (
-            <Link href="/dashboard/personal/change-password" className={linkClass("/dashboard/personal/change-password")}>
-              <Key className="h-4 w-4 text-cyan-400" />
-              {t("nav_password", "Alterar Password")}
-            </Link>
-            )}
             {isItemVisible("account") && (
             <Link href="/dashboard/personal/profile" className={linkClass("/dashboard/personal/profile")}>
               <User className="h-4 w-4 text-indigo-400" />
               {t("nav_account", "A minha Conta")}
+            </Link>
+            )}
+            {isItemVisible("change-password") && (
+            <Link href="/dashboard/personal/change-password" className={linkClass("/dashboard/personal/change-password")}>
+              <Key className="h-4 w-4 text-cyan-400" />
+              {t("nav_password", "Alterar Password")}
             </Link>
             )}
             {isItemVisible("professional-card") && (
@@ -574,12 +576,6 @@ export default function SidebarNav() {
               {t("nav_completed_courses", "Cursos efetuados")}
             </Link>
             )}
-            {isItemVisible("personal-history") && (
-            <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
-              <Clock className="h-4 w-4 text-cyan-400" />
-              {t("nav_personal_history", "O Meu Histórico")}
-            </Link>
-            )}
             {isItemVisible("diplomas") && (
             <SecureRender requiredPermission="CERTIFICATES_VIEW">
               <Link href="/dashboard/diplomas" className={linkClass("/dashboard/diplomas")}>
@@ -587,6 +583,12 @@ export default function SidebarNav() {
                 {t("nav_diplomas", "Diplomas")}
               </Link>
             </SecureRender>
+            )}
+            {isItemVisible("personal-history") && (
+            <Link href="/dashboard/personal/history" className={linkClass("/dashboard/personal/history")}>
+              <Clock className="h-4 w-4 text-cyan-400" />
+              {t("nav_personal_history", "O Meu Histórico")}
+            </Link>
             )}
             {isItemVisible("privacy") && (
             <Link href="/dashboard/personal/privacy" className={linkClass("/dashboard/personal/privacy")}>
@@ -795,12 +797,6 @@ export default function SidebarNav() {
           {sidebarSection(
             openGroup === "configuracao",
             <>
-              {isItemVisible("env-check") && activeRole === "ADMIN" && (
-              <Link href="/dashboard/admin/env-check" className={linkClass("/dashboard/admin/env-check")}>
-                <KeyRound className="h-4 w-4 text-orange-400" />
-                {t("nav_env_check", "Variáveis de Ambiente")}
-              </Link>
-              )}
               {isItemVisible("api-keys") && (
               <SecureRender requiredPermission="API_KEYS_MANAGE">
                 <Link href="/dashboard/admin/api-keys" className={linkClass("/dashboard/admin/api-keys")}>
@@ -833,14 +829,6 @@ export default function SidebarNav() {
                 </Link>
               </SecureRender>
               )}
-              {isItemVisible("discord") && (
-              <SecureRender requiredPermission="CHATBOT_MANAGE">
-                <Link href="/dashboard/admin/discord" className={linkClass("/dashboard/admin/discord")}>
-                  <MessageSquareText className="h-4 w-4 text-orange-400" />
-                  {t("nav_discord", "Discord")}
-                </Link>
-              </SecureRender>
-              )}
               <SecureRender requiredPermission="MENUS_MANAGE">
                 <Link href="/dashboard/admin/menus" className={linkClass("/dashboard/admin/menus")}>
                   <SlidersHorizontal className="h-4 w-4 text-orange-400" />
@@ -870,6 +858,12 @@ export default function SidebarNav() {
                   {t("nav_plugins", "Plugins")}
                 </Link>
               </SecureRender>
+              )}
+              {isItemVisible("env-check") && activeRole === "ADMIN" && (
+              <Link href="/dashboard/admin/env-check" className={linkClass("/dashboard/admin/env-check")}>
+                <KeyRound className="h-4 w-4 text-orange-400" />
+                {t("nav_env_check", "Variáveis de Ambiente")}
+              </Link>
               )}
             </>
           )}
