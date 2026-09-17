@@ -3,8 +3,11 @@ import { MongoClient, Db, Document, Filter, OptionalId, UpdateFilter, WithId } f
 const uri = process.env.MONGODB_URI || "mongodb://localhost:27017";
 const dbName = process.env.MONGODB_DB || "mozai_db";
 
-// Falha rápido em vez de esperar o timeout padrão de 30s
-const CONNECT_OPTIONS = { serverSelectionTimeoutMS: 8000 };
+// Falha rápido em vez de esperar o timeout padrão de 30s. Oito segundos, porém, não
+// chegavam: a primeira invocação de uma função nova em produção — resolução do SRV, TLS e
+// eleição de primário no Atlas, tudo a frio — passou desse limite e a página respondeu 500.
+// Quinze segundos cobrem esse arranque sem deixar um pedido pendurado meio minuto.
+const CONNECT_OPTIONS = { serverSelectionTimeoutMS: 15000 };
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 let cachedDb: Db | null = null;

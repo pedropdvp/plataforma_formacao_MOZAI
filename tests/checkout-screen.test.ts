@@ -26,6 +26,12 @@ describe("ecrã de pagamento simulado", () => {
     assert.ok(!catalogo.includes("4242"), "voltou o número de cartão de exemplo");
   });
 
+  it("escreve os preços em português, como o resto do catálogo", () => {
+    assert.ok(!/€\{/.test(catalogo), "preço com o símbolo colado à mão em vez de formatPriceCents");
+    assert.ok(!catalogo.includes("price.toFixed"), "toFixed escreve 199.00 onde se lê 199,00 €");
+    assert.match(catalogo, /formatPriceCents\(Math\.round\(simulatorData\.price \* 100\)\)/);
+  });
+
   it("diz que é uma simulação e quem recebe o dinheiro", () => {
     assert.match(catalogo, /Pagamento simulado/);
     assert.match(catalogo, /nada é cobrado/i);

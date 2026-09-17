@@ -7,7 +7,7 @@ import { Library, Check, Play, ShoppingCart, ShieldAlert, Award, ArrowRight, Cre
 import { useToast } from "@/components/ui/toast-provider";
 import { useAccess } from "@/hooks/use-access";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { CATALOG_COURSES, type CatalogCourse } from "@/lib/catalog-courses";
+import { CATALOG_COURSES, formatPriceCents, type CatalogCourse } from "@/lib/catalog-courses";
 
 // Componente principal contendo Suspense para Next.js 16 build requirements
 // Gradientes atribuídos ciclicamente aos cursos vindos do Sanity
@@ -395,7 +395,7 @@ function CatalogContent() {
                 <div className="h-px bg-slate-900" />
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-500">Valor total:</span>
-                  <span className="font-bold text-white">€{simulatorData.price.toFixed(2)}</span>
+                  <span className="font-bold text-white">{formatPriceCents(Math.round(simulatorData.price * 100))}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-500">Recebido por:</span>
@@ -443,7 +443,7 @@ function CatalogContent() {
                     </>
                   ) : (
                     <>
-                      Confirmar matrícula simulada (€{simulatorData.price.toFixed(2)})
+                      Confirmar matrícula simulada ({formatPriceCents(Math.round(simulatorData.price * 100))})
                     </>
                   )}
                 </button>
