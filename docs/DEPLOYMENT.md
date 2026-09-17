@@ -70,6 +70,24 @@ Projecto Vercel já ligado: `plataforma-formacao-mozai` (ver `.vercel/project.js
    A partir daí o simulador fica desligado e só um pagamento confirmado pelo Stripe abre o
    curso. O regresso do utilizador ao site depois do checkout não conta como prova.
 
+   **Antes de vender a sério**, três coisas que ainda não existem e não se resolvem com
+   configuração:
+   - **O país da entidade que factura.** A lista de países onde o Stripe abre contas não
+     inclui Moçambique. Se quem factura for uma entidade moçambicana, é preciso outro
+     processador — o registo de compras (`course_purchases`) e o controlo de acesso
+     aproveitam-se, o `/api/checkout` teria de ser reescrito.
+   - **Reembolsos.** Nada trata `charge.refunded`: um reembolso feito no painel do Stripe
+     não retira o acesso ao curso.
+   - **Recibos e facturação.** A página `/dashboard/financial/payments` é uma maqueta com
+     duas facturas escritas no código; não lê `course_purchases` nem o Stripe.
+
+   **Repartição de receita (Stripe Connect) — roteiro, não implementado.** O ecrã de
+   pagamento já anunciou 80% criador / 10% afiliado / 10% plataforma; o código nunca fez
+   isso e o ecrã foi corrigido para o dizer. Implementá-la exige contas Connect para cada
+   formador com o respectivo *onboarding*, `application_fee_amount` e `transfer_data` no
+   checkout, atribuição de vendas a afiliados, gestão de *payouts* e uma regra para o caso
+   de um reembolso depois de o dinheiro já ter sido transferido.
+
 ---
 
 ## 2. Variáveis de ambiente (ambiente Production)

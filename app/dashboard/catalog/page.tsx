@@ -61,8 +61,6 @@ function CatalogContent() {
   // Estados para o simulador Stripe Checkout Connect
   const [showSimulator, setShowSimulator] = useState(false);
   const [simulatorData, setSimulatorData] = useState<any>(null);
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
   const [isPaying, setIsPaying] = useState(false);
   const [purchasedCourses, setPurchasedCourses] = useState<string[]>([]);
   const { showToast } = useToast();
@@ -194,11 +192,6 @@ function CatalogContent() {
 
   // Confirmar pagamento simulado
   const handleSimulatePaymentSuccess = async () => {
-    if (!cardName.trim() || !cardNumber.trim()) {
-      showToast("Por favor, preencha os dados do cartão de teste.", "warning");
-      return;
-    }
-
     setIsPaying(true);
     try {
       // A compra fica registada no servidor — só em modo de demonstração, sem Stripe configurado
@@ -230,8 +223,6 @@ function CatalogContent() {
         // Limpar parâmetros da URL e fechar simulator
         setShowSimulator(false);
         setSimulatorData(null);
-        setCardName("");
-        setCardNumber("");
         router.push("/dashboard");
       } else {
         const data = await res.json().catch(() => ({}));
@@ -377,7 +368,9 @@ function CatalogContent() {
         </section>
       )}
 
-      {/* MODAL SIMULADOR STRIPE CHECKOUT CONNECT */}
+      {/* Pagamento simulado — só existe enquanto o Stripe não estiver configurado. Ver
+          isStripeConfigured() em lib/payments.ts: com uma chave verdadeira, /api/checkout
+          manda o utilizador para o checkout do Stripe e este ecrã deixa de aparecer. */}
       {showSimulator && simulatorData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-950 border border-slate-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col">
@@ -387,57 +380,45 @@ function CatalogContent() {
                 <CreditCard className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-sm">Stripe Connect: Checkout Simulator</h3>
-                <span className="text-[9px] text-indigo-400 font-mono tracking-widest uppercase">Sandboxed Environment</span>
+                <h3 className="font-bold text-white text-sm">Pagamento simulado</h3>
+                <span className="text-[9px] text-amber-400 font-mono tracking-widest uppercase">Demonstração · nada é cobrado</span>
               </div>
             </div>
 
-            {/* Split commission visualizer */}
+            {/* O que está a ser comprado, e o que este ecrã não faz. */}
             <div className="p-6 space-y-4 border-b border-slate-900 bg-slate-900/5">
-              <h4 className="text-xs font-bold text-slate-350">Regras de Divisão de Lucros (Split Connect)</h4>
               <div className="space-y-2.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">Valor Total do Curso:</span>
-                  <span className="font-bold text-white">€{simulatorData.price.toFixed(2)}</span>
+                <div className="flex justify-between gap-4 text-xs">
+                  <span className="text-slate-500">Curso:</span>
+                  <span className="font-semibold text-white text-right">{simulatorData.courseTitle}</span>
                 </div>
                 <div className="h-px bg-slate-900" />
                 <div className="flex justify-between text-xs">
-                  <span className="text-emerald-400">80% Creator Share (Direct Transfer):</span>
-                  <span className="font-bold text-emerald-400">€{(simulatorData.price * 0.8).toFixed(2)}</span>
+                  <span className="text-slate-500">Valor total:</span>
+                  <span className="font-bold text-white">€{simulatorData.price.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-cyan-400">10% Affiliate Partner Share:</span>
-                  <span className="font-bold text-cyan-400">€{(simulatorData.price * 0.1).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-indigo-400">10% MOZAI Application Fee (Retained):</span>
-                  <span className="font-bold text-indigo-400">€{(simulatorData.price * 0.1).toFixed(2)}</span>
+                  <span className="text-slate-500">Recebido por:</span>
+                  <span className="font-semibold text-slate-300">MOZAI (valor integral)</span>
                 </div>
               </div>
+              <p className="text-[11px] leading-relaxed text-slate-500 border-t border-slate-900 pt-3">
+                A repartição de receita com formadores e parceiros está no roteiro e ainda não
+                está implementada — nesta versão o pagamento é recebido integralmente pela
+                plataforma.
+              </p>
             </div>
 
-            {/* Card Form Mock */}
+            {/* Não há campos de cartão: este ecrã não liga a nenhum sistema de pagamento, e
+                um formulário a fingir convidaria alguém a escrever um cartão verdadeiro. */}
             <div className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-medium">Nome do Titular</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Pedro Mozai"
-                  value={cardName}
-                  onChange={(e) => setCardName(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-slate-900 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-medium">Número do Cartão de Teste</label>
-                <input
-                  type="text"
-                  placeholder="4242 4242 4242 4242 (Stripe Sandbox)"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  className="w-full h-10 px-3 rounded-lg border border-slate-900 bg-slate-950 text-white text-xs focus:border-indigo-500 focus:outline-none transition-colors"
-                />
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-1.5">
+                <p className="text-[11px] font-semibold text-amber-400">Não são pedidos dados de cartão</p>
+                <p className="text-[11px] leading-relaxed text-slate-400">
+                  Enquanto o Stripe não estiver configurado, confirmar aqui regista a matrícula
+                  sem qualquer cobrança. Com o Stripe ligado, este passo passa a ser feito no
+                  checkout do próprio Stripe.
+                </p>
               </div>
 
               <div className="pt-4 flex gap-3">
@@ -448,7 +429,7 @@ function CatalogContent() {
                   }}
                   className="flex-1 h-10 rounded-xl border border-slate-800 text-xs font-semibold text-slate-400 hover:bg-slate-900 transition-colors"
                 >
-                  Cancelar Compra
+                  Cancelar
                 </button>
                 <button
                   onClick={handleSimulatePaymentSuccess}
@@ -462,7 +443,7 @@ function CatalogContent() {
                     </>
                   ) : (
                     <>
-                      Confirmar Matrícula (€{simulatorData.price.toFixed(2)})
+                      Confirmar matrícula simulada (€{simulatorData.price.toFixed(2)})
                     </>
                   )}
                 </button>
