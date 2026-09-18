@@ -119,6 +119,23 @@ específicas do deployment:
 
 Acrescentar `NEXT_PUBLIC_BASE_DOMAIN` ao `.env.local` **antes** de correr o script.
 
+### Estado dos servidores MCP
+
+A página **Configurações > MCPs** mostra que servidores MCP estão de pé nas máquinas de quem
+desenvolve. A plataforma corre em serverless e não vê essas máquinas: quem verifica é
+`npm run mcp:check`, que arranca cada servidor, faz o handshake do protocolo e — com
+`-- --publish` — envia o resultado para `/api/admin/mcp-status`.
+
+1. Gerar uma chave (`openssl rand -hex 24`) e pô-la em `MCP_STATUS_TOKEN`, no `.env.local` e no
+   painel da Vercel. Sem ela no servidor, a rota responde **503** e a página fica vazia.
+2. `MCP_STATUS_URL` diz ao script para onde publicar; em branco, publica para produção.
+3. Para recolha automática, agendar `npm run mcp:check -- --publish` no Agendador de Tarefas.
+
+O que viaja são nomes de servidor, estado, versão e mensagens de erro já limpas de caminhos e
+chaves — nunca comandos, argumentos ou variáveis de ambiente, que é onde os tokens vivem. A
+página é **ADMIN**, como a das variáveis de ambiente, e avisa quando o relatório tem mais de
+uma hora, para não mostrar tudo verde com dados de ontem.
+
 ---
 
 ## 3. Deploy

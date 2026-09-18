@@ -10,6 +10,7 @@
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "seed:crypto": "tsx scripts/seed-crypto-course.ts",
     "index:content": "tsx scripts/index-content.ts",
+    "mcp:check": "tsx scripts/mcp-check.ts",
     "verify:rag": "tsx scripts/verify-rag.ts",
     "db:backup": "tsx scripts/db-backup.ts",
     "db:restore": "tsx scripts/db-restore.ts",

@@ -44,6 +44,10 @@ export const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   // estão preenchidas é informação de infraestrutura, e a página revela segredos.
   { prefix: "/dashboard/admin/env-check", roles: ADMIN_ONLY },
 
+  // MCPs: só ADMIN, pela mesma razão. A página diz que servidores existem nas máquinas de
+  // quem desenvolve, com que versões e quais estão em baixo — mapa de ferramentas internas.
+  { prefix: "/dashboard/admin/mcps", roles: ADMIN_ONLY },
+
   // Consola de RH específica da empresa: o Gestor Empresa acede ao seu próprio painel.
   { prefix: "/dashboard/admin/hr", roles: COMPANY_SCOPE },
 

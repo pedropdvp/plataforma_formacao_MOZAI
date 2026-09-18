@@ -61,7 +61,8 @@ import {
   Sparkles,
   UserCircle2,
   Share2,
-  Wand2
+  Wand2,
+  Plug
 } from "lucide-react";
 
 /**
@@ -828,6 +829,12 @@ export default function SidebarNav() {
                   {t("nav_compliance", "Compliance (RGPD)")}
                 </Link>
               </SecureRender>
+              )}
+              {isItemVisible("mcps") && activeRole === "ADMIN" && (
+              <Link href="/dashboard/admin/mcps" className={linkClass("/dashboard/admin/mcps")}>
+                <Plug className="h-4 w-4 text-orange-400" />
+                {t("nav_mcps", "MCPs")}
+              </Link>
               )}
               <SecureRender requiredPermission="MENUS_MANAGE">
                 <Link href="/dashboard/admin/menus" className={linkClass("/dashboard/admin/menus")}>

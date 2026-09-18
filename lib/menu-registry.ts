@@ -126,6 +126,7 @@ export const MENU_ITEMS: MenuItemDef[] = [
   { id: "backup-restore", groupId: "configuracao", label: "Backup & Restore", path: "/dashboard/admin/backups" },
   { id: "chatbot", groupId: "configuracao", label: "ChatBot", path: "/dashboard/admin/chatbot" },
   { id: "compliance", groupId: "configuracao", label: "Compliance (RGPD)", path: "/dashboard/admin/compliance" },
+  { id: "mcps", groupId: "configuracao", label: "MCPs", path: "/dashboard/admin/mcps" },
   { id: "menus", groupId: "configuracao", label: "Menus", path: "/dashboard/admin/menus" },
   { id: "levels", groupId: "configuracao", label: "Níveis", path: "/dashboard/admin/levels" },
   { id: "access-profiles", groupId: "configuracao", label: "Perfis de acesso", path: "/dashboard/admin/roles" },
